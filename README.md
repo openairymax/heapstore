@@ -1,53 +1,39 @@
+# heapstore — Heap-Backed Runtime Data Storage
+
+> Persists everything the runtime produces: logs, registries, traces, memory records, token counts, IPC buffers, and batched writes.
+> Leaf repository under the [agentrt](../) management repo.
+
 **Language:** English | [简体中文](README_zh.md)
 
-# Airymax Heapstore — Runtime Data Storage
+[![Version](https://img.shields.io/badge/version-0.1.1-5a6b7e)](https://atomgit.com/openairymax/heapstore)
+[![License](https://img.shields.io/badge/license-AGPL--3.0+Apache--2.0-4a90d9)](LICENSE)
+[![C11](https://img.shields.io/badge/C-11-00599C?logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 
-`agentrt/heapstore/`
-
-**Version:** 0.1.1
-**License:** AGPL-3.0-or-later OR Apache-2.0 (dual-licensed)
-**Branch:** `feature/official-hubs-01`
-
----
-
-## 1. Module Positioning
-
-Heapstore is the **runtime data persistence layer** (A-tier) of the Airymax
-agent runtime. It persists everything the runtime produces while running —
-system logs, agent/skill/session registries, distributed traces, memory-pool
-allocation records, token counts, IPC buffers, and batched writes — through a
-**hybrid storage engine** that combines SQLite (when available) with an
-in-memory backend.
-
-Heapstore is designed around a **fast / slow dual-path** write model: the fast
-path is lock-free and asynchronous for high-frequency writes, while the slow
-path is synchronous with full parameter validation, timeout and trace-id
-propagation. A built-in **circuit breaker** trips after consecutive failures
-to prevent cascading faults, and **transactional batch writes** amortize I/O
-under load.
-
-Design goals:
-
-- **High-throughput writes** — fast/slow dual path tuned for high-frequency
-  logging, minimizing write latency.
-- **Hybrid storage** — SQLite + in-memory backends; automatic fallback when
-  SQLite is unavailable.
-- **Observable** — full statistics, performance metrics and health checks for
-  every sub-engine.
-- **Low overhead** — fast-path writes are lock-free, minimizing impact on the
-  main business logic.
-- **Circuit protection** — built-in circuit breaker trips to prevent cascading
-  failures on repeated write errors.
-- **Batch optimization** — transactional batch writes reduce I/O overhead in
-  high-frequency scenarios.
+- **Repository:** `git@atomgit.com:openairymax/heapstore.git`
+- **Branch:** `feature/official-hubs-01`
+- **Version:** 0.1.1 (Airymax foundational release)
 
 ---
 
-## 2. Directory Structure
+## Overview
+
+**heapstore** is the **runtime data persistence layer** of the Airymax agent runtime. It persists everything the runtime produces while running — system logs, agent/skill/session registries, distributed traces, memory-pool allocation records, token counts, IPC buffers, and batched writes — through a **hybrid storage engine** that combines SQLite (when available) with an in-memory backend.
+
+heapstore is designed around a **fast / slow dual-path** write model: the fast path is lock-free and asynchronous for high-frequency writes, while the slow path is synchronous with full parameter validation, timeout and trace-id propagation. A built-in **circuit breaker** trips after consecutive failures to prevent cascading faults, and **transactional batch writes** amortize I/O under load. It exposes seven storage engines (`core`, `log`, `registry`, `trace`, `memory`, `token`, `batch`) plus an IPC data store, all behind a unified init/shutdown/stats/circuit/batch API.
+
+Within the Airymax 0.1.1 release, the workspace is partitioned into **38 repositories** (1 umbrella + 5 management + 29 leaf + 3 top-level); `heapstore` is one of the 7 leaf repositories aggregated by the [agentrt](../) management repo, forming the **Storage Layer** in the cyclic architecture (above the Security Layer `cupolas` and Kernel Layer `atoms`, below the Gateway and Service layers).
+
+## Module Classification
+
+**Class A — Foundational / Atomic.**
+
+heapstore is a foundational persistence substrate: daemons and the gateway build their durable state on top of it. It depends on `commons` (platform, utils, sync, compat, plus the `agentrt_common` static lib) and logically on `atoms` (whose Syscall session/telemetry paths trigger `BUILD_HEAPSTORE` code-paths, and whose CoreKern IPC buffer primitives the IPC data store mirrors). As a Class-A module, heapstore guarantees a stable persistence API across the runtime and degrades gracefully (in-memory fallback) when SQLite is unavailable.
+
+## Directory Structure
 
 ```
 heapstore/
-├── CMakeLists.txt                       # CMake build configuration
+├── CMakeLists.txt                       # CMake build configuration (single static lib agentrt_heapstore)
 ├── README.md                            # This file (English)
 ├── README_zh.md                         # Chinese version
 ├── LICENSE                              # Dual license texts (AGPL-3.0 + Apache-2.0)
@@ -63,6 +49,7 @@ heapstore/
 │   ├── heapstore_batch.h                # Batch write API
 │   ├── heapstore_ipc.h                  # IPC data storage API
 │   ├── heapstore_integration.h          # Integration test API
+│   ├── heapstore_migration.h            # Schema migration API
 │   └── utils.h                          # Internal utilities
 ├── src/                                 # Source implementation
 │   ├── private.h                        # Internal private header
@@ -85,23 +72,12 @@ heapstore/
 │   └── memory/                          # Memory kernel data (patterns/, index/, meta/, raw/)
 ├── services/                            # Per-daemon data directories (market_d, tool_d, llm_d)
 ├── migrations/                          # Schema migration scripts
-├── tests/                               # Test suite
-│   ├── test_heapstore_core.c            # Core tests
-│   ├── test_heapstore_log.c             # Log tests
-│   ├── test_heapstore_registry.c        # Registry tests
-│   ├── test_heapstore_trace.c           # Trace tests
-│   ├── test_heapstore_memory.c          # Memory storage tests
-│   ├── test_heapstore_ipc.c             # IPC storage tests
-│   ├── test_heapstore_batch.c           # Batch write tests
-│   ├── test_heapstore_integration.c     # Integration tests
-│   ├── test_batch_performance.c         # Batch performance tests
-│   ├── test_security_path_traversal.c   # Path-traversal security tests
-│   ├── test_fuzzing_concurrency.c       # Concurrency fuzz tests
-│   ├── test_edge_cases.c                # Edge-case tests
-│   └── benchmark_heapstore.c            # Performance benchmarks
+├── tests/                               # Test suite (unit / integration / fuzz / benchmark)
 ├── examples/                            # Examples (quick_start.c, batch_write.c)
 └── scripts/                             # Ops scripts (perf regression, version tags)
 ```
+
+## Core Components
 
 ### Seven Storage Engines
 
@@ -115,36 +91,131 @@ heapstore/
 | **heapstore_token** | `heapstore_token.c` | SQLite | Token usage stats and budget mgmt |
 | **heapstore_batch** | `heapstore_batch.c` | LMDB | Batch writes — linked-list buffer + tx commit |
 
+Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buffer primitives for durable IPC state.
+
 ### Conditional Compilation
 
 | Dependency | Conditional Macro | Behavior When Missing |
 |------------|-------------------|-----------------------|
 | SQLite3 | `AGENTRT_HAS_SQLITE3` | Registry falls back to in-memory backend (full features but no persistence after process exit) |
 
----
+## Architecture
 
-## 3. Upstream / Downstream Dependencies
+```
+┌──────────────────────────────────────────────┐
+│             Applications (OpenLab)            │
+├──────────────────────────────────────────────┤
+│             Ecosystem (Toolkit / SDK)         │
+├──────────────────────────────────────────────┤
+│              Daemon Services (daemons)        │
+├──────────────────────────────────────────────┤
+│   Gateway Layer (gateway)                     │
+├──────────────────────────────────────────────┤
+│          ★ heapstore (Storage Layer) ★       │
+├──────────────────────────────────────────────┤
+│   Security (cupolas) / Kernel (atoms)         │
+├──────────────────────────────────────────────┤
+│            commons / OS                       │
+└──────────────────────────────────────────────┘
 
-### Upstream (Heapstore depends on)
+  heapstore (agentrt_heapstore static lib)
+  ┌────────────────────────────────────────────┐
+  │  core  (init/paths/stats/circuit breaker)  │
+  │  log   (SQLite)   registry (SQLite)        │
+  │  trace (SQLite)   memory   (LMDB)          │
+  │  token (SQLite)   batch    (LMDB)          │
+  │  ipc   (durable IPC state)                 │
+  └────────────────────────────────────────────┘
+        ▲              ▲
+        │              │
+     daemons        gateway
+   (12 daemons,    (access logs,
+    registries,     request traces)
+    token budgets)
+
+  Write paths:
+    fast path  → lock-free async   (high-frequency logs)
+    slow path  → sync + validation (timeout, trace_id)
+    batch      → linked-list buffer + tx commit
+```
+
+**Core mechanisms:** fast/slow dual-path writes; circuit breaker (CLOSED → OPEN → HALF_OPEN); transactional batch writes; SQLite + in-memory hybrid with graceful fallback.
+
+## Upstream Dependencies
+
+> `commons` is the foundation for all agentrt modules; heapstore consumes it directly and links the `agentrt_common` static lib. heapstore also logically depends on `atoms`.
 
 | Dependency | Required | Purpose |
 |------------|----------|---------|
-| **commons** | Yes | Public utilities — `platform/include`, `utils/include`, `utils/sync/include`, `utils/compat/include`; also links `agentrt_common` static lib |
+| **commons** | Yes | Public utilities — `platform/include`, `utils/include`, `utils/sync/include`, `utils/compat/include`; also links `agentrt_common` static lib for sync, error, types, memory macros |
 | **atoms** | Yes (logical) | Provides the CoreKern IPC buffer primitives that heapstore's IPC data store mirrors, and the Syscall surface that triggers `BUILD_HEAPSTORE` code-paths in `syscall/session.c` and `syscall/telemetry.c` |
-| SQLite3 | No | Persistence backend for registry/log/trace/token; falls back to in-memory when absent |
+| SQLite3 | No | Persistence backend for registry/log/trace/token; falls back to in-memory when absent (`AGENTRT_HAS_SQLITE3`) |
 | Threads::Threads | Yes | Multi-threaded write paths |
-| agentrt_compile_defs | Yes | Umbrella compile definitions |
+| agentrt_compile_defs | Yes | Umbrella compile definitions (linked PUBLIC) |
 
-### Downstream (consumers of Heapstore)
+## Downstream Consumers
 
-| Consumer | What it uses |
-|----------|--------------|
-| **daemons** | All 12 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage |
+| Consumer | What they use |
+|----------|---------------|
+| **daemons** | All 12 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories under `services/`; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage (`heapstore_token_check_budget`) |
 | **gateway** | Gateway writes access logs and request traces through `heapstore_log` and `heapstore_trace`; the circuit breaker protects gateway writes under load |
+| SDK layer | SDK consumers read runtime state (registries, traces, token budgets) via the heapstore query APIs for observability and budgeting |
 
----
+## Build
 
-## 4. Core Mechanisms
+```bash
+# Standard build (out-of-source, enforced by BAN-33)
+cmake -S . -B /tmp/heapstore-build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+cmake --build /tmp/heapstore-build --target agentrt_heapstore --parallel $(nproc)
+
+# Run heapstore tests
+ctest --test-dir /tmp/heapstore-build -R heapstore --output-on-failure
+
+# Run performance benchmarks
+/tmp/heapstore-build/benchmark_heapstore
+
+# Run examples
+/tmp/heapstore-build/quick_start
+/tmp/heapstore-build/batch_write
+
+# Install
+cmake --install /tmp/heapstore-build --prefix /opt/airymax
+```
+
+**CMake options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `BUILD_TESTS` | `ON` | Build the test suite (unit / integration / fuzz / benchmark) |
+| `AGENTRT_HAS_SQLITE3` | auto | Auto-detected by umbrella CMake; gates SQLite backend (falls back to in-memory) |
+
+**Build artifacts:**
+
+- `agentrt_heapstore` — static library containing all storage engines
+- Public headers installed under `include/agentrt/heapstore`
+
+**Configuration example:**
+
+```json
+{
+  "heapstore": {
+    "data_dir": "/var/lib/agentrt/heapstore",
+    "max_log_size_mb": 100,
+    "log_retention_days": 30,
+    "trace_retention_days": 14,
+    "enable_auto_cleanup": true,
+    "enable_log_rotation": true,
+    "enable_trace_export": true,
+    "db_vacuum_interval_days": 7,
+    "circuit_breaker_threshold": 10,
+    "circuit_breaker_timeout_sec": 30
+  }
+}
+```
+
+## API
+
+Public API surface is exported through `include/heapstore.h` (unified entry) and per-engine headers. Core mechanisms:
 
 ### Fast / Slow Dual-Path Writes
 
@@ -183,69 +254,9 @@ typedef enum {
 | `heapstore_registry_add_agent()` / `heapstore_registry_get_agent()` / `heapstore_registry_query_agents()` | Agent registry CRUD |
 | `heapstore_token_record()` / `heapstore_token_check_budget()` | Token tracking and budget enforcement |
 
-Convenience macros: `HEAPSTORE_LOG_ERROR` / `HEAPSTORE_LOG_WARN` /
-`HEAPSTORE_LOG_INFO` / `HEAPSTORE_LOG_DEBUG`.
+Convenience macros: `HEAPSTORE_LOG_ERROR` / `HEAPSTORE_LOG_WARN` / `HEAPSTORE_LOG_INFO` / `HEAPSTORE_LOG_DEBUG`.
 
----
-
-## 5. Build Instructions
-
-```bash
-# Standard build (from the umbrella root, or standalone)
-cmake -B build -DBUILD_TESTS=ON
-cmake --build build --target agentrt_heapstore
-
-# Run heapstore tests
-ctest --test-dir build -R heapstore
-
-# Run performance benchmarks
-./build/benchmark_heapstore
-
-# Run examples
-./build/quick_start
-./build/batch_write
-```
-
-### CMake Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `BUILD_TESTS` | `ON` | Build the test suite (unit / integration / fuzz / benchmark) |
-| `AGENTRT_HAS_SQLITE3` | auto | Auto-detected by umbrella CMake; gates SQLite backend |
-
-### Build Artifacts
-
-- `agentrt_heapstore` — static library containing all storage engines
-- Public headers installed under `include/agentrt/heapstore`
-
-### Installation
-
-```bash
-cmake --install build --prefix /opt/airymax
-```
-
-### Configuration Example
-
-```json
-{
-  "heapstore": {
-    "data_dir": "/var/lib/agentrt/heapstore",
-    "max_log_size_mb": 100,
-    "log_retention_days": 30,
-    "trace_retention_days": 14,
-    "enable_auto_cleanup": true,
-    "enable_log_rotation": true,
-    "enable_trace_export": true,
-    "db_vacuum_interval_days": 7,
-    "circuit_breaker_threshold": 10,
-    "circuit_breaker_timeout_sec": 30
-  }
-}
-```
-
----
-
-## 6. License
+## License
 
 Copyright (c) 2025-2026 SPHARX Ltd. All Rights Reserved.
 
@@ -258,8 +269,4 @@ This module is dual-licensed under the terms of either:
 
 SPDX-License-Identifier: `AGPL-3.0-or-later OR Apache-2.0`
 
-The full license texts are in the [LICENSE](LICENSE) file; the copyright
-notice is in [NOTICE](NOTICE). You may select either license to comply with.
-The AGPL-3.0-or-later terms apply by default; the Apache-2.0 alternative is
-provided for downstream integration scenarios (e.g., closed-source or
-proprietary distribution) that the AGPL does not accommodate.
+The full license texts are in the [LICENSE](LICENSE) file; the copyright notice is in [NOTICE](NOTICE). You may select either license to comply with. The AGPL-3.0-or-later terms apply by default; the Apache-2.0 alternative is provided for downstream integration scenarios (e.g., closed-source or proprietary distribution) that the AGPL does not accommodate.

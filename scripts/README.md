@@ -52,4 +52,4 @@ python scripts/add_since_tags.py
 
 ---
 
-© 2026 SPHARX Ltd. All Rights Reserved.
+© 2025-2026 SPHARX Ltd. All Rights Reserved.
