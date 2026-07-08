@@ -114,7 +114,7 @@ static FILE *get_main_log_file(void)
     heapstore_ensure_directory(kernel_path);
 
     char filepath[heapstore_LOG_MAX_PATH];
-    snprintf(filepath, sizeof(filepath), "%s/kernel/agentos.log", base);
+    snprintf(filepath, sizeof(filepath), "%s/kernel/agentrt.log", base);
 
     s_main_log_file = fopen(filepath, "a");
     if (!s_main_log_file) {
@@ -187,7 +187,7 @@ heapstore_error_t heapstore_log_init(void)
     heapstore_ensure_directory("agentrt/heapstore/logs/apps");
 
     update_current_date();
-    s_main_log_file = fopen("agentrt/heapstore/logs/kernel/agentos.log", "a");
+    s_main_log_file = fopen("agentrt/heapstore/logs/kernel/agentrt.log", "a");
     if (!s_main_log_file) {
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
@@ -358,7 +358,7 @@ heapstore_error_t heapstore_log_get_service_path(const char *service, char *buff
     if (service && service[0]) {
         snprintf(buffer, buffer_size, "%s/services/%s.log", base, service);
     } else {
-        snprintf(buffer, buffer_size, "%s/kernel/agentos.log", base);
+        snprintf(buffer, buffer_size, "%s/kernel/agentrt.log", base);
     }
 
     return heapstore_SUCCESS;
@@ -386,7 +386,7 @@ heapstore_error_t heapstore_log_rotate(void)
     strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", tm_info);
 
     char old_path[heapstore_LOG_MAX_PATH];
-    snprintf(old_path, sizeof(old_path), "agentrt/heapstore/logs/kernel/agentos.log");
+    snprintf(old_path, sizeof(old_path), "agentrt/heapstore/logs/kernel/agentrt.log");
 
     char new_path[heapstore_LOG_MAX_PATH];
     snprintf(new_path, sizeof(new_path), "agentrt/heapstore/logs/kernel/agentrt_%s.log", timestamp);
@@ -514,7 +514,7 @@ heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log
     if (service && service[0]) {
         snprintf(filepath, sizeof(filepath), "%s/services/%s.log", base, service);
     } else {
-        snprintf(filepath, sizeof(filepath), "%s/kernel/agentos.log", base);
+        snprintf(filepath, sizeof(filepath), "%s/kernel/agentrt.log", base);
     }
 
     AGENTRT_STRNCPY_TERM(info->path, filepath, sizeof(info->path));

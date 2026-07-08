@@ -103,7 +103,7 @@ static void test_log_get_service_path(void)
 
         err = heapstore_log_get_service_path(NULL, path, sizeof(path));
         assert(err == heapstore_SUCCESS);
-        assert(strstr(path, "agentos.log") != NULL);
+        assert(strstr(path, "agentrt.log") != NULL);
 
         err = heapstore_log_get_service_path("test_service", path, sizeof(path));
         assert(err == heapstore_SUCCESS);

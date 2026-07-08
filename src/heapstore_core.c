@@ -89,7 +89,7 @@ static const char *_get_default_root(void)
         return s_default_root;
     }
     static char fallback[512];
-    snprintf(fallback, sizeof(fallback), "%s/agentos/heapstore",
+    snprintf(fallback, sizeof(fallback), "%s/agentrt/heapstore",
              getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
     s_default_root = fallback;
     return s_default_root;
