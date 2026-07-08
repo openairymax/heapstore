@@ -95,7 +95,7 @@ agentrt_error_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             effective_root = env;
         } else {
-            snprintf(auto_root, sizeof(auto_root), "%s/agentos/heapstore",
+            snprintf(auto_root, sizeof(auto_root), "%s/agentrt/heapstore",
                      getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
             effective_root = auto_root;
         }
@@ -125,7 +125,7 @@ agentrt_error_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             AGENTRT_STRNCPY_TERM(g_root_path, env, sizeof(g_root_path));
         } else {
-            snprintf(g_root_path, sizeof(g_root_path), "%s/agentos/heapstore",
+            snprintf(g_root_path, sizeof(g_root_path), "%s/agentrt/heapstore",
                      getenv("TMPDIR") ? getenv("TMPDIR") : AGENTRT_TMP_DIR);
         }
         g_root_path[sizeof(g_root_path) - 1] = '\0';
