@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 本示例展示 heapstore 的基本使用方法，
  *       适合首次使用 heapstore 的开发者快速上手。
@@ -114,13 +113,13 @@ int main(int argc, char **argv)
     /* 6. 写入追踪数据 */
     printf("Step 6: Write Trace Span\n");
     heapstore_span_t span = {0};
-    AGENTRT_STRNCPY_TERM(span.trace_id, "trace-001", sizeof(span.trace_id));
-    AGENTRT_STRNCPY_TERM(span.span_id, "span-001", sizeof(span.span_id));
-    AGENTRT_STRNCPY_TERM(span.name, "quick_start_example", sizeof(span.name));
-    AGENTRT_STRNCPY_TERM(span.kind, "internal", sizeof(span.kind));
+    AIRY_STRNCPY_TERM(span.trace_id, "trace-001", sizeof(span.trace_id));
+    AIRY_STRNCPY_TERM(span.span_id, "span-001", sizeof(span.span_id));
+    AIRY_STRNCPY_TERM(span.name, "quick_start_example", sizeof(span.name));
+    AIRY_STRNCPY_TERM(span.kind, "internal", sizeof(span.kind));
     span.start_time_ns = 1000000000ULL;
     span.end_time_ns = 1001000000ULL;
-    AGENTRT_STRNCPY_TERM(span.status, "OK", sizeof(span.status));
+    AIRY_STRNCPY_TERM(span.status, "OK", sizeof(span.status));
 
     err = heapstore_trace_write_span(&span);
     check_error(err, "heapstore_trace_write_span");

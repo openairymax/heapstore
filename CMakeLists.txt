@@ -1,4 +1,4 @@
-agentrt_print_info("[HEAPSTORE] Configuring heapstore module (SQLite3: ${AGENTRT_HAS_SQLITE3})")
+airy_print_info("[HEAPSTORE] Configuring heapstore module (SQLite3: ${AIRY_HAS_SQLITE3})")
 
 set(heapstore_SOURCES
     src/heapstore_core.c
@@ -31,9 +31,9 @@ set(heapstore_HEADERS
     src/private.h
 )
 
-add_library(agentrt_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})
+add_library(airy_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})
 
-target_include_directories(agentrt_heapstore PUBLIC
+target_include_directories(airy_heapstore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../commons/platform/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../commons/utils/include>
@@ -42,35 +42,35 @@ target_include_directories(agentrt_heapstore PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_compile_definitions(agentrt_heapstore PRIVATE
-    agentrt_heapstore_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-    agentrt_heapstore_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    agentrt_heapstore_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+target_compile_definitions(airy_heapstore PRIVATE
+    airy_heapstore_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    airy_heapstore_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    airy_heapstore_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-target_link_libraries(agentrt_heapstore
+target_link_libraries(airy_heapstore
     PRIVATE Threads::Threads
-    PUBLIC agentrt_compile_defs
+    PUBLIC airy_compile_defs
 )
 
-if(TARGET agentrt_common)
-    target_link_libraries(agentrt_heapstore PUBLIC agentrt_common)
+if(TARGET airy_common)
+    target_link_libraries(airy_heapstore PUBLIC airy_common)
 endif()
 
-if(AGENTRT_HAS_SQLITE3)
+if(AIRY_HAS_SQLITE3)
     if(SQLite3_FOUND)
-        target_include_directories(agentrt_heapstore PRIVATE ${SQLite3_INCLUDE_DIRS})
-        target_link_libraries(agentrt_heapstore PRIVATE ${SQLite3_LIBRARIES})
+        target_include_directories(airy_heapstore PRIVATE ${SQLite3_INCLUDE_DIRS})
+        target_link_libraries(airy_heapstore PRIVATE ${SQLite3_LIBRARIES})
     elseif(SQLITE3_FOUND)
-        target_include_directories(agentrt_heapstore PRIVATE ${SQLITE3_INCLUDE_DIRS})
-        target_link_libraries(agentrt_heapstore PRIVATE ${SQLITE3_LIBRARIES})
+        target_include_directories(airy_heapstore PRIVATE ${SQLITE3_INCLUDE_DIRS})
+        target_link_libraries(airy_heapstore PRIVATE ${SQLITE3_LIBRARIES})
     endif()
-    agentrt_print_ok("heapstore: SQLite3 registry backend enabled")
+    airy_print_ok("heapstore: SQLite3 registry backend enabled")
 else()
-    agentrt_print_info("heapstore: using in-memory registry backend (no SQLite3)")
+    airy_print_info("heapstore: using in-memory registry backend (no SQLite3)")
 endif()
 
-install(TARGETS agentrt_heapstore
+install(TARGETS airy_heapstore
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
@@ -86,4 +86,4 @@ if(BUILD_TESTS)
     endif()
 endif()
 
-agentrt_print_info("AgentRT heapstore v${PROJECT_VERSION}")
+airy_print_info("AgentRT heapstore v${PROJECT_VERSION}")

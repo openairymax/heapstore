@@ -11,8 +11,8 @@
  */
 
 // @owner: team-B
-#ifndef AGENTRT_HEAPSTORE_TYPES_H
-#define AGENTRT_HEAPSTORE_TYPES_H
+#ifndef AIRY_RT_HEAPSTORE_TYPES_H
+#define AIRY_RT_HEAPSTORE_TYPES_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -142,4 +142,4 @@ typedef struct heapstore_log_entry {
 }
 #endif
 
-#endif /* AGENTRT_HEAPSTORE_TYPES_H */
+#endif /* AIRY_RT_HEAPSTORE_TYPES_H */

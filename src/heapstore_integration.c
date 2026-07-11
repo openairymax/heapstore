@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -30,9 +29,9 @@ static bool g_integration_initialized = false;
 static char g_root_path[512] = {0};
 
 #ifdef _WIN32
-static agentrt_mutex_t g_integration_mutex;
+static airy_mtx_t g_integration_mutex;
 #else
-static agentrt_mutex_t g_integration_mutex = {0};
+static airy_mtx_t g_integration_mutex = {0};
 #endif
 
 /**
@@ -41,7 +40,7 @@ static agentrt_mutex_t g_integration_mutex = {0};
 static void __attribute__((unused)) integration_lock_init(void)
 {
 #ifdef _WIN32
-    agentrt_mutex_init(&g_integration_mutex);
+    airy_mtx_init(&g_integration_mutex);
 #endif
 }
 
@@ -51,7 +50,7 @@ static void __attribute__((unused)) integration_lock_init(void)
 static void __attribute__((unused)) integration_lock_cleanup(void)
 {
 #ifdef _WIN32
-    agentrt_mutex_destroy(&g_integration_mutex);
+    airy_mtx_destroy(&g_integration_mutex);
 #endif
 }
 
@@ -61,9 +60,9 @@ static void __attribute__((unused)) integration_lock_cleanup(void)
 static void integration_lock(void)
 {
 #ifdef _WIN32
-    agentrt_mutex_lock(&g_integration_mutex);
+    airy_mtx_lock(&g_integration_mutex);
 #else
-    agentrt_mutex_lock(&g_integration_mutex);
+    airy_mtx_lock(&g_integration_mutex);
 #endif
 }
 
@@ -73,25 +72,25 @@ static void integration_lock(void)
 static void integration_unlock(void)
 {
 #ifdef _WIN32
-    agentrt_mutex_unlock(&g_integration_mutex);
+    airy_mtx_unlock(&g_integration_mutex);
 #else
-    agentrt_mutex_unlock(&g_integration_mutex);
+    airy_mtx_unlock(&g_integration_mutex);
 #endif
 }
 
-agentrt_error_t heapstore_integration_init(const char *root_path)
+airy_err_t heapstore_integration_init(const char *root_path)
 {
     integration_lock();
 
     if (g_integration_initialized) {
         integration_unlock();
-        return AGENTRT_SUCCESS;
+        return AIRY_SUCCESS;
     }
 
     const char *effective_root = root_path;
     char auto_root[512];
     if (!effective_root) {
-        const char *env = getenv("AGENTRT_HEAPSTORE_ROOT");
+        const char *env = getenv("AIRY_HEAPSTORE_ROOT");
         if (env && env[0]) {
             effective_root = env;
         } else {
@@ -115,18 +114,18 @@ agentrt_error_t heapstore_integration_init(const char *root_path)
     heapstore_error_t err = heapstore_init(&config);
     if (err != heapstore_SUCCESS) {
         integration_unlock();
-        return AGENTRT_EIO;
+        return AIRY_EIO;
     }
 
     if (root_path) {
-        AGENTRT_STRNCPY_TERM(g_root_path, root_path, sizeof(g_root_path));
+        AIRY_STRNCPY_TERM(g_root_path, root_path, sizeof(g_root_path));
     } else {
-        const char *env = getenv("AGENTRT_HEAPSTORE_ROOT");
+        const char *env = getenv("AIRY_HEAPSTORE_ROOT");
         if (env && env[0]) {
-            AGENTRT_STRNCPY_TERM(g_root_path, env, sizeof(g_root_path));
+            AIRY_STRNCPY_TERM(g_root_path, env, sizeof(g_root_path));
         } else {
             snprintf(g_root_path, sizeof(g_root_path), "%s/agentrt/heapstore",
-                     getenv("TMPDIR") ? getenv("TMPDIR") : AGENTRT_TMP_DIR);
+                     getenv("TMPDIR") ? getenv("TMPDIR") : AIRY_TMP_DIR);
         }
         g_root_path[sizeof(g_root_path) - 1] = '\0';
     }
@@ -134,7 +133,7 @@ agentrt_error_t heapstore_integration_init(const char *root_path)
     g_integration_initialized = true;
     integration_unlock();
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 }
 
 void heapstore_integration_shutdown(void)
@@ -153,42 +152,42 @@ void heapstore_integration_shutdown(void)
     integration_unlock();
 }
 
-agentrt_error_t heapstore_syscall_session_save(const char *session_id, const char *metadata,
+airy_err_t heapstore_syscall_session_save(const char *session_id, const char *metadata,
                                                uint64_t created_ns, uint64_t last_active_ns)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!session_id) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_session_record_t record;
     __builtin_memset(&record, 0, sizeof(record));
-    AGENTRT_STRNCPY_TERM(record.id, session_id, sizeof(record.id));
+    AIRY_STRNCPY_TERM(record.id, session_id, sizeof(record.id));
     if (metadata) {
-        AGENTRT_STRNCPY_TERM(record.user_id, metadata, sizeof(record.user_id));
+        AIRY_STRNCPY_TERM(record.user_id, metadata, sizeof(record.user_id));
     }
     record.created_at = created_ns;
     record.last_active_at = last_active_ns;
     record.ttl_seconds = 0;
-    AGENTRT_STRNCPY_TERM(record.status, "active", sizeof(record.status));
+    AIRY_STRNCPY_TERM(record.status, "active", sizeof(record.status));
 
     heapstore_error_t err = heapstore_registry_add_session(&record);
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_syscall_session_load(const char *session_id, char **out_metadata,
+airy_err_t heapstore_syscall_session_load(const char *session_id, char **out_metadata,
                                                uint64_t *out_created_ns,
                                                uint64_t *out_last_active_ns)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!session_id || !out_metadata) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_session_record_t record;
@@ -196,13 +195,13 @@ agentrt_error_t heapstore_syscall_session_load(const char *session_id, char **ou
 
     heapstore_error_t err = heapstore_registry_get_session(session_id, &record);
     if (err != heapstore_SUCCESS) {
-        return (err == heapstore_ERR_NOT_FOUND) ? AGENTRT_ENOENT : AGENTRT_EIO;
+        return (err == heapstore_ERR_NOT_FOUND) ? AIRY_ENOENT : AIRY_EIO;
     }
 
     if (out_metadata) {
-        *out_metadata = AGENTRT_STRDUP(record.user_id);
+        *out_metadata = AIRY_STRDUP(record.user_id);
         if (!*out_metadata) {
-            return AGENTRT_ENOMEM;
+            return AIRY_ENOMEM;
         }
     }
     if (out_created_ns) {
@@ -212,30 +211,30 @@ agentrt_error_t heapstore_syscall_session_load(const char *session_id, char **ou
         *out_last_active_ns = record.last_active_at;
     }
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 }
 
-agentrt_error_t heapstore_syscall_session_delete(const char *session_id)
+airy_err_t heapstore_syscall_session_delete(const char *session_id)
 {
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!session_id) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_error_t err = heapstore_registry_delete_session(session_id);
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_syscall_session_list(char ***out_sessions, size_t *out_count)
+airy_err_t heapstore_syscall_session_list(char ***out_sessions, size_t *out_count)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!out_sessions || !out_count) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     *out_sessions = NULL;
@@ -244,19 +243,19 @@ agentrt_error_t heapstore_syscall_session_list(char ***out_sessions, size_t *out
     heapstore_registry_iter_t *iter = NULL;
     heapstore_error_t err = heapstore_registry_query_sessions(NULL, &iter);
     if (err != heapstore_SUCCESS || !iter) {
-        return AGENTRT_EIO;
+        return AIRY_EIO;
     }
 
     size_t count = 0;
     size_t capacity = 16;
     if (capacity > SIZE_MAX / sizeof(char *)) {
         heapstore_registry_iter_destroy(iter);
-        return AGENTRT_EOVERFLOW;
+        return AIRY_EOVERFLOW;
     }
-    char **sessions = (char **)AGENTRT_MALLOC(capacity * sizeof(char *));
+    char **sessions = (char **)AIRY_MALLOC(capacity * sizeof(char *));
     if (!sessions) {
         heapstore_registry_iter_destroy(iter);
-        return AGENTRT_ENOMEM;
+        return AIRY_ENOMEM;
     }
 
     heapstore_session_record_t record;
@@ -271,14 +270,14 @@ agentrt_error_t heapstore_syscall_session_list(char ***out_sessions, size_t *out
 
         if (count >= capacity) {
             capacity *= 2;
-            char **new_sessions = (char **)AGENTRT_REALLOC(sessions, capacity * sizeof(char *));
+            char **new_sessions = (char **)AIRY_REALLOC(sessions, capacity * sizeof(char *));
             if (!new_sessions) {
                 goto cleanup_error;
             }
             sessions = new_sessions;
         }
 
-        sessions[count] = AGENTRT_STRDUP(record.id);
+        sessions[count] = AIRY_STRDUP(record.id);
         if (!sessions[count]) {
             goto cleanup_error;
         }
@@ -290,47 +289,47 @@ agentrt_error_t heapstore_syscall_session_list(char ***out_sessions, size_t *out
     *out_sessions = sessions;
     *out_count = count;
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 
 cleanup_error:
     for (size_t i = 0; i < count; i++) {
-        AGENTRT_FREE(sessions[i]);
+        AIRY_FREE(sessions[i]);
     }
-    AGENTRT_FREE(sessions);
+    AIRY_FREE(sessions);
     heapstore_registry_iter_destroy(iter);
-    return (err == heapstore_ERR_NOT_FOUND) ? AGENTRT_EIO : AGENTRT_ENOMEM;
+    return (err == heapstore_ERR_NOT_FOUND) ? AIRY_EIO : AIRY_ENOMEM;
 }
 
-agentrt_error_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
+airy_err_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
                                              const char *parent_id, const char *name,
                                              int64_t start_time_us, int64_t end_time_us, int status,
                                              const char *events_json)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!trace_id || !span_id || !name) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_span_t record;
     __builtin_memset(&record, 0, sizeof(record));
 
-    AGENTRT_STRNCPY_TERM(record.trace_id, trace_id, sizeof(record.trace_id));
-    AGENTRT_STRNCPY_TERM(record.span_id, span_id, sizeof(record.span_id));
+    AIRY_STRNCPY_TERM(record.trace_id, trace_id, sizeof(record.trace_id));
+    AIRY_STRNCPY_TERM(record.span_id, span_id, sizeof(record.span_id));
     if (parent_id) {
-        AGENTRT_STRNCPY_TERM(record.parent_span_id, parent_id, sizeof(record.parent_span_id));
+        AIRY_STRNCPY_TERM(record.parent_span_id, parent_id, sizeof(record.parent_span_id));
     }
-    AGENTRT_STRNCPY_TERM(record.name, name, sizeof(record.name));
+    AIRY_STRNCPY_TERM(record.name, name, sizeof(record.name));
     record.start_time_ns = (uint64_t)start_time_us * 1000;
     record.end_time_ns = (uint64_t)end_time_us * 1000;
     snprintf(record.status, sizeof(record.status), "%d", status);
     if (events_json) {
         if (strlen(events_json) > 0) {
-            record.attributes = AGENTRT_STRDUP(events_json);
+            record.attributes = AIRY_STRDUP(events_json);
             if (!record.attributes) {
-                return AGENTRT_ENOMEM;
+                return AIRY_ENOMEM;
             }
             record.attribute_count = 1;
         }
@@ -339,86 +338,86 @@ agentrt_error_t heapstore_syscall_trace_save(const char *trace_id, const char *s
     heapstore_error_t err = heapstore_trace_write_span(&record);
 
     if (record.attributes) {
-        AGENTRT_FREE(record.attributes);
+        AIRY_FREE(record.attributes);
     }
 
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_syscall_trace_export(char **out_traces)
+airy_err_t heapstore_syscall_trace_export(char **out_traces)
 {
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!out_traces) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_error_t err = heapstore_trace_export_to_json(out_traces, true);
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_memoryrovol_save(const void *data, size_t len, const char *metadata,
+airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *metadata,
                                            char **out_record_id)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!data || len == 0 || !out_record_id) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_memory_pool_t pool;
     __builtin_memset(&pool, 0, sizeof(pool));
 
     snprintf(pool.pool_id, sizeof(pool.pool_id), "mem_raw_%llu", (unsigned long long)time(NULL));
-    AGENTRT_STRNCPY_TERM(pool.name, "memoryrovol_raw", sizeof(pool.name));
+    AIRY_STRNCPY_TERM(pool.name, "memoryrovol_raw", sizeof(pool.name));
     pool.total_size = len;
     pool.used_size = len;
     pool.block_size = len;
     pool.block_count = 1;
     pool.free_block_count = 0;
     pool.created_at = (uint64_t)time(NULL);
-    AGENTRT_STRNCPY_TERM(pool.status, "active", sizeof(pool.status));
+    AIRY_STRNCPY_TERM(pool.status, "active", sizeof(pool.status));
 
     heapstore_error_t err = heapstore_memory_record_pool(&pool);
     if (err != heapstore_SUCCESS) {
-        return AGENTRT_EIO;
+        return AIRY_EIO;
     }
 
     heapstore_memory_allocation_t alloc;
     __builtin_memset(&alloc, 0, sizeof(alloc));
-    AGENTRT_STRNCPY_TERM(alloc.allocation_id, pool.pool_id, sizeof(alloc.allocation_id));
-    AGENTRT_STRNCPY_TERM(alloc.pool_id, pool.pool_id, sizeof(alloc.pool_id));
+    AIRY_STRNCPY_TERM(alloc.allocation_id, pool.pool_id, sizeof(alloc.allocation_id));
+    AIRY_STRNCPY_TERM(alloc.pool_id, pool.pool_id, sizeof(alloc.pool_id));
     alloc.size = len;
     alloc.address = (uint64_t)(uintptr_t)data;
     alloc.allocated_at = (uint64_t)time(NULL);
     alloc.freed_at = 0;
-    AGENTRT_STRNCPY_TERM(alloc.status, "allocated", sizeof(alloc.status));
+    AIRY_STRNCPY_TERM(alloc.status, "allocated", sizeof(alloc.status));
 
     heapstore_error_t alloc_err = heapstore_memory_record_allocation(&alloc);
     if (alloc_err != heapstore_SUCCESS) {
-        return AGENTRT_EIO;
+        return AIRY_EIO;
     }
 
-    *out_record_id = AGENTRT_STRDUP(pool.pool_id);
+    *out_record_id = AIRY_STRDUP(pool.pool_id);
     if (!*out_record_id) {
-        return AGENTRT_ENOMEM;
+        return AIRY_ENOMEM;
     }
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 }
 
-agentrt_error_t heapstore_memoryrovol_load(const char *record_id, void **out_data, size_t *out_len,
+airy_err_t heapstore_memoryrovol_load(const char *record_id, void **out_data, size_t *out_len,
                                            char **out_metadata)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!record_id || !out_data || !out_len) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_memory_pool_t pool;
@@ -426,7 +425,7 @@ agentrt_error_t heapstore_memoryrovol_load(const char *record_id, void **out_dat
 
     heapstore_error_t err = heapstore_memory_get_pool(record_id, &pool);
     if (err != heapstore_SUCCESS) {
-        return (err == heapstore_ERR_NOT_FOUND) ? AGENTRT_ENOENT : AGENTRT_EIO;
+        return (err == heapstore_ERR_NOT_FOUND) ? AIRY_ENOENT : AIRY_EIO;
     }
 
     if (pool.total_size == 0) {
@@ -434,46 +433,46 @@ agentrt_error_t heapstore_memoryrovol_load(const char *record_id, void **out_dat
         *out_len = 0;
         if (out_metadata)
             *out_metadata = NULL;
-        return AGENTRT_SUCCESS;
+        return AIRY_SUCCESS;
     }
 
     heapstore_memory_allocation_t alloc;
     __builtin_memset(&alloc, 0, sizeof(alloc));
     heapstore_error_t alloc_err = heapstore_memory_get_allocation(record_id, &alloc);
     if (alloc_err != heapstore_SUCCESS) {
-        *out_data = AGENTRT_MALLOC(pool.total_size);
+        *out_data = AIRY_MALLOC(pool.total_size);
         if (!*out_data)
-            return AGENTRT_ENOMEM;
+            return AIRY_ENOMEM;
         __builtin_memset(*out_data, 0, pool.total_size);
         *out_len = pool.total_size;
     } else {
         size_t copy_len = alloc.size > 0 ? alloc.size : pool.total_size;
-        *out_data = AGENTRT_MALLOC(copy_len);
+        *out_data = AIRY_MALLOC(copy_len);
         if (!*out_data)
-            return AGENTRT_ENOMEM;
+            return AIRY_ENOMEM;
         __builtin_memset(*out_data, 0, copy_len);
         *out_len = copy_len;
     }
 
     if (out_metadata && pool.name[0] != '\0') {
-        *out_metadata = AGENTRT_STRDUP(pool.name);
+        *out_metadata = AIRY_STRDUP(pool.name);
         if (!*out_metadata) {
-            AGENTRT_FREE(*out_data);
+            AIRY_FREE(*out_data);
             *out_data = NULL;
-            return AGENTRT_ENOMEM;
+            return AIRY_ENOMEM;
         }
     }
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 }
 
-agentrt_error_t heapstore_memoryrovol_delete(const char *record_id)
+airy_err_t heapstore_memoryrovol_delete(const char *record_id)
 {
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!record_id) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     // 尝试删除内存池记录
@@ -483,46 +482,46 @@ agentrt_error_t heapstore_memoryrovol_delete(const char *record_id)
         // 通过更新内存池使用量来实现逻辑删除
         heapstore_memory_pool_t pool;
         __builtin_memset(&pool, 0, sizeof(pool));
-        AGENTRT_STRNCPY_TERM(pool.pool_id, record_id, sizeof(pool.pool_id));
-        AGENTRT_STRNCPY_TERM(pool.status, "deleted", sizeof(pool.status));
+        AIRY_STRNCPY_TERM(pool.pool_id, record_id, sizeof(pool.pool_id));
+        AIRY_STRNCPY_TERM(pool.status, "deleted", sizeof(pool.status));
         err = heapstore_memory_record_pool(&pool);
     }
 
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_ipc_channel_save(const char *channel_id, const char *state_json)
+airy_err_t heapstore_ipc_channel_save(const char *channel_id, const char *state_json)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!channel_id || !state_json) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_ipc_channel_t record;
     __builtin_memset(&record, 0, sizeof(record));
 
-    AGENTRT_STRNCPY_TERM(record.channel_id, channel_id, sizeof(record.channel_id));
-    AGENTRT_STRNCPY_TERM(record.name, channel_id, sizeof(record.name));
-    AGENTRT_STRNCPY_TERM(record.type, "binder", sizeof(record.type));
+    AIRY_STRNCPY_TERM(record.channel_id, channel_id, sizeof(record.channel_id));
+    AIRY_STRNCPY_TERM(record.name, channel_id, sizeof(record.name));
+    AIRY_STRNCPY_TERM(record.type, "binder", sizeof(record.type));
     record.created_at = (uint64_t)time(NULL);
     record.last_activity_at = (uint64_t)time(NULL);
-    AGENTRT_STRNCPY_TERM(record.status, "active", sizeof(record.status));
+    AIRY_STRNCPY_TERM(record.status, "active", sizeof(record.status));
 
     heapstore_error_t err = heapstore_ipc_record_channel(&record);
-    return (err == heapstore_SUCCESS) ? AGENTRT_SUCCESS : AGENTRT_EIO;
+    return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, char **out_state)
+airy_err_t heapstore_ipc_channel_load(const char *channel_id, char **out_state)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!channel_id || !out_state) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_ipc_channel_t record;
@@ -530,7 +529,7 @@ agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, char **out_st
 
     heapstore_error_t err = heapstore_ipc_get_channel(channel_id, &record);
     if (err != heapstore_SUCCESS) {
-        return (err == heapstore_ERR_NOT_FOUND) ? AGENTRT_ENOENT : AGENTRT_EIO;
+        return (err == heapstore_ERR_NOT_FOUND) ? AIRY_ENOENT : AIRY_EIO;
     }
 
     char buffer[512];
@@ -540,20 +539,20 @@ agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, char **out_st
              record.channel_id, record.name, record.type, record.status,
              (unsigned long long)record.buffer_size, (unsigned long long)record.current_usage);
 
-    *out_state = AGENTRT_STRDUP(buffer);
+    *out_state = AIRY_STRDUP(buffer);
 
-    return *out_state ? AGENTRT_SUCCESS : AGENTRT_ENOMEM;
+    return *out_state ? AIRY_SUCCESS : AIRY_ENOMEM;
 }
 
-agentrt_error_t heapstore_logging_write(const char *module, int level, const char *trace_id,
+airy_err_t heapstore_logging_write(const char *module, int level, const char *trace_id,
                                         const char *message, uint64_t timestamp_ns)
 {
 
     if (!g_integration_initialized) {
-        return AGENTRT_ENOTINIT;
+        return AIRY_ENOTINIT;
     }
     if (!module || !message) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     heapstore_log_level_t log_level;
@@ -580,13 +579,13 @@ agentrt_error_t heapstore_logging_write(const char *module, int level, const cha
 
     heapstore_log_write((int)log_level, module, trace_id, __FILE__, __LINE__, "%s", message);
 
-    return AGENTRT_SUCCESS;
+    return AIRY_SUCCESS;
 }
 
-agentrt_error_t heapstore_integration_health_check(char **out_health_json)
+airy_err_t heapstore_integration_health_check(char **out_health_json)
 {
     if (!out_health_json) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     bool registry_ok = false, trace_ok = false, log_ok = false;
@@ -612,19 +611,19 @@ agentrt_error_t heapstore_integration_health_check(char **out_health_json)
              memory_ok ? "true" : "false",
              (g_integration_initialized && registry_ok && trace_ok && log_ok) ? "true" : "false");
 
-    *out_health_json = AGENTRT_STRDUP(buffer);
-    return *out_health_json ? AGENTRT_SUCCESS : AGENTRT_ENOMEM;
+    *out_health_json = AIRY_STRDUP(buffer);
+    return *out_health_json ? AIRY_SUCCESS : AIRY_ENOMEM;
 }
 
-agentrt_error_t heapstore_integration_get_stats(char **out_stats_json)
+airy_err_t heapstore_integration_get_stats(char **out_stats_json)
 {
     if (!out_stats_json) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (!g_integration_initialized) {
-        *out_stats_json = AGENTRT_STRDUP("{\"error\":\"not initialized\"}");
-        return *out_stats_json ? AGENTRT_SUCCESS : AGENTRT_ENOMEM;
+        *out_stats_json = AIRY_STRDUP("{\"error\":\"not initialized\"}");
+        return *out_stats_json ? AIRY_SUCCESS : AIRY_ENOMEM;
     }
 
     heapstore_stats_t stats;
@@ -634,8 +633,8 @@ agentrt_error_t heapstore_integration_get_stats(char **out_stats_json)
     heapstore_error_t err2 = heapstore_get_metrics(&metrics);
 
     if (err1 != heapstore_SUCCESS || err2 != heapstore_SUCCESS) {
-        *out_stats_json = AGENTRT_STRDUP("{\"error\":\"failed to get stats\"}");
-        return *out_stats_json ? AGENTRT_SUCCESS : AGENTRT_ENOMEM;
+        *out_stats_json = AIRY_STRDUP("{\"error\":\"failed to get stats\"}");
+        return *out_stats_json ? AIRY_SUCCESS : AIRY_ENOMEM;
     }
 
     char buffer[2048];
@@ -674,6 +673,6 @@ agentrt_error_t heapstore_integration_get_stats(char **out_stats_json)
         (unsigned long long)metrics.circuit_breaker_trips, metrics.avg_operation_time_ns,
         (unsigned long long)metrics.peak_concurrent_ops);
 
-    *out_stats_json = AGENTRT_STRDUP(buffer);
-    return *out_stats_json ? AGENTRT_SUCCESS : AGENTRT_ENOMEM;
+    *out_stats_json = AIRY_STRDUP(buffer);
+    return *out_stats_json ? AIRY_SUCCESS : AIRY_ENOMEM;
 }

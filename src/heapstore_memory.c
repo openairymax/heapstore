@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -38,7 +37,7 @@
 #define heapstore_MEMORY_MAX_PATH 512
 
 static bool s_initialized = false;
-static agentrt_mutex_t s_memory_lock = {0};
+static airy_mtx_t s_memory_lock = {0};
 static heapstore_memory_pool_t s_pools[heapstore_MEMORY_MAX_POOLS];
 static size_t s_pool_count = 0;
 static heapstore_memory_allocation_t s_allocations[heapstore_MEMORY_MAX_ALLOCATIONS];
@@ -59,9 +58,9 @@ heapstore_error_t heapstore_memory_init(void)
         snprintf(base_path, sizeof(base_path), "%s/kernel/memory", root);
     } else {
         snprintf(base_path, sizeof(base_path), "%s/agentrt/heapstore/kernel/memory",
-                 getenv("TMPDIR") ? getenv("TMPDIR") : AGENTRT_TMP_DIR);
+                 getenv("TMPDIR") ? getenv("TMPDIR") : AIRY_TMP_DIR);
     }
-    AGENTRT_STRNCPY_TERM(s_memory_path, base_path, sizeof(s_memory_path));
+    AIRY_STRNCPY_TERM(s_memory_path, base_path, sizeof(s_memory_path));
 
     if (!heapstore_ensure_directory(s_memory_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
@@ -102,7 +101,7 @@ void heapstore_memory_shutdown(void)
         return;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     __builtin_memset(s_pools, 0, sizeof(s_pools));
     __builtin_memset(s_allocations, 0, sizeof(s_allocations));
@@ -110,7 +109,7 @@ void heapstore_memory_shutdown(void)
     s_allocation_count = 0;
 
     s_initialized = false;
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
 }
 
 heapstore_error_t heapstore_memory_record_pool(const heapstore_memory_pool_t *pool)
@@ -123,17 +122,17 @@ heapstore_error_t heapstore_memory_record_pool(const heapstore_memory_pool_t *po
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     if (s_pool_count >= heapstore_MEMORY_MAX_POOLS) {
-        agentrt_mutex_unlock(&s_memory_lock);
+        airy_mtx_unlock(&s_memory_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     for (size_t i = 0; i < s_pool_count; i++) {
         if (strcmp(s_pools[i].pool_id, pool->pool_id) == 0) {
             __builtin_memcpy(&s_pools[i], pool, sizeof(heapstore_memory_pool_t));
-            agentrt_mutex_unlock(&s_memory_lock);
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
@@ -141,7 +140,7 @@ heapstore_error_t heapstore_memory_record_pool(const heapstore_memory_pool_t *po
     __builtin_memcpy(&s_pools[s_pool_count], pool, sizeof(heapstore_memory_pool_t));
     s_pool_count++;
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
 
     return heapstore_SUCCESS;
 }
@@ -156,17 +155,17 @@ heapstore_error_t heapstore_memory_get_pool(const char *pool_id, heapstore_memor
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     for (size_t i = 0; i < s_pool_count; i++) {
         if (strcmp(s_pools[i].pool_id, pool_id) == 0) {
             __builtin_memcpy(pool, &s_pools[i], sizeof(heapstore_memory_pool_t));
-            agentrt_mutex_unlock(&s_memory_lock);
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -181,18 +180,18 @@ heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     for (size_t i = 0; i < s_pool_count; i++) {
         if (strcmp(s_pools[i].pool_id, pool_id) == 0) {
             s_pools[i].used_size = used_size;
             s_pools[i].free_block_count = free_block_count;
-            agentrt_mutex_unlock(&s_memory_lock);
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -207,17 +206,17 @@ heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocati
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     if (s_allocation_count >= heapstore_MEMORY_MAX_ALLOCATIONS) {
-        agentrt_mutex_unlock(&s_memory_lock);
+        airy_mtx_unlock(&s_memory_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     for (size_t i = 0; i < s_allocation_count; i++) {
         if (strcmp(s_allocations[i].allocation_id, allocation->allocation_id) == 0) {
             __builtin_memcpy(&s_allocations[i], allocation, sizeof(heapstore_memory_allocation_t));
-            agentrt_mutex_unlock(&s_memory_lock);
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
@@ -225,7 +224,7 @@ heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocati
     __builtin_memcpy(&s_allocations[s_allocation_count], allocation, sizeof(heapstore_memory_allocation_t));
     s_allocation_count++;
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
 
     return heapstore_SUCCESS;
 }
@@ -241,17 +240,17 @@ heapstore_error_t heapstore_memory_get_allocation(const char *allocation_id,
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     for (size_t i = 0; i < s_allocation_count; i++) {
         if (strcmp(s_allocations[i].allocation_id, allocation_id) == 0) {
             __builtin_memcpy(allocation, &s_allocations[i], sizeof(heapstore_memory_allocation_t));
-            agentrt_mutex_unlock(&s_memory_lock);
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -265,18 +264,18 @@ heapstore_error_t heapstore_memory_free_allocation(const char *allocation_id)
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     for (size_t i = 0; i < s_allocation_count; i++) {
         if (strcmp(s_allocations[i].allocation_id, allocation_id) == 0) {
             s_allocations[i].freed_at = (uint64_t)time(NULL);
-            AGENTRT_STRNCPY_TERM(s_allocations[i].status, "freed", sizeof(s_allocations[i].status));
-            agentrt_mutex_unlock(&s_memory_lock);
+            AIRY_STRNCPY_TERM(s_allocations[i].status, "freed", sizeof(s_allocations[i].status));
+            airy_mtx_unlock(&s_memory_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -287,7 +286,7 @@ heapstore_error_t heapstore_memory_get_stats(uint32_t *pool_count, uint32_t *tot
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_memory_lock);
+    airy_mtx_lock(&s_memory_lock);
 
     if (pool_count) {
         *pool_count = (uint32_t)s_pool_count;
@@ -303,7 +302,7 @@ heapstore_error_t heapstore_memory_get_stats(uint32_t *pool_count, uint32_t *tot
         *total_size = size;
     }
 
-    agentrt_mutex_unlock(&s_memory_lock);
+    airy_mtx_unlock(&s_memory_lock);
 
     return heapstore_SUCCESS;
 }

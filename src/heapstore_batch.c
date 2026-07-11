@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 本模块采用 DRY 原则重构，消除重复代码，
  *       将圈复杂度控制在7以下，提升可维护性。
@@ -57,22 +56,22 @@ static heapstore_error_t batch_commit_span(const void *data)
     heapstore_span_t span_rec;
     __builtin_memset(&span_rec, 0, sizeof(span_rec));
 
-    AGENTRT_STRNCPY_TERM(span_rec.trace_id, trace_entry->trace_id, sizeof(span_rec.trace_id));
-    AGENTRT_STRNCPY_TERM(span_rec.span_id, trace_entry->span_id, sizeof(span_rec.span_id));
+    AIRY_STRNCPY_TERM(span_rec.trace_id, trace_entry->trace_id, sizeof(span_rec.trace_id));
+    AIRY_STRNCPY_TERM(span_rec.span_id, trace_entry->span_id, sizeof(span_rec.span_id));
 
     if (trace_entry->parent_span_id[0]) {
-        AGENTRT_STRNCPY_TERM(span_rec.parent_span_id, trace_entry->parent_span_id, sizeof(span_rec.parent_span_id));
+        AIRY_STRNCPY_TERM(span_rec.parent_span_id, trace_entry->parent_span_id, sizeof(span_rec.parent_span_id));
     }
 
-    AGENTRT_STRNCPY_TERM(span_rec.name, trace_entry->name, sizeof(span_rec.name));
-    AGENTRT_STRNCPY_TERM(span_rec.kind, trace_entry->kind, sizeof(span_rec.kind));
+    AIRY_STRNCPY_TERM(span_rec.name, trace_entry->name, sizeof(span_rec.name));
+    AIRY_STRNCPY_TERM(span_rec.kind, trace_entry->kind, sizeof(span_rec.kind));
 
     span_rec.start_time_ns = (uint64_t)trace_entry->start_time_us * 1000ULL;
     span_rec.end_time_ns = (uint64_t)trace_entry->end_time_us * 1000ULL;
     snprintf(span_rec.status, sizeof(span_rec.status), "%d", trace_entry->status);
 
     if (trace_entry->attributes[0]) {
-        span_rec.attributes = AGENTRT_STRDUP(trace_entry->attributes);
+        span_rec.attributes = AIRY_STRDUP(trace_entry->attributes);
         if (!span_rec.attributes) {
             return heapstore_ERR_OUT_OF_MEMORY;
         }
@@ -82,7 +81,7 @@ static heapstore_error_t batch_commit_span(const void *data)
     heapstore_error_t err = heapstore_trace_write_span(&span_rec);
 
     if (span_rec.attributes) {
-        AGENTRT_FREE(span_rec.attributes);
+        AIRY_FREE(span_rec.attributes);
     }
 
     return err;
@@ -140,7 +139,7 @@ static heapstore_error_t batch_default_handler(const heapstore_batch_item_t *ite
  */
 static heapstore_batch_item_t *batch_alloc_item(heapstore_batch_item_type_t type)
 {
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return NULL;
     }
@@ -163,7 +162,7 @@ static heapstore_error_t batch_append_item(heapstore_batch_context_t *ctx,
                                            heapstore_batch_item_t *item)
 {
     if (!ctx || !item) {
-        AGENTRT_FREE(item);
+        AIRY_FREE(item);
         return heapstore_ERR_INVALID_PARAM;
     }
 
@@ -273,11 +272,11 @@ heapstore_error_t heapstore_batch_add_span(heapstore_batch_context_t *ctx,
 
     heapstore_trace_entry_t converted;
     __builtin_memset(&converted, 0, sizeof(converted));
-    AGENTRT_STRNCPY_TERM(converted.trace_id, span->trace_id, sizeof(converted.trace_id));
-    AGENTRT_STRNCPY_TERM(converted.span_id, span->span_id, sizeof(converted.span_id));
-    AGENTRT_STRNCPY_TERM(converted.parent_span_id, span->parent_span_id, sizeof(converted.parent_span_id));
-    AGENTRT_STRNCPY_TERM(converted.name, span->name, sizeof(converted.name));
-    AGENTRT_STRNCPY_TERM(converted.kind, span->kind, sizeof(converted.kind));
+    AIRY_STRNCPY_TERM(converted.trace_id, span->trace_id, sizeof(converted.trace_id));
+    AIRY_STRNCPY_TERM(converted.span_id, span->span_id, sizeof(converted.span_id));
+    AIRY_STRNCPY_TERM(converted.parent_span_id, span->parent_span_id, sizeof(converted.parent_span_id));
+    AIRY_STRNCPY_TERM(converted.name, span->name, sizeof(converted.name));
+    AIRY_STRNCPY_TERM(converted.kind, span->kind, sizeof(converted.kind));
     converted.start_time_us = span->start_time_ns / 1000;
     converted.end_time_us = span->end_time_ns / 1000;
     converted.status = (strcmp(span->status, "ok") == 0) ? 0 : -1;
@@ -378,7 +377,7 @@ heapstore_error_t heapstore_batch_commit(heapstore_batch_context_t *ctx)
             result = err;
         }
 
-        AGENTRT_FREE(item);
+        AIRY_FREE(item);
         item = next;
     }
 
@@ -396,7 +395,7 @@ void heapstore_batch_rollback(heapstore_batch_context_t *ctx)
     heapstore_batch_item_t *item = ctx->head;
     while (item) {
         heapstore_batch_item_t *next = item->next;
-        AGENTRT_FREE(item);
+        AIRY_FREE(item);
         item = next;
     }
 

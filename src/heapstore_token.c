@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 实现 Token 使用统计和监控功能，
  *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
@@ -52,9 +51,9 @@ static atomic_uint_fast64_t g_total_batch_ops = 0;
 static atomic_uint_fast64_t g_last_operation_time = 0;
 
 #ifdef _WIN32
-static agentrt_mutex_t g_token_mutex;
+static airy_mtx_t g_token_mutex;
 #else
-static agentrt_mutex_t g_token_mutex = {0};
+static airy_mtx_t g_token_mutex = {0};
 #endif
 
 /* ==================== 内部数据结构和函数 ==================== */
@@ -72,42 +71,42 @@ static int g_budget_count = 0;
 #ifdef _WIN32
 static void token_mutex_init(void)
 {
-    agentrt_mutex_init(&g_token_mutex);
+    airy_mtx_init(&g_token_mutex);
 }
 
 static void token_mutex_destroy(void)
 {
-    agentrt_mutex_destroy(&g_token_mutex);
+    airy_mtx_destroy(&g_token_mutex);
 }
 
 static void token_mutex_lock(void)
 {
-    agentrt_mutex_lock(&g_token_mutex);
+    airy_mtx_lock(&g_token_mutex);
 }
 
 static void token_mutex_unlock(void)
 {
-    agentrt_mutex_unlock(&g_token_mutex);
+    airy_mtx_unlock(&g_token_mutex);
 }
 #else
 static void token_mutex_init(void)
 {
-    agentrt_mutex_init(&g_token_mutex);
+    airy_mtx_init(&g_token_mutex);
 }
 
 static void token_mutex_destroy(void)
 {
-    agentrt_mutex_destroy(&g_token_mutex);
+    airy_mtx_destroy(&g_token_mutex);
 }
 
 static void token_mutex_lock(void)
 {
-    agentrt_mutex_lock(&g_token_mutex);
+    airy_mtx_lock(&g_token_mutex);
 }
 
 static void token_mutex_unlock(void)
 {
-    agentrt_mutex_unlock(&g_token_mutex);
+    airy_mtx_unlock(&g_token_mutex);
 }
 #endif
 
@@ -119,7 +118,7 @@ static int find_budget_entry(const char *task_id)
             return i;
         }
     }
-    return AGENTRT_EINVAL;
+    return AIRY_EINVAL;
 }
 
 static int allocate_budget_entry(void)
@@ -129,7 +128,7 @@ static int allocate_budget_entry(void)
             return i;
         }
     }
-    return AGENTRT_EINVAL;
+    return AIRY_EINVAL;
 }
 
 /* ==================== 公共 API 实现 ==================== */
@@ -301,7 +300,7 @@ heapstore_error_t heapstore_token_set_budget(const char *task_id,
     }
 
     task_budget_entry_t *entry = &g_budget_table[entry_idx];
-    AGENTRT_STRNCPY_TERM(entry->task_id, task_id, sizeof(MAX_TASK_ID_LEN));
+    AIRY_STRNCPY_TERM(entry->task_id, task_id, sizeof(MAX_TASK_ID_LEN));
     entry->budget = *budget;
     atomic_store(&entry->used_tokens, 0);
     entry->active = 1;

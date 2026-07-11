@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -24,7 +23,7 @@
 #include <io.h>
 #include <windows.h>
 #else
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -195,29 +194,29 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
 int heapstore_sanitize_path_component(char *output, const char *input, size_t size)
 {
     if (!output || !input || size == 0) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     size_t input_len = strlen(input);
     if (input_len == 0 || input_len >= size) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (strstr(input, "..") != NULL) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (strchr(input, '/') != NULL) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (strchr(input, '\\') != NULL) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     for (size_t i = 0; i < input_len; i++) {
         if (input[i] == '\0') {
-            return AGENTRT_EINVAL;
+            return AIRY_EINVAL;
         }
     }
 

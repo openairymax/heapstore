@@ -5,7 +5,6 @@
  * @brief AgentRT 数据分区日志管理单元测试
  *
  * Copyright (c) 2026 SPHARX. All Rights Reserved.
- * "From data intelligence emerges."
  */
 // @owner: team-B
 
@@ -159,7 +158,7 @@ static void test_log_get_file_info(void)
     heapstore_error_t err = heapstore_log_init();
     if (err == heapstore_SUCCESS) {
         heapstore_log_file_info_t info;
-        AGENTRT_MEMSET(&info, 0, sizeof(info));
+        AIRY_MEMSET(&info, 0, sizeof(info));
 
         err = heapstore_log_get_file_info(NULL, &info);
         assert(err == heapstore_SUCCESS);

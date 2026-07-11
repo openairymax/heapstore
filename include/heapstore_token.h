@@ -6,15 +6,14 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 本模块实现 Token 使用统计和监控功能，
  *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
  */
 
 // @owner: team-B
-#ifndef AGENTRT_HEAPSTORE_TOKEN_H
-#define AGENTRT_HEAPSTORE_TOKEN_H
+#ifndef AIRY_RT_HEAPSTORE_TOKEN_H
+#define AIRY_RT_HEAPSTORE_TOKEN_H
 
 #include "heapstore.h"
 
@@ -211,4 +210,4 @@ const char *heapstore_token_op_to_string(heapstore_token_operation_t operation);
 }
 #endif
 
-#endif /* AGENTRT_HEAPSTORE_TOKEN_H */
+#endif /* AIRY_RT_HEAPSTORE_TOKEN_H */

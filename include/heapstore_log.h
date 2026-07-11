@@ -6,12 +6,11 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
-#ifndef AGENTRT_HEAPSTORE_LOG_H
-#define AGENTRT_HEAPSTORE_LOG_H
+#ifndef AIRY_RT_HEAPSTORE_LOG_H
+#define AIRY_RT_HEAPSTORE_LOG_H
 
 #include "heapstore.h"
 
@@ -243,4 +242,4 @@ bool heapstore_log_is_healthy(void);
 }
 #endif
 
-#endif /* AGENTRT_HEAPSTORE_LOG_H */
+#endif /* AIRY_RT_HEAPSTORE_LOG_H */

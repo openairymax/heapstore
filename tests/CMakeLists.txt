@@ -1,6 +1,6 @@
 
 # 测试代码豁免 BAN 严格合规：测试允许使用裸 malloc/free/memset 等函数
-add_compile_definitions(AGENTRT_COMPLIANCE_IMPL)
+add_compile_definitions(AIRY_COMPLIANCE_IMPL)
 set(TEST_FILES
     test_heapstore_core
     test_heapstore_registry
@@ -19,10 +19,10 @@ foreach(test ${TEST_FILES})
             ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory/include
         )
         target_link_libraries(${test}
-            PRIVATE agentrt_heapstore
+            PRIVATE airy_heapstore
             Threads::Threads
         )
-        if(AGENTRT_HAS_SQLITE3)
+        if(AIRY_HAS_SQLITE3)
             if(SQLite3_FOUND)
                 target_link_libraries(${test} PRIVATE ${SQLite3_LIBRARIES})
             elseif(SQLITE3_FOUND)
@@ -42,10 +42,10 @@ if(BUILD_BENCHMARK)
         ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory/include
     )
     target_link_libraries(heapstore_benchmark
-        PRIVATE agentrt_heapstore
+        PRIVATE airy_heapstore
         Threads::Threads
     )
-    if(AGENTRT_HAS_SQLITE3)
+    if(AIRY_HAS_SQLITE3)
         if(SQLite3_FOUND)
             target_link_libraries(heapstore_benchmark PRIVATE ${SQLite3_LIBRARIES})
         elseif(SQLITE3_FOUND)

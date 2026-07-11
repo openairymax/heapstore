@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 本示例展示如何使用 heapstore 的批量写入功能，
  *       包括批量日志、追踪、注册表等操作。
@@ -87,11 +86,11 @@ int main(int argc, char **argv)
         snprintf(trace_id, sizeof(trace_id), "trace-batch-%03d", i);
         snprintf(span_id, sizeof(span_id), "span-batch-%03d", i);
 
-        AGENTRT_STRNCPY_TERM(entry.trace_id, trace_id, sizeof(entry.trace_id));
-        AGENTRT_STRNCPY_TERM(entry.span_id, span_id, sizeof(entry.span_id));
-        AGENTRT_STRNCPY_TERM(entry.parent_span_id, "parent-000", sizeof(entry.parent_span_id));
-        AGENTRT_STRNCPY_TERM(entry.name, "batch_operation", sizeof(entry.name));
-        AGENTRT_STRNCPY_TERM(entry.kind, "internal", sizeof(entry.kind));
+        AIRY_STRNCPY_TERM(entry.trace_id, trace_id, sizeof(entry.trace_id));
+        AIRY_STRNCPY_TERM(entry.span_id, span_id, sizeof(entry.span_id));
+        AIRY_STRNCPY_TERM(entry.parent_span_id, "parent-000", sizeof(entry.parent_span_id));
+        AIRY_STRNCPY_TERM(entry.name, "batch_operation", sizeof(entry.name));
+        AIRY_STRNCPY_TERM(entry.kind, "internal", sizeof(entry.kind));
 
         entry.start_time_us = (uint64_t)(time(NULL) - 100) * 1000000ULL;
         entry.end_time_us = (uint64_t)time(NULL) * 1000000ULL;
@@ -112,9 +111,9 @@ int main(int argc, char **argv)
         char session_id[32];
         snprintf(session_id, sizeof(session_id), "session-batch-%03d", i);
 
-        AGENTRT_STRNCPY_TERM(session.session_id, session_id, sizeof(session.session_id));
-        AGENTRT_STRNCPY_TERM(session.user_id, "user-001", sizeof(session.user_id));
-        AGENTRT_STRNCPY_TERM(session.status, "active", sizeof(session.status));
+        AIRY_STRNCPY_TERM(session.session_id, session_id, sizeof(session.session_id));
+        AIRY_STRNCPY_TERM(session.user_id, "user-001", sizeof(session.user_id));
+        AIRY_STRNCPY_TERM(session.status, "active", sizeof(session.status));
         session.created_ns = (uint64_t)(time(NULL) - 3600) * 1000000000ULL;
         session.last_active_ns = (uint64_t)time(NULL) * 1000000000ULL;
 

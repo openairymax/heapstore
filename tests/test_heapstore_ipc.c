@@ -5,7 +5,6 @@
  * @brief AgentRT 数据分区 IPC 数据存储单元测试
  *
  * Copyright (c) 2026 SPHARX. All Rights Reserved.
- * "From data intelligence emerges."
  */
 // @owner: team-B
 
@@ -35,7 +34,7 @@ static void test_ipc_channel_crud(void)
     printf("Test: ipc_channel_crud...");
 
     heapstore_ipc_channel_t channel;
-    AGENTRT_MEMSET(&channel, 0, sizeof(channel));
+    AIRY_MEMSET(&channel, 0, sizeof(channel));
 
     snprintf(channel.channel_id, sizeof(channel.channel_id), "ch_%ld", (long)time(NULL));
     snprintf(channel.name, sizeof(channel.name), "Test Channel");
@@ -49,7 +48,7 @@ static void test_ipc_channel_crud(void)
     heapstore_error_t err = heapstore_ipc_record_channel(&channel);
     if (err == heapstore_SUCCESS) {
         heapstore_ipc_channel_t get_ch;
-        AGENTRT_MEMSET(&get_ch, 0, sizeof(get_ch));
+        AIRY_MEMSET(&get_ch, 0, sizeof(get_ch));
 
         err = heapstore_ipc_get_channel(channel.channel_id, &get_ch);
         assert(err == heapstore_SUCCESS);
@@ -69,7 +68,7 @@ static void test_ipc_buffer_crud(void)
     printf("Test: ipc_buffer_crud...");
 
     heapstore_ipc_channel_t channel;
-    AGENTRT_MEMSET(&channel, 0, sizeof(channel));
+    AIRY_MEMSET(&channel, 0, sizeof(channel));
 
     snprintf(channel.channel_id, sizeof(channel.channel_id), "ch_buf_%ld", (long)time(NULL));
     snprintf(channel.name, sizeof(channel.name), "Buffer Test Channel");
@@ -80,7 +79,7 @@ static void test_ipc_buffer_crud(void)
     heapstore_error_t err = heapstore_ipc_record_channel(&channel);
 
     heapstore_ipc_buffer_t buffer;
-    AGENTRT_MEMSET(&buffer, 0, sizeof(buffer));
+    AIRY_MEMSET(&buffer, 0, sizeof(buffer));
 
     snprintf(buffer.buffer_id, sizeof(buffer.buffer_id), "buf_%ld", (long)time(NULL));
     snprintf(buffer.channel_id, sizeof(buffer.channel_id), "%s", channel.channel_id);
@@ -93,7 +92,7 @@ static void test_ipc_buffer_crud(void)
         err = heapstore_ipc_record_buffer(&buffer);
         if (err == heapstore_SUCCESS) {
             heapstore_ipc_buffer_t get_buf;
-            AGENTRT_MEMSET(&get_buf, 0, sizeof(get_buf));
+            AIRY_MEMSET(&get_buf, 0, sizeof(get_buf));
 
             err = heapstore_ipc_get_buffer(buffer.buffer_id, &get_buf);
             assert(err == heapstore_SUCCESS);
@@ -135,7 +134,7 @@ static void test_ipc_invalid_params(void)
     assert(err == heapstore_ERR_INVALID_PARAM);
 
     heapstore_ipc_channel_t invalid_ch;
-    AGENTRT_MEMSET(&invalid_ch, 0, sizeof(invalid_ch));
+    AIRY_MEMSET(&invalid_ch, 0, sizeof(invalid_ch));
     err = heapstore_ipc_record_channel(&invalid_ch);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
@@ -143,7 +142,7 @@ static void test_ipc_invalid_params(void)
     assert(err == heapstore_ERR_INVALID_PARAM);
 
     heapstore_ipc_buffer_t invalid_buf;
-    AGENTRT_MEMSET(&invalid_buf, 0, sizeof(invalid_buf));
+    AIRY_MEMSET(&invalid_buf, 0, sizeof(invalid_buf));
     err = heapstore_ipc_record_buffer(&invalid_buf);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
@@ -164,14 +163,14 @@ static void test_ipc_not_found(void)
     printf("Test: ipc_not_found...");
 
     heapstore_ipc_channel_t channel;
-    AGENTRT_MEMSET(&channel, 0, sizeof(channel));
+    AIRY_MEMSET(&channel, 0, sizeof(channel));
 
     heapstore_error_t err __attribute__((unused)) =
         heapstore_ipc_get_channel("nonexistent_id", &channel);
     assert(err == heapstore_ERR_NOT_FOUND);
 
     heapstore_ipc_buffer_t buffer;
-    AGENTRT_MEMSET(&buffer, 0, sizeof(buffer));
+    AIRY_MEMSET(&buffer, 0, sizeof(buffer));
 
     err = heapstore_ipc_get_buffer("nonexistent_id", &buffer);
     assert(err == heapstore_ERR_NOT_FOUND);
@@ -188,7 +187,7 @@ static void test_ipc_multiple_channels(void)
 
     for (int i = 0; i < 5; i++) {
         heapstore_ipc_channel_t channel;
-        AGENTRT_MEMSET(&channel, 0, sizeof(channel));
+        AIRY_MEMSET(&channel, 0, sizeof(channel));
 
         snprintf(channel.channel_id, sizeof(channel.channel_id), "ch_multi_%d_%ld", i,
                  (long)time(NULL));

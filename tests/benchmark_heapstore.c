@@ -5,7 +5,6 @@
  * @brief AgentRT 数据分区性能基准测试
  *
  * Copyright (c) 2026 SPHARX. All Rights Reserved.
- * "From data intelligence emerges."
  */
 // @owner: team-B
 

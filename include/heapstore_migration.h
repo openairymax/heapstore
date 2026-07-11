@@ -14,8 +14,8 @@
  */
 
 // @owner: team-C
-#ifndef AGENTRT_HEAPSTORE_MIGRATION_H
-#define AGENTRT_HEAPSTORE_MIGRATION_H
+#ifndef AIRY_RT_HEAPSTORE_MIGRATION_H
+#define AIRY_RT_HEAPSTORE_MIGRATION_H
 
 #include "heapstore.h"
 
@@ -192,4 +192,4 @@ heapstore_error_t heapstore_migration_list_fields(const char *record_type, char 
 }
 #endif
 
-#endif /* AGENTRT_HEAPSTORE_MIGRATION_H */
+#endif /* AIRY_RT_HEAPSTORE_MIGRATION_H */

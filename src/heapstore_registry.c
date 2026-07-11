@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -30,7 +29,7 @@
 #include <unistd.h>
 #endif
 
-#ifdef AGENTRT_HAS_SQLITE3
+#ifdef AIRY_HAS_SQLITE3
 #define heapstore_SQLITE_IMPLEMENTATION
 #endif
 
@@ -79,8 +78,8 @@ static void free_node_list(registry_node_t **head)
     registry_node_t *node = *head;
     while (node) {
         registry_node_t *next = node->next;
-        AGENTRT_FREE(node->data);
-        AGENTRT_FREE(node);
+        AIRY_FREE(node->data);
+        AIRY_FREE(node);
         node = next;
     }
     *head = NULL;
@@ -110,12 +109,12 @@ heapstore_error_t heapstore_registry_add_agent(const heapstore_agent_record_t *r
     if (find_node_by_id(s_registry.agents, record->id, offsetof(heapstore_agent_record_t, id))) {
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
-    registry_node_t *node = AGENTRT_CALLOC(1, sizeof(registry_node_t));
+    registry_node_t *node = AIRY_CALLOC(1, sizeof(registry_node_t));
     if (!node)
         return heapstore_ERR_OUT_OF_MEMORY;
-    node->data = AGENTRT_MALLOC(sizeof(heapstore_agent_record_t));
+    node->data = AIRY_MALLOC(sizeof(heapstore_agent_record_t));
     if (!node->data) {
-        AGENTRT_FREE(node);
+        AIRY_FREE(node);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memcpy(node->data, record, sizeof(heapstore_agent_record_t));
@@ -167,8 +166,8 @@ heapstore_error_t heapstore_registry_delete_agent(const char *id)
         if (strcmp(node_id, id) == 0) {
             registry_node_t *victim = *pp;
             *pp = victim->next;
-            AGENTRT_FREE(victim->data);
-            AGENTRT_FREE(victim);
+            AIRY_FREE(victim->data);
+            AIRY_FREE(victim);
             s_registry.agent_count--;
             return heapstore_SUCCESS;
         }
@@ -185,7 +184,7 @@ heapstore_error_t heapstore_registry_query_agents(const char *filter_type,
         return heapstore_ERR_INVALID_PARAM;
     if (!s_registry.initialized)
         return heapstore_ERR_NOT_INITIALIZED;
-    heapstore_registry_iter_t *it = AGENTRT_CALLOC(1, sizeof(heapstore_registry_iter_t));
+    heapstore_registry_iter_t *it = AIRY_CALLOC(1, sizeof(heapstore_registry_iter_t));
     if (!it)
         return heapstore_ERR_OUT_OF_MEMORY;
     it->current = s_registry.agents;
@@ -203,12 +202,12 @@ heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *r
     if (find_node_by_id(s_registry.skills, record->id, offsetof(heapstore_skill_record_t, id))) {
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
-    registry_node_t *node = AGENTRT_CALLOC(1, sizeof(registry_node_t));
+    registry_node_t *node = AIRY_CALLOC(1, sizeof(registry_node_t));
     if (!node)
         return heapstore_ERR_OUT_OF_MEMORY;
-    node->data = AGENTRT_MALLOC(sizeof(heapstore_skill_record_t));
+    node->data = AIRY_MALLOC(sizeof(heapstore_skill_record_t));
     if (!node->data) {
-        AGENTRT_FREE(node);
+        AIRY_FREE(node);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memcpy(node->data, record, sizeof(heapstore_skill_record_t));
@@ -246,8 +245,8 @@ heapstore_error_t heapstore_registry_delete_skill(const char *id)
         if (strcmp(node_id, id) == 0) {
             registry_node_t *victim = *pp;
             *pp = victim->next;
-            AGENTRT_FREE(victim->data);
-            AGENTRT_FREE(victim);
+            AIRY_FREE(victim->data);
+            AIRY_FREE(victim);
             s_registry.skill_count--;
             return heapstore_SUCCESS;
         }
@@ -262,7 +261,7 @@ heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **it
         return heapstore_ERR_INVALID_PARAM;
     if (!s_registry.initialized)
         return heapstore_ERR_NOT_INITIALIZED;
-    heapstore_registry_iter_t *it = AGENTRT_CALLOC(1, sizeof(heapstore_registry_iter_t));
+    heapstore_registry_iter_t *it = AIRY_CALLOC(1, sizeof(heapstore_registry_iter_t));
     if (!it)
         return heapstore_ERR_OUT_OF_MEMORY;
     it->current = s_registry.skills;
@@ -281,12 +280,12 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
                         offsetof(heapstore_session_record_t, id))) {
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
-    registry_node_t *node = AGENTRT_CALLOC(1, sizeof(registry_node_t));
+    registry_node_t *node = AIRY_CALLOC(1, sizeof(registry_node_t));
     if (!node)
         return heapstore_ERR_OUT_OF_MEMORY;
-    node->data = AGENTRT_MALLOC(sizeof(heapstore_session_record_t));
+    node->data = AIRY_MALLOC(sizeof(heapstore_session_record_t));
     if (!node->data) {
-        AGENTRT_FREE(node);
+        AIRY_FREE(node);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memcpy(node->data, record, sizeof(heapstore_session_record_t));
@@ -338,8 +337,8 @@ heapstore_error_t heapstore_registry_delete_session(const char *id)
         if (strcmp(node_id, id) == 0) {
             registry_node_t *victim = *pp;
             *pp = victim->next;
-            AGENTRT_FREE(victim->data);
-            AGENTRT_FREE(victim);
+            AIRY_FREE(victim->data);
+            AIRY_FREE(victim);
             s_registry.session_count--;
             return heapstore_SUCCESS;
         }
@@ -355,7 +354,7 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
         return heapstore_ERR_INVALID_PARAM;
     if (!s_registry.initialized)
         return heapstore_ERR_NOT_INITIALIZED;
-    heapstore_registry_iter_t *it = AGENTRT_CALLOC(1, sizeof(heapstore_registry_iter_t));
+    heapstore_registry_iter_t *it = AIRY_CALLOC(1, sizeof(heapstore_registry_iter_t));
     if (!it)
         return heapstore_ERR_OUT_OF_MEMORY;
     it->current = s_registry.sessions;
@@ -377,7 +376,7 @@ heapstore_error_t heapstore_registry_iter_next(heapstore_registry_iter_t *iter, 
 
 void heapstore_registry_iter_destroy(heapstore_registry_iter_t *iter)
 {
-    AGENTRT_FREE(iter);
+    AIRY_FREE(iter);
 }
 
 heapstore_error_t heapstore_registry_vacuum(void)
@@ -439,13 +438,13 @@ bool heapstore_registry_is_healthy(void)
 
 #else
 
-#ifdef AGENTRT_HAS_SQLITE3
+#ifdef AIRY_HAS_SQLITE3
 #include <sqlite3.h>
 
 typedef struct {
     sqlite3 *db;
     char db_path[512];
-    agentrt_mutex_t lock;
+    airy_mtx_t lock;
     int initialized;
 } registry_db_t;
 
@@ -517,7 +516,7 @@ heapstore_error_t heapstore_registry_init(void)
     const char *configured_root = heapstore_get_root();
     char root_path[256];
     if (configured_root && configured_root[0] != '\0') {
-        AGENTRT_STRNCPY_TERM(root_path, configured_root, sizeof(root_path));
+        AIRY_STRNCPY_TERM(root_path, configured_root, sizeof(root_path));
     } else {
         const char *tmpdir = getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp";
         snprintf(root_path, sizeof(root_path), "%s/agentrt/heapstore", tmpdir);
@@ -547,7 +546,7 @@ heapstore_error_t heapstore_registry_init(void)
         return err;
     }
 
-    agentrt_mutex_init(&s_registry.lock);
+    airy_mtx_init(&s_registry.lock);
     s_registry.initialized = true;
 
     return heapstore_SUCCESS;
@@ -559,7 +558,7 @@ void heapstore_registry_shutdown(void)
         return;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     if (s_registry.db) {
         sqlite3_close(s_registry.db);
@@ -567,8 +566,8 @@ void heapstore_registry_shutdown(void)
     }
 
     s_registry.initialized = false;
-    agentrt_mutex_unlock(&s_registry.lock);
-    agentrt_mutex_destroy(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
+    airy_mtx_destroy(&s_registry.lock);
 }
 
 static heapstore_error_t
@@ -579,12 +578,12 @@ execute_sql_with_lock(const char *sql, heapstore_error_t (*bind_func)(sqlite3_st
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -592,14 +591,14 @@ execute_sql_with_lock(const char *sql, heapstore_error_t (*bind_func)(sqlite3_st
         heapstore_error_t err = bind_func(stmt, bind_data);
         if (err != heapstore_SUCCESS) {
             sqlite3_finalize(stmt);
-            agentrt_mutex_unlock(&s_registry.lock);
+            airy_mtx_unlock(&s_registry.lock);
             return err;
         }
     }
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -654,7 +653,7 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "SELECT id, name, type, version, status, config_path, created_at, updated_at "
                       "FROM agents WHERE id = ?;";
@@ -662,7 +661,7 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -673,37 +672,37 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
         const char *text;
         text = (const char *)sqlite3_column_text(stmt, 0);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->id, text, sizeof(record->id));
+            AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
         } else
             record->id[0] = '\0';
 
         text = (const char *)sqlite3_column_text(stmt, 1);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->name, text, sizeof(record->name));
+            AIRY_STRNCPY_TERM(record->name, text, sizeof(record->name));
         } else
             record->name[0] = '\0';
 
         text = (const char *)sqlite3_column_text(stmt, 2);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->type, text, sizeof(record->type));
+            AIRY_STRNCPY_TERM(record->type, text, sizeof(record->type));
         } else
             record->type[0] = '\0';
 
         text = (const char *)sqlite3_column_text(stmt, 3);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->version, text, sizeof(record->version));
+            AIRY_STRNCPY_TERM(record->version, text, sizeof(record->version));
         } else
             record->version[0] = '\0';
 
         text = (const char *)sqlite3_column_text(stmt, 4);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->status, text, sizeof(record->status));
+            AIRY_STRNCPY_TERM(record->status, text, sizeof(record->status));
         } else
             record->status[0] = '\0';
 
         text = (const char *)sqlite3_column_text(stmt, 5);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->config_path, text, sizeof(record->config_path));
+            AIRY_STRNCPY_TERM(record->config_path, text, sizeof(record->config_path));
         } else
             record->config_path[0] = '\0';
 
@@ -711,12 +710,12 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
         record->updated_at = sqlite3_column_int64(stmt, 7);
 
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_SUCCESS;
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -730,7 +729,7 @@ heapstore_error_t heapstore_registry_update_agent(const heapstore_agent_record_t
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql =
         "UPDATE agents SET "
@@ -740,7 +739,7 @@ heapstore_error_t heapstore_registry_update_agent(const heapstore_agent_record_t
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -754,7 +753,7 @@ heapstore_error_t heapstore_registry_update_agent(const heapstore_agent_record_t
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -773,14 +772,14 @@ heapstore_error_t heapstore_registry_delete_agent(const char *id)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "DELETE FROM agents WHERE id = ?;";
     sqlite3_stmt *stmt;
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -788,7 +787,7 @@ heapstore_error_t heapstore_registry_delete_agent(const char *id)
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -819,12 +818,12 @@ heapstore_error_t heapstore_registry_query_agents(const char *filter_type,
         snprintf(sql + pos, sizeof(sql) - pos, " AND status = ?");
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -837,10 +836,10 @@ heapstore_error_t heapstore_registry_query_agents(const char *filter_type,
     }
 
     heapstore_registry_iter_t *new_iter =
-        (heapstore_registry_iter_t *)AGENTRT_CALLOC(1, sizeof(heapstore_registry_iter_t));
+        (heapstore_registry_iter_t *)AIRY_CALLOC(1, sizeof(heapstore_registry_iter_t));
     if (!new_iter) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     new_iter->stmt = stmt;
@@ -848,7 +847,7 @@ heapstore_error_t heapstore_registry_query_agents(const char *filter_type,
     new_iter->has_more = 1;
 
     *iter = new_iter;
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
     return heapstore_SUCCESS;
 }
 
@@ -862,7 +861,7 @@ heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *r
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "INSERT INTO skills "
                       "(id, name, version, library_path, manifest_path, installed_at) "
@@ -871,7 +870,7 @@ heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *r
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -884,7 +883,7 @@ heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *r
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -903,7 +902,7 @@ heapstore_error_t heapstore_registry_get_skill(const char *id, heapstore_skill_r
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "SELECT id, name, version, library_path, manifest_path, installed_at FROM "
                       "skills WHERE id = ?;";
@@ -911,7 +910,7 @@ heapstore_error_t heapstore_registry_get_skill(const char *id, heapstore_skill_r
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -922,32 +921,32 @@ heapstore_error_t heapstore_registry_get_skill(const char *id, heapstore_skill_r
         const char *text;
         text = (const char *)sqlite3_column_text(stmt, 0);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->id, text, sizeof(record->id));
+            AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
         }
         text = (const char *)sqlite3_column_text(stmt, 1);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->name, text, sizeof(record->name));
+            AIRY_STRNCPY_TERM(record->name, text, sizeof(record->name));
         }
         text = (const char *)sqlite3_column_text(stmt, 2);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->version, text, sizeof(record->version));
+            AIRY_STRNCPY_TERM(record->version, text, sizeof(record->version));
         }
         text = (const char *)sqlite3_column_text(stmt, 3);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->library_path, text, sizeof(record->library_path));
+            AIRY_STRNCPY_TERM(record->library_path, text, sizeof(record->library_path));
         }
         text = (const char *)sqlite3_column_text(stmt, 4);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->manifest_path, text, sizeof(record->manifest_path));
+            AIRY_STRNCPY_TERM(record->manifest_path, text, sizeof(record->manifest_path));
         }
         record->installed_at = sqlite3_column_int64(stmt, 5);
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_SUCCESS;
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -961,14 +960,14 @@ heapstore_error_t heapstore_registry_delete_skill(const char *id)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "DELETE FROM skills WHERE id = ?;";
     sqlite3_stmt *stmt;
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -976,7 +975,7 @@ heapstore_error_t heapstore_registry_delete_skill(const char *id)
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -995,7 +994,7 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "INSERT INTO sessions "
                       "(id, user_id, created_at, last_active_at, ttl_seconds, status) "
@@ -1004,7 +1003,7 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1017,7 +1016,7 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -1036,7 +1035,7 @@ heapstore_error_t heapstore_registry_get_session(const char *id, heapstore_sessi
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status FROM "
                       "sessions WHERE id = ?;";
@@ -1044,7 +1043,7 @@ heapstore_error_t heapstore_registry_get_session(const char *id, heapstore_sessi
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1055,26 +1054,26 @@ heapstore_error_t heapstore_registry_get_session(const char *id, heapstore_sessi
         const char *text;
         text = (const char *)sqlite3_column_text(stmt, 0);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->id, text, sizeof(record->id));
+            AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
         }
         text = (const char *)sqlite3_column_text(stmt, 1);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->user_id, text, sizeof(record->user_id));
+            AIRY_STRNCPY_TERM(record->user_id, text, sizeof(record->user_id));
         }
         record->created_at = sqlite3_column_int64(stmt, 2);
         record->last_active_at = sqlite3_column_int64(stmt, 3);
         record->ttl_seconds = sqlite3_column_int(stmt, 4);
         text = (const char *)sqlite3_column_text(stmt, 5);
         if (text) {
-            AGENTRT_STRNCPY_TERM(record->status, text, sizeof(record->status));
+            AIRY_STRNCPY_TERM(record->status, text, sizeof(record->status));
         }
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_SUCCESS;
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -1088,7 +1087,7 @@ heapstore_error_t heapstore_registry_update_session(const heapstore_session_reco
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "UPDATE sessions SET user_id = ?, last_active_at = ?, ttl_seconds = ?, "
                       "status = ? WHERE id = ?;";
@@ -1096,7 +1095,7 @@ heapstore_error_t heapstore_registry_update_session(const heapstore_session_reco
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1108,7 +1107,7 @@ heapstore_error_t heapstore_registry_update_session(const heapstore_session_reco
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -1127,14 +1126,14 @@ heapstore_error_t heapstore_registry_delete_session(const char *id)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "DELETE FROM sessions WHERE id = ?;";
     sqlite3_stmt *stmt;
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1142,7 +1141,7 @@ heapstore_error_t heapstore_registry_delete_session(const char *id)
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     if (rc != SQLITE_DONE) {
         return heapstore_ERR_DB_QUERY_FAILED;
@@ -1161,7 +1160,7 @@ heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **it
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "SELECT id, name, version, library_path, manifest_path, installed_at FROM "
                       "skills ORDER BY installed_at DESC;";
@@ -1169,15 +1168,15 @@ heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **it
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
     heapstore_registry_iter_t *new_iter =
-        (heapstore_registry_iter_t *)AGENTRT_MALLOC(sizeof(heapstore_registry_iter_t));
+        (heapstore_registry_iter_t *)AIRY_MALLOC(sizeof(heapstore_registry_iter_t));
     if (!new_iter) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
@@ -1186,7 +1185,7 @@ heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **it
     new_iter->has_more = 1;
 
     *iter = new_iter;
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return heapstore_SUCCESS;
 }
@@ -1209,7 +1208,7 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     const char *sql;
     sqlite3_stmt *stmt;
@@ -1224,7 +1223,7 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1233,10 +1232,10 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
     }
 
     heapstore_registry_iter_t *new_iter =
-        (heapstore_registry_iter_t *)AGENTRT_MALLOC(sizeof(heapstore_registry_iter_t));
+        (heapstore_registry_iter_t *)AIRY_MALLOC(sizeof(heapstore_registry_iter_t));
     if (!new_iter) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
@@ -1245,7 +1244,7 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
     new_iter->has_more = 1;
 
     *iter = new_iter;
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return heapstore_SUCCESS;
 }
@@ -1279,22 +1278,22 @@ heapstore_error_t heapstore_registry_iter_next(heapstore_registry_iter_t *iter, 
 
         text = (const char *)sqlite3_column_text(iter->stmt, 0);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->id, text, sizeof(agent_rec->id));
+            AIRY_STRNCPY_TERM(agent_rec->id, text, sizeof(agent_rec->id));
         text = (const char *)sqlite3_column_text(iter->stmt, 1);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->name, text, sizeof(agent_rec->name));
+            AIRY_STRNCPY_TERM(agent_rec->name, text, sizeof(agent_rec->name));
         text = (const char *)sqlite3_column_text(iter->stmt, 2);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->type, text, sizeof(agent_rec->type));
+            AIRY_STRNCPY_TERM(agent_rec->type, text, sizeof(agent_rec->type));
         text = (const char *)sqlite3_column_text(iter->stmt, 3);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->version, text, sizeof(agent_rec->version));
+            AIRY_STRNCPY_TERM(agent_rec->version, text, sizeof(agent_rec->version));
         text = (const char *)sqlite3_column_text(iter->stmt, 4);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->status, text, sizeof(agent_rec->status));
+            AIRY_STRNCPY_TERM(agent_rec->status, text, sizeof(agent_rec->status));
         text = (const char *)sqlite3_column_text(iter->stmt, 5);
         if (text)
-            AGENTRT_STRNCPY_TERM(agent_rec->config_path, text, sizeof(agent_rec->config_path));
+            AIRY_STRNCPY_TERM(agent_rec->config_path, text, sizeof(agent_rec->config_path));
         agent_rec->created_at = sqlite3_column_int64(iter->stmt, 6);
         agent_rec->updated_at = sqlite3_column_int64(iter->stmt, 7);
         break;
@@ -1305,19 +1304,19 @@ heapstore_error_t heapstore_registry_iter_next(heapstore_registry_iter_t *iter, 
 
         text = (const char *)sqlite3_column_text(iter->stmt, 0);
         if (text)
-            AGENTRT_STRNCPY_TERM(skill_rec->id, text, sizeof(skill_rec->id));
+            AIRY_STRNCPY_TERM(skill_rec->id, text, sizeof(skill_rec->id));
         text = (const char *)sqlite3_column_text(iter->stmt, 1);
         if (text)
-            AGENTRT_STRNCPY_TERM(skill_rec->name, text, sizeof(skill_rec->name));
+            AIRY_STRNCPY_TERM(skill_rec->name, text, sizeof(skill_rec->name));
         text = (const char *)sqlite3_column_text(iter->stmt, 2);
         if (text)
-            AGENTRT_STRNCPY_TERM(skill_rec->version, text, sizeof(skill_rec->version));
+            AIRY_STRNCPY_TERM(skill_rec->version, text, sizeof(skill_rec->version));
         text = (const char *)sqlite3_column_text(iter->stmt, 3);
         if (text)
-            AGENTRT_STRNCPY_TERM(skill_rec->library_path, text, sizeof(skill_rec->library_path));
+            AIRY_STRNCPY_TERM(skill_rec->library_path, text, sizeof(skill_rec->library_path));
         text = (const char *)sqlite3_column_text(iter->stmt, 4);
         if (text)
-            AGENTRT_STRNCPY_TERM(skill_rec->manifest_path, text, sizeof(skill_rec->manifest_path));
+            AIRY_STRNCPY_TERM(skill_rec->manifest_path, text, sizeof(skill_rec->manifest_path));
         skill_rec->installed_at = sqlite3_column_int64(iter->stmt, 5);
         break;
     }
@@ -1327,16 +1326,16 @@ heapstore_error_t heapstore_registry_iter_next(heapstore_registry_iter_t *iter, 
 
         text = (const char *)sqlite3_column_text(iter->stmt, 0);
         if (text)
-            AGENTRT_STRNCPY_TERM(session_rec->id, text, sizeof(session_rec->id));
+            AIRY_STRNCPY_TERM(session_rec->id, text, sizeof(session_rec->id));
         text = (const char *)sqlite3_column_text(iter->stmt, 1);
         if (text)
-            AGENTRT_STRNCPY_TERM(session_rec->user_id, text, sizeof(session_rec->user_id));
+            AIRY_STRNCPY_TERM(session_rec->user_id, text, sizeof(session_rec->user_id));
         session_rec->created_at = sqlite3_column_int64(iter->stmt, 2);
         session_rec->last_active_at = sqlite3_column_int64(iter->stmt, 3);
         session_rec->ttl_seconds = sqlite3_column_int(iter->stmt, 4);
         text = (const char *)sqlite3_column_text(iter->stmt, 5);
         if (text)
-            AGENTRT_STRNCPY_TERM(session_rec->status, text, sizeof(session_rec->status));
+            AIRY_STRNCPY_TERM(session_rec->status, text, sizeof(session_rec->status));
         break;
     }
     default:
@@ -1357,7 +1356,7 @@ void heapstore_registry_iter_destroy(heapstore_registry_iter_t *iter)
         iter->stmt = NULL;
     }
 
-    AGENTRT_FREE(iter);
+    AIRY_FREE(iter);
 }
 
 heapstore_error_t heapstore_registry_vacuum(void)
@@ -1366,9 +1365,9 @@ heapstore_error_t heapstore_registry_vacuum(void)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
     sqlite3_exec(s_registry.db, "VACUUM;", NULL, NULL, NULL);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return heapstore_SUCCESS;
 }
@@ -1388,19 +1387,19 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
                       "(id, name, type, version, status, config_path, created_at, updated_at) "
                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
     rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1435,7 +1434,7 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return result;
 }
@@ -1455,19 +1454,19 @@ heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *recor
                       "(id, user_id, created_at, last_active_at, ttl_seconds, status) "
                       "VALUES (?, ?, ?, ?, ?, ?);";
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
     rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1500,7 +1499,7 @@ heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *recor
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return result;
 }
@@ -1520,19 +1519,19 @@ heapstore_error_t heapstore_registry_batch_insert_skills(const heapstore_skill_r
                       "(id, name, version, library_path, manifest_path, installed_at) "
                       "VALUES (?, ?, ?, ?, ?, ?);";
 
-    agentrt_mutex_lock(&s_registry.lock);
+    airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
     rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         sqlite3_finalize(stmt);
-        agentrt_mutex_unlock(&s_registry.lock);
+        airy_mtx_unlock(&s_registry.lock);
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
@@ -1565,7 +1564,7 @@ heapstore_error_t heapstore_registry_batch_insert_skills(const heapstore_skill_r
     }
 
     sqlite3_finalize(stmt);
-    agentrt_mutex_unlock(&s_registry.lock);
+    airy_mtx_unlock(&s_registry.lock);
 
     return result;
 }
@@ -1575,5 +1574,5 @@ bool heapstore_registry_is_healthy(void)
     return s_registry.initialized && s_registry.db != NULL;
 }
 
-#endif /* AGENTRT_HAS_SQLITE3 */
+#endif /* AIRY_HAS_SQLITE3 */
 #endif

@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -28,7 +27,7 @@
 #include <windows.h>
 #define mkdir(path, mode) _mkdir(path)
 #else
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 #include "platform.h"
 
 #include <sys/stat.h>
@@ -41,7 +40,7 @@
 
 static bool s_initialized = false;
 static char s_trace_path[heapstore_TRACE_MAX_PATH] = {0};
-static agentrt_mutex_t s_trace_lock = {0};
+static airy_mtx_t s_trace_lock = {0};
 static heapstore_span_t *s_span_buffer = NULL;
 static size_t s_span_count = 0;
 static heapstore_trace_exporter_config_t s_exporter_config = {0};
@@ -55,7 +54,7 @@ heapstore_error_t heapstore_trace_init(void)
     }
 
     const char *base_path = "agentrt/heapstore/traces";
-    AGENTRT_STRNCPY_TERM(s_trace_path, base_path, sizeof(s_trace_path));
+    AIRY_STRNCPY_TERM(s_trace_path, base_path, sizeof(s_trace_path));
 
     heapstore_ensure_directory(s_trace_path);
 
@@ -63,7 +62,7 @@ heapstore_error_t heapstore_trace_init(void)
     snprintf(spans_path, sizeof(spans_path), "%s/spans", s_trace_path);
     heapstore_ensure_directory(spans_path);
 
-    s_span_buffer = (heapstore_span_t *)AGENTRT_CALLOC(heapstore_TRACE_MAX_SPANS, sizeof(heapstore_span_t));
+    s_span_buffer = (heapstore_span_t *)AIRY_CALLOC(heapstore_TRACE_MAX_SPANS, sizeof(heapstore_span_t));
     if (!s_span_buffer) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -73,7 +72,7 @@ heapstore_error_t heapstore_trace_init(void)
     s_exporter_config.enabled = false;
     s_exporter_config.batch_size = heapstore_TRACE_BATCH_SIZE;
     s_exporter_config.export_interval_sec = 30;
-    AGENTRT_STRNCPY_TERM(s_exporter_config.export_format, "json", sizeof(s_exporter_config.export_format));
+    AIRY_STRNCPY_TERM(s_exporter_config.export_format, "json", sizeof(s_exporter_config.export_format));
 
     s_initialized = true;
 
@@ -87,16 +86,16 @@ void heapstore_trace_shutdown(void)
         return;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (s_span_buffer) {
-        AGENTRT_FREE(s_span_buffer);
+        AIRY_FREE(s_span_buffer);
         s_span_buffer = NULL;
     }
     s_span_count = 0;
 
     s_initialized = false;
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 }
 
 heapstore_error_t heapstore_trace_write_span(const heapstore_span_t *span)
@@ -113,17 +112,17 @@ heapstore_error_t heapstore_trace_write_span(const heapstore_span_t *span)
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (s_span_count >= heapstore_TRACE_MAX_SPANS) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     __builtin_memcpy(&s_span_buffer[s_span_count], span, sizeof(heapstore_span_t));
     s_span_count++;
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -138,17 +137,17 @@ heapstore_error_t heapstore_trace_write_spans_batch(const heapstore_span_t *span
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (s_span_count + count > heapstore_TRACE_MAX_SPANS) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     __builtin_memcpy(&s_span_buffer[s_span_count], spans, count * sizeof(heapstore_span_t));
     s_span_count += count;
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -164,7 +163,7 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     size_t match_count = 0;
     for (size_t i = 0; i < s_span_count; i++) {
@@ -174,7 +173,7 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
     }
 
     if (match_count == 0) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         *spans = NULL;
         *count = 0;
         return heapstore_ERR_NOT_FOUND;
@@ -182,7 +181,7 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
 
     heapstore_span_t *result = NULL;
     SAFE_MALLOC_ARRAY(result, match_count, sizeof(heapstore_span_t));
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     size_t idx = 0;
     for (size_t i = 0; i < s_span_count; i++) {
@@ -195,7 +194,7 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
     *spans = result;
     *count = match_count;
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -211,7 +210,7 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     size_t match_count = 0;
     for (size_t i = 0; i < s_span_count; i++) {
@@ -222,16 +221,16 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
     }
 
     if (match_count == 0) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         *spans = NULL;
         *count = 0;
         return heapstore_ERR_NOT_FOUND;
     }
 
     heapstore_span_t *result =
-        (heapstore_span_t *)agentrt_malloc_array(match_count, sizeof(heapstore_span_t));
+        (heapstore_span_t *)airy_malloc_array(match_count, sizeof(heapstore_span_t));
     if (!result) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
@@ -247,7 +246,7 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
     *spans = result;
     *count = match_count;
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -255,7 +254,7 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
 void heapstore_trace_free_spans(heapstore_span_t *spans)
 {
     if (spans) {
-        AGENTRT_FREE(spans);
+        AIRY_FREE(spans);
     }
 }
 
@@ -269,9 +268,9 @@ heapstore_error_t heapstore_trace_config_exporter(const heapstore_trace_exporter
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
     __builtin_memcpy(&s_exporter_config, manager, sizeof(s_exporter_config));
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -284,10 +283,10 @@ heapstore_error_t heapstore_trace_flush(void)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (s_span_count == 0) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_SUCCESS;
     }
 
@@ -302,7 +301,7 @@ heapstore_error_t heapstore_trace_flush(void)
 
     FILE *fp = fopen(filepath, "w");
     if (!fp) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
 
@@ -329,7 +328,7 @@ heapstore_error_t heapstore_trace_flush(void)
     fclose(fp);
     s_span_count = 0;
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -342,7 +341,7 @@ heapstore_error_t heapstore_trace_get_stats(uint64_t *total_spans, uint64_t *pen
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (total_spans) {
         *total_spans = s_span_count;
@@ -354,7 +353,7 @@ heapstore_error_t heapstore_trace_get_stats(uint64_t *total_spans, uint64_t *pen
         *total_size_bytes = s_span_count * sizeof(heapstore_span_t);
     }
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -377,7 +376,7 @@ heapstore_error_t heapstore_trace_cleanup(int days_to_keep, uint64_t *freed_byte
 
     time_t cutoff_time = time(NULL) - (days_to_keep * 86400);
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     char spans_path[heapstore_TRACE_MAX_PATH];
     snprintf(spans_path, sizeof(spans_path), "%s/spans", s_trace_path);
@@ -439,7 +438,7 @@ heapstore_error_t heapstore_trace_cleanup(int days_to_keep, uint64_t *freed_byte
     }
 #endif
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     return heapstore_SUCCESS;
 }
@@ -467,20 +466,20 @@ heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_e
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_trace_lock);
+    airy_mtx_lock(&s_trace_lock);
 
     if (s_span_count == 0) {
-        *out_json = AGENTRT_STRDUP(include_events ? "[]" : "[]");
-        agentrt_mutex_unlock(&s_trace_lock);
+        *out_json = AIRY_STRDUP(include_events ? "[]" : "[]");
+        airy_mtx_unlock(&s_trace_lock);
         return (*out_json != NULL) ? heapstore_SUCCESS : heapstore_ERR_OUT_OF_MEMORY;
     }
 
     size_t estimated_size = s_span_count * 512 + 64;
     if (include_events)
         estimated_size += s_span_count * 256;
-    char *json_buffer = (char *)AGENTRT_MALLOC(estimated_size);
+    char *json_buffer = (char *)AIRY_MALLOC(estimated_size);
     if (!json_buffer) {
-        agentrt_mutex_unlock(&s_trace_lock);
+        airy_mtx_unlock(&s_trace_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
@@ -525,10 +524,10 @@ heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_e
         /* 检查缓冲区是否足够 */
         if (pos >= estimated_size - 512) {
             estimated_size *= 2;
-            char *new_buffer = (char *)AGENTRT_REALLOC(json_buffer, estimated_size);
+            char *new_buffer = (char *)AIRY_REALLOC(json_buffer, estimated_size);
             if (!new_buffer) {
-                AGENTRT_FREE(json_buffer);
-                agentrt_mutex_unlock(&s_trace_lock);
+                AIRY_FREE(json_buffer);
+                airy_mtx_unlock(&s_trace_lock);
                 return heapstore_ERR_OUT_OF_MEMORY;
             }
             json_buffer = new_buffer;
@@ -537,7 +536,7 @@ heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_e
 
     pos += snprintf(json_buffer + pos, estimated_size - pos, "]");
 
-    agentrt_mutex_unlock(&s_trace_lock);
+    airy_mtx_unlock(&s_trace_lock);
 
     *out_json = json_buffer;
 
