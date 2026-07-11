@@ -6,12 +6,11 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
-#ifndef AGENTRT_HEAPSTORE_BATCH_H
-#define AGENTRT_HEAPSTORE_BATCH_H
+#ifndef AIRY_RT_HEAPSTORE_BATCH_H
+#define AIRY_RT_HEAPSTORE_BATCH_H
 
 #include "../../commons/platform/include/platform.h"
 #include "heapstore.h"
@@ -72,7 +71,7 @@ typedef struct heapstore_batch_context {
     heapstore_batch_item_t *tail;
     size_t count;
     size_t capacity;
-    agentrt_mutex_t lock;
+    airy_mtx_t lock;
 } heapstore_batch_context_t;
 
 /**
@@ -222,4 +221,4 @@ size_t heapstore_batch_get_capacity(const heapstore_batch_context_t *ctx);
 }
 #endif
 
-#endif /* AGENTRT_HEAPSTORE_BATCH_H */
+#endif /* AIRY_RT_HEAPSTORE_BATCH_H */

@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -32,7 +31,7 @@
 #define F_OK 0
 #define access _access
 #else
-#include "agentrt_mman.h"
+#include "airy_mman.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -46,7 +45,7 @@
 #define heapstore_IPC_MAX_PATH 512
 
 static bool s_initialized = false;
-static agentrt_mutex_t s_ipc_lock = {0};
+static airy_mtx_t s_ipc_lock = {0};
 static heapstore_ipc_channel_t s_channels[heapstore_IPC_MAX_CHANNELS];
 static size_t s_channel_count = 0;
 static heapstore_ipc_buffer_t s_buffers[heapstore_IPC_MAX_BUFFERS];
@@ -249,7 +248,7 @@ static ipc_shm_region_t *find_or_create_shm(const char *name, size_t size)
         return NULL;
 
     ipc_shm_region_t *r = &s_shm_regions[s_shm_region_count];
-    snprintf(r->shm_name, sizeof(r->shm_name), "/agentrt_ipc_%s", name);
+    snprintf(r->shm_name, sizeof(r->shm_name), "/airy_ipc_%s", name);
 
     r->shm_fd = shm_open(r->shm_name, O_CREAT | O_RDWR, 0666);
     if (r->shm_fd < 0)
@@ -281,7 +280,7 @@ heapstore_error_t heapstore_ipc_init(void)
     }
 
     const char *base_path = "agentrt/heapstore/kernel/ipc";
-    AGENTRT_STRNCPY_TERM(s_ipc_path, base_path, sizeof(s_ipc_path));
+    AIRY_STRNCPY_TERM(s_ipc_path, base_path, sizeof(s_ipc_path));
 
     heapstore_ensure_directory(s_ipc_path);
 
@@ -309,7 +308,7 @@ void heapstore_ipc_shutdown(void)
         return;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
 #ifndef _WIN32
     for (size_t i = 0; i < s_shm_region_count; i++) {
@@ -332,7 +331,7 @@ void heapstore_ipc_shutdown(void)
     s_buffer_count = 0;
 
     s_initialized = false;
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 }
 
 heapstore_error_t heapstore_ipc_record_channel(const heapstore_ipc_channel_t *channel)
@@ -345,17 +344,17 @@ heapstore_error_t heapstore_ipc_record_channel(const heapstore_ipc_channel_t *ch
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     if (s_channel_count >= heapstore_IPC_MAX_CHANNELS) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     for (size_t i = 0; i < s_channel_count; i++) {
         if (strcmp(s_channels[i].channel_id, channel->channel_id) == 0) {
             __builtin_memcpy(&s_channels[i], channel, sizeof(heapstore_ipc_channel_t));
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
@@ -371,7 +370,7 @@ heapstore_error_t heapstore_ipc_record_channel(const heapstore_ipc_channel_t *ch
     }
 #endif
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 
     return heapstore_SUCCESS;
 }
@@ -387,26 +386,26 @@ heapstore_error_t heapstore_ipc_get_channel(const char *channel_id,
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     for (size_t i = 0; i < s_channel_count; i++) {
         if (strcmp(s_channels[i].channel_id, channel_id) == 0) {
             __builtin_memcpy(channel, &s_channels[i], sizeof(heapstore_ipc_channel_t));
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 
     heapstore_error_t file_err = load_channel_from_file(channel_id, channel);
     if (file_err == heapstore_SUCCESS) {
-        agentrt_mutex_lock(&s_ipc_lock);
+        airy_mtx_lock(&s_ipc_lock);
         if (s_channel_count < heapstore_IPC_MAX_CHANNELS) {
             __builtin_memcpy(&s_channels[s_channel_count], channel, sizeof(heapstore_ipc_channel_t));
             s_channel_count++;
         }
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_SUCCESS;
     }
 
@@ -423,17 +422,17 @@ heapstore_error_t heapstore_ipc_update_channel_activity(const char *channel_id)
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     for (size_t i = 0; i < s_channel_count; i++) {
         if (strcmp(s_channels[i].channel_id, channel_id) == 0) {
             s_channels[i].last_activity_at = (uint64_t)time(NULL);
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -447,17 +446,17 @@ heapstore_error_t heapstore_ipc_record_buffer(const heapstore_ipc_buffer_t *buff
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     if (s_buffer_count >= heapstore_IPC_MAX_BUFFERS) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     for (size_t i = 0; i < s_buffer_count; i++) {
         if (strcmp(s_buffers[i].buffer_id, buffer->buffer_id) == 0) {
             __builtin_memcpy(&s_buffers[i], buffer, sizeof(heapstore_ipc_buffer_t));
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
@@ -467,7 +466,7 @@ heapstore_error_t heapstore_ipc_record_buffer(const heapstore_ipc_buffer_t *buff
 
     persist_buffer_to_file(buffer);
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 
     return heapstore_SUCCESS;
 }
@@ -482,26 +481,26 @@ heapstore_error_t heapstore_ipc_get_buffer(const char *buffer_id, heapstore_ipc_
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     for (size_t i = 0; i < s_buffer_count; i++) {
         if (strcmp(s_buffers[i].buffer_id, buffer_id) == 0) {
             __builtin_memcpy(buffer, &s_buffers[i], sizeof(heapstore_ipc_buffer_t));
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 
     heapstore_error_t file_err = load_buffer_from_file(buffer_id, buffer);
     if (file_err == heapstore_SUCCESS) {
-        agentrt_mutex_lock(&s_ipc_lock);
+        airy_mtx_lock(&s_ipc_lock);
         if (s_buffer_count < heapstore_IPC_MAX_BUFFERS) {
             __builtin_memcpy(&s_buffers[s_buffer_count], buffer, sizeof(heapstore_ipc_buffer_t));
             s_buffer_count++;
         }
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_SUCCESS;
     }
 
@@ -515,7 +514,7 @@ heapstore_error_t heapstore_ipc_get_stats(uint32_t *channel_count, uint32_t *buf
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     if (channel_count) {
         *channel_count = (uint32_t)s_channel_count;
@@ -534,7 +533,7 @@ heapstore_error_t heapstore_ipc_get_stats(uint32_t *channel_count, uint32_t *buf
         *total_size = size;
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
 
     return heapstore_SUCCESS;
 }
@@ -576,7 +575,7 @@ static ipc_active_channel_t *create_active_channel(const char *channel_id, size_
 
     ipc_active_channel_t *ac = &s_active_channels[s_active_count];
     __builtin_memset(ac, 0, sizeof(*ac));
-    AGENTRT_STRNCPY_TERM(ac->channel_id, channel_id, sizeof(ac->channel_id));
+    AIRY_STRNCPY_TERM(ac->channel_id, channel_id, sizeof(ac->channel_id));
 
     ac->shm = find_or_create_shm(channel_id, buffer_size);
     if (!ac->shm)
@@ -598,26 +597,26 @@ heapstore_error_t heapstore_ipc_create_channel(const char *channel_id, const cha
     if (buffer_size < 256)
         buffer_size = 65536;
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     ipc_active_channel_t *existing = find_active_channel(channel_id);
     if (existing) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_SUCCESS;
     }
 
     ipc_active_channel_t *ac = create_active_channel(channel_id, buffer_size);
     if (!ac) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_INTERNAL;
     }
 
     heapstore_ipc_channel_t ch;
     __builtin_memset(&ch, 0, sizeof(ch));
-    AGENTRT_STRNCPY_TERM(ch.channel_id, channel_id, sizeof(ch.channel_id));
-    AGENTRT_STRNCPY_TERM(ch.name, name, sizeof(ch.name));
-    AGENTRT_STRNCPY_TERM(ch.type, type, sizeof(ch.type));
-    AGENTRT_STRNCPY_TERM(ch.status, "open", sizeof(ch.status));
+    AIRY_STRNCPY_TERM(ch.channel_id, channel_id, sizeof(ch.channel_id));
+    AIRY_STRNCPY_TERM(ch.name, name, sizeof(ch.name));
+    AIRY_STRNCPY_TERM(ch.type, type, sizeof(ch.type));
+    AIRY_STRNCPY_TERM(ch.status, "open", sizeof(ch.status));
     ch.buffer_size = buffer_size;
     ch.created_at = (uint64_t)time(NULL);
     ch.last_activity_at = ch.created_at;
@@ -625,7 +624,7 @@ heapstore_error_t heapstore_ipc_create_channel(const char *channel_id, const cha
     __builtin_memcpy(&s_channels[s_channel_count], &ch, sizeof(heapstore_ipc_channel_t));
     s_channel_count++;
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -636,7 +635,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
     if (!channel_id)
         return heapstore_ERR_INVALID_PARAM;
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     for (size_t i = 0; i < s_active_count; i++) {
         if (strcmp(s_active_channels[i].channel_id, channel_id) == 0) {
@@ -677,7 +676,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
         }
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -688,21 +687,21 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
     if (!channel_id || !data || len == 0)
         return heapstore_ERR_INVALID_PARAM;
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     ipc_active_channel_t *ac = find_active_channel(channel_id);
     if (!ac || !ac->shm) {
         heapstore_ipc_create_channel(channel_id, channel_id, "auto", len + 256);
         ac = find_active_channel(channel_id);
         if (!ac) {
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_ERR_INTERNAL;
         }
     }
 
     size_t header_size = sizeof(uint32_t) * 2;
     if (len + header_size > ac->shm->mapped_size) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_INTERNAL;
     }
 
@@ -724,7 +723,7 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
         }
     }
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -738,11 +737,11 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
     *out_data = NULL;
     *out_len = 0;
 
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
 
     ipc_active_channel_t *ac = find_active_channel(channel_id);
     if (!ac || !ac->shm) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NOT_FOUND;
     }
 
@@ -751,20 +750,20 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
     atomic_thread_fence(memory_order_seq_cst);
 
     if (*msg_ready != 1) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NOT_FOUND;
     }
 
     volatile uint32_t *msg_len = (volatile uint32_t *)ac->shm->mapped;
     uint32_t len = *msg_len;
     if (len == 0 || len > ac->shm->mapped_size - sizeof(uint32_t) * 2) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    void *buf = AGENTRT_MALLOC(len);
+    void *buf = AIRY_MALLOC(len);
     if (!buf) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
@@ -777,7 +776,7 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
     *out_data = buf;
     *out_len = len;
 
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -788,9 +787,9 @@ heapstore_error_t heapstore_ipc_create_channel(const char *channel_id, const cha
 {
     if (!channel_id || !name || !type)
         return heapstore_ERR_INVALID_PARAM;
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
     if (s_channel_count >= heapstore_IPC_MAX_CHANNELS) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NO_SPACE;
     }
     heapstore_ipc_channel_t *ch = &s_channels[s_channel_count];
@@ -804,7 +803,7 @@ heapstore_error_t heapstore_ipc_create_channel(const char *channel_id, const cha
     ch->last_activity_at = ch->created_at;
     s_channel_count++;
     persist_channel_to_file(ch);
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -812,17 +811,17 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
 {
     if (!channel_id)
         return heapstore_ERR_INVALID_PARAM;
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
     for (size_t i = 0; i < s_channel_count; i++) {
         if (strcmp(s_channels[i].channel_id, channel_id) == 0) {
             s_channels[i] = s_channels[s_channel_count - 1];
             __builtin_memset(&s_channels[s_channel_count - 1], 0, sizeof(heapstore_ipc_channel_t));
             s_channel_count--;
-            agentrt_mutex_unlock(&s_ipc_lock);
+            airy_mtx_unlock(&s_ipc_lock);
             return heapstore_SUCCESS;
         }
     }
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_ERR_NOT_FOUND;
 }
 
@@ -830,7 +829,7 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
 {
     if (!channel_id || !data || len == 0)
         return heapstore_ERR_INVALID_PARAM;
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
     heapstore_ipc_channel_t *ch = NULL;
     for (size_t i = 0; i < s_channel_count; i++) {
         if (strcmp(s_channels[i].channel_id, channel_id) == 0) {
@@ -839,15 +838,15 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
         }
     }
     if (!ch) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NOT_FOUND;
     }
     if (len > ch->buffer_size) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NO_SPACE;
     }
     if (s_buffer_count >= heapstore_IPC_MAX_BUFFERS) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NO_SPACE;
     }
     heapstore_ipc_buffer_t *buf = &s_buffers[s_buffer_count];
@@ -863,7 +862,7 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
     ch->last_activity_at = (uint64_t)time(NULL);
     persist_buffer_to_file(buf);
     persist_channel_to_file(ch);
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 
@@ -871,7 +870,7 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
 {
     if (!channel_id || !out_data || !out_len)
         return heapstore_ERR_INVALID_PARAM;
-    agentrt_mutex_lock(&s_ipc_lock);
+    airy_mtx_lock(&s_ipc_lock);
     heapstore_ipc_buffer_t *found = NULL;
     for (size_t i = 0; i < s_buffer_count; i++) {
         if (strcmp(s_buffers[i].channel_id, channel_id) == 0 &&
@@ -883,12 +882,12 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
     if (!found) {
         *out_data = NULL;
         *out_len = 0;
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_NOT_FOUND;
     }
-    void *data = AGENTRT_MALLOC(found->used > 0 ? found->used : 1);
+    void *data = AIRY_MALLOC(found->used > 0 ? found->used : 1);
     if (!data) {
-        agentrt_mutex_unlock(&s_ipc_lock);
+        airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memset(data, 0, found->used > 0 ? found->used : 1);
@@ -903,7 +902,7 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
             break;
         }
     }
-    agentrt_mutex_unlock(&s_ipc_lock);
+    airy_mtx_unlock(&s_ipc_lock);
     return heapstore_SUCCESS;
 }
 

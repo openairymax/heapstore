@@ -8,13 +8,12 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 #include "../../include/heapstore.h"
 #include "../../include/heapstore_trace.h"
 #include "../../include/utils.h"
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 #include "atomic_compat.h"
 
 #include <errno.h>
@@ -94,7 +93,7 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
                              uint32_t sampling_rate)
 {
     if (!storage_path) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire)) {
@@ -102,7 +101,7 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
     }
 
     // 设置存储路径
-    AGENTRT_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
+    AIRY_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
 
     g_ctx.max_storage_bytes =
         max_storage_bytes > 0 ? max_storage_bytes : 500 * 1024 * 1024;  // 默认500MB
@@ -115,14 +114,14 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
     if (_mkdir(g_ctx.storage_path) != 0) {
         // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
-            return AGENTRT_ERR_NOT_FOUND;
+            return AIRY_ERR_NOT_FOUND;
         }
     }
 #else
     if (mkdir(g_ctx.storage_path, 0755) != 0) {
         // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
-            return AGENTRT_ERR_NOT_FOUND;
+            return AIRY_ERR_NOT_FOUND;
         }
     }
 #endif
@@ -140,7 +139,7 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
 int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire) || !trace_point) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     // 应用采样率
@@ -154,7 +153,7 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
     struct tm tm_buf;
     struct tm *tm_info = localtime_r(&now, &tm_buf);
     if (!tm_info) {
-        return AGENTRT_ERR_INVALID_PARAM;
+        return AIRY_ERR_INVALID_PARAM;
     }
 
     // 构建追踪文件名
@@ -165,7 +164,7 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
     // 打开追踪文件
     FILE *f = fopen(filename, "ab");
     if (!f) {
-        return AGENTRT_ERR_NULL_POINTER;
+        return AIRY_ERR_NULL_POINTER;
     }
 
     // 写入追踪点
@@ -173,7 +172,7 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
     fclose(f);
 
     if (written != 1) {
-        return AGENTRT_ERR_OUT_OF_MEMORY;
+        return AIRY_ERR_OUT_OF_MEMORY;
     }
 
     // 更新统计
@@ -196,7 +195,7 @@ int trace_store_service_store_batch(const heapstore_trace_point_t *trace_points,
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire) || !trace_points ||
         count <= 0) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     int stored = 0;
@@ -252,25 +251,25 @@ int trace_store_service_query_traces(const heapstore_trace_query_t *query,
                                      heapstore_trace_point_t **out_traces, int max_traces)
 {
     if (!query || !out_traces || max_traces <= 0) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire)) {
-        return AGENTRT_ERR_OVERFLOW;
+        return AIRY_ERR_OVERFLOW;
     }
 
     *out_traces = NULL;
 
     DIR *dir = opendir(g_ctx.storage_path);
     if (!dir) {
-        return AGENTRT_ERR_INVALID_PARAM;
+        return AIRY_ERR_INVALID_PARAM;
     }
 
     heapstore_trace_point_t *results = NULL;
     SAFE_MALLOC_ARRAY(results, max_traces, sizeof(heapstore_trace_point_t));
     if (!results) {
         closedir(dir);
-        return AGENTRT_ERR_OUT_OF_MEMORY;
+        return AIRY_ERR_OUT_OF_MEMORY;
     }
 
     int found_count = 0;
@@ -321,7 +320,7 @@ int trace_store_service_query_traces(const heapstore_trace_query_t *query,
     closedir(dir);
 
     if (found_count == 0) {
-        AGENTRT_FREE(results);
+        AIRY_FREE(results);
         *out_traces = NULL;
         return 0;
     }
@@ -329,12 +328,12 @@ int trace_store_service_query_traces(const heapstore_trace_query_t *query,
     heapstore_trace_point_t *final_results = NULL;
     SAFE_MALLOC_ARRAY(final_results, found_count, sizeof(heapstore_trace_point_t));
     if (!final_results) {
-        AGENTRT_FREE(results);
-        return AGENTRT_ERR_OUT_OF_MEMORY;
+        AIRY_FREE(results);
+        return AIRY_ERR_OUT_OF_MEMORY;
     }
 
     __builtin_memcpy(final_results, results, found_count * sizeof(heapstore_trace_point_t));
-    AGENTRT_FREE(results);
+    AIRY_FREE(results);
 
     *out_traces = final_results;
     return found_count;
@@ -351,7 +350,7 @@ void trace_store_service_free_traces(heapstore_trace_point_t *traces, int count)
     if (!traces) {
         return;
     }
-    AGENTRT_FREE(traces);
+    AIRY_FREE(traces);
 }
 
 /**
@@ -367,19 +366,19 @@ int trace_store_service_export_traces(const time_t *start_time, const time_t *en
                                       const char *export_format, const char *export_path)
 {
     if (!export_format || !export_path)
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire))
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
 
     FILE *f = fopen(export_path, "w");
     if (!f)
-        return AGENTRT_ERR_SYS_NOT_INIT;
+        return AIRY_ERR_SYS_NOT_INIT;
 
     int exported = 0;
     DIR *dir = opendir(g_ctx.storage_path);
     if (!dir) {
         fclose(f);
-        return AGENTRT_ERR_NULL_POINTER;
+        return AIRY_ERR_NULL_POINTER;
     }
 
     time_t t_start = start_time ? *start_time : 0;
@@ -469,7 +468,7 @@ int trace_store_service_get_stats(uint64_t *out_total_traces, uint64_t *out_tota
                                   uint32_t *out_sampling_rate)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire)) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (out_total_traces)
@@ -491,7 +490,7 @@ int trace_store_service_get_stats(uint64_t *out_total_traces, uint64_t *out_tota
 int trace_store_service_cleanup_old_files(int days_to_keep)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire))
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     if (days_to_keep <= 0) {
         days_to_keep = 7;
     }

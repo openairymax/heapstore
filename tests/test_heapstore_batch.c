@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @note 测试覆盖目标: 90%+
  */
@@ -108,7 +107,7 @@ static void test_batch_parameter_validation(void)
     TEST_ASSERT(err != heapstore_SUCCESS, "batch_begin with NULL should fail");
 
     heapstore_batch_context_t ctx;
-    AGENTRT_MEMSET(&ctx, 0, sizeof(ctx));
+    AIRY_MEMSET(&ctx, 0, sizeof(ctx));
     ctx.capacity = 10;
     ctx.count = 5;
 

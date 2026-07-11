@@ -24,7 +24,7 @@ target_include_directories(quick_start PRIVATE
     ${CMAKE_BINARY_DIR}/include
 )
 target_link_libraries(quick_start
-    agentrt_heapstore
+    airy_heapstore
     Threads::Threads
 )
 
@@ -34,7 +34,7 @@ target_include_directories(batch_write PRIVATE
     ${CMAKE_BINARY_DIR}/include
 )
 target_link_libraries(batch_write
-    agentrt_heapstore
+    airy_heapstore
     Threads::Threads
 )
 

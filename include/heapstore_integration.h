@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  *
  * @details
  * 本文件定义 heapstore 数据分区存储系统与 AgentRT 核心模块的集成接口。
@@ -25,10 +24,10 @@
  */
 
 // @owner: team-B
-#ifndef AGENTRT_heapstore_INTEGRATION_H
-#define AGENTRT_heapstore_INTEGRATION_H
+#ifndef AIRY_heapstore_INTEGRATION_H
+#define AIRY_heapstore_INTEGRATION_H
 
-#include "agentrt.h"
+#include "airy_rt.h"
 #include "heapstore.h"
 #include "heapstore_ipc.h"
 #include "heapstore_log.h"
@@ -46,18 +45,18 @@ extern "C" {
  * @brief 初始化 heapstore 并与 AgentRT 核心集成
  *
  * @param root_path [in] 数据分区根路径，为 NULL 使用默认路径
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 内部管理所有资源
  * @threadsafe 否，必须在程序启动时调用
  * @reentrant 否
  *
- * @note 此函数应在 agentrt_core_init() 之后调用
+ * @note 此函数应在 airy_init() 之后调用
  * @note 自动初始化所有子系统（日志、注册表、追踪、IPC、内存）
  *
  * @see heapstore_integration_shutdown()
  */
-AGENTRT_API agentrt_error_t heapstore_integration_init(const char *root_path);
+AIRY_API airy_err_t heapstore_integration_init(const char *root_path);
 
 /**
  * @brief 关闭 heapstore 集成并清理资源
@@ -66,11 +65,11 @@ AGENTRT_API agentrt_error_t heapstore_integration_init(const char *root_path);
  * @threadsafe 否，必须在程序退出前调用
  * @reentrant 否
  *
- * @note 此函数应在 agentrt_core_shutdown() 之前调用
+ * @note 此函数应在 airy_shutdown() 之前调用
  *
  * @see heapstore_integration_init()
  */
-AGENTRT_API void heapstore_integration_shutdown(void);
+AIRY_API void heapstore_integration_shutdown(void);
 
 /* ==================== syscall 层集成 ==================== */
 
@@ -81,13 +80,13 @@ AGENTRT_API void heapstore_integration_shutdown(void);
  * @param metadata [in] 会话元数据（JSON 格式）
  * @param created_ns [in] 创建时间（纳秒）
  * @param last_active_ns [in] 最后活动时间（纳秒）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责所有参数的生命周期
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_session_save(const char *session_id,
+AIRY_API airy_err_t heapstore_syscall_session_save(const char *session_id,
                                                            const char *metadata,
                                                            uint64_t created_ns,
                                                            uint64_t last_active_ns);
@@ -99,13 +98,13 @@ AGENTRT_API agentrt_error_t heapstore_syscall_session_save(const char *session_i
  * @param out_metadata [out] 输出元数据（需调用者释放）
  * @param out_created_ns [out] 输出创建时间
  * @param out_last_active_ns [out] 输出最后活动时间
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_metadata
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_session_load(const char *session_id,
+AIRY_API airy_err_t heapstore_syscall_session_load(const char *session_id,
                                                            char **out_metadata,
                                                            uint64_t *out_created_ns,
                                                            uint64_t *out_last_active_ns);
@@ -114,25 +113,25 @@ AGENTRT_API agentrt_error_t heapstore_syscall_session_load(const char *session_i
  * @brief 为 syscall 层提供会话删除接口
  *
  * @param session_id [in] 会话 ID
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_session_delete(const char *session_id);
+AIRY_API airy_err_t heapstore_syscall_session_delete(const char *session_id);
 
 /**
  * @brief 为 syscall 层提供会话列表接口
  *
  * @param out_sessions [out] 输出会话 ID 数组（需调用者释放）
  * @param out_count [out] 输出会话数量
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_sessions 及其元素
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_session_list(char ***out_sessions, size_t *out_count);
+AIRY_API airy_err_t heapstore_syscall_session_list(char ***out_sessions, size_t *out_count);
 
 /* ==================== telemetry 层集成 ==================== */
 
@@ -147,13 +146,13 @@ AGENTRT_API agentrt_error_t heapstore_syscall_session_list(char ***out_sessions,
  * @param end_time_us [in] 结束时间（微秒）
  * @param status [in] 状态（0=运行中, 1=完成, 2=错误）
  * @param events_json [in] 事件 JSON 数组（可为 NULL）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责所有参数的生命周期
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
+AIRY_API airy_err_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
                                                          const char *parent_id, const char *name,
                                                          int64_t start_time_us, int64_t end_time_us,
                                                          int status, const char *events_json);
@@ -162,13 +161,13 @@ AGENTRT_API agentrt_error_t heapstore_syscall_trace_save(const char *trace_id, c
  * @brief 为 telemetry 层提供追踪数据导出接口
  *
  * @param out_traces [out] 输出追踪数据 JSON 数组（需调用者释放）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_traces
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_syscall_trace_export(char **out_traces);
+AIRY_API airy_err_t heapstore_syscall_trace_export(char **out_traces);
 
 /* ====================== memory (built-in) 层集成 ====================== */
 
@@ -179,13 +178,13 @@ AGENTRT_API agentrt_error_t heapstore_syscall_trace_export(char **out_traces);
  * @param len [in] 数据长度
  * @param metadata [in] 元数据（JSON 格式，可为 NULL）
  * @param out_record_id [out] 输出记录 ID（需调用者释放）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_record_id
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_memory_raw_save(const void *data, size_t len,
+AIRY_API airy_err_t heapstore_memory_raw_save(const void *data, size_t len,
                                                       const char *metadata, char **out_record_id);
 
 /**
@@ -195,25 +194,25 @@ AGENTRT_API agentrt_error_t heapstore_memory_raw_save(const void *data, size_t l
  * @param out_data [out] 输出数据（需调用者释放）
  * @param out_len [out] 输出数据长度
  * @param out_metadata [out] 输出元数据（需调用者释放，可为 NULL）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_data 和 out_metadata
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_memory_raw_load(const char *record_id, void **out_data,
+AIRY_API airy_err_t heapstore_memory_raw_load(const char *record_id, void **out_data,
                                                       size_t *out_len, char **out_metadata);
 
 /**
  * @brief 为 memory (built-in) 层提供原始记忆数据删除接口
  *
  * @param record_id [in] 记录 ID
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_memory_raw_delete(const char *record_id);
+AIRY_API airy_err_t heapstore_memory_raw_delete(const char *record_id);
 
 /* ==================== corekern IPC 层集成 ==================== */
 
@@ -222,13 +221,13 @@ AGENTRT_API agentrt_error_t heapstore_memory_raw_delete(const char *record_id);
  *
  * @param channel_id [in] 通道 ID
  * @param state_json [in] 通道状态 JSON
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责所有参数的生命周期
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_ipc_channel_save(const char *channel_id,
+AIRY_API airy_err_t heapstore_ipc_channel_save(const char *channel_id,
                                                        const char *state_json);
 
 /**
@@ -236,13 +235,13 @@ AGENTRT_API agentrt_error_t heapstore_ipc_channel_save(const char *channel_id,
  *
  * @param channel_id [in] 通道 ID
  * @param out_state [out] 输出通道状态 JSON（需调用者释放）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_state
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, char **out_state);
+AIRY_API airy_err_t heapstore_ipc_channel_load(const char *channel_id, char **out_state);
 
 /* ==================== commons logging 层集成 ==================== */
 
@@ -254,7 +253,7 @@ AGENTRT_API agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, c
  * @param trace_id [in] 追踪 ID（可为 NULL）
  * @param message [in] 日志消息
  * @param timestamp_ns [in] 时间戳（纳秒）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责所有参数的生命周期
  * @threadsafe 是
@@ -262,7 +261,7 @@ AGENTRT_API agentrt_error_t heapstore_ipc_channel_load(const char *channel_id, c
  *
  * @note 此接口同时支持快速路径和慢速路径
  */
-AGENTRT_API agentrt_error_t heapstore_logging_write(const char *module, int level,
+AIRY_API airy_err_t heapstore_logging_write(const char *module, int level,
                                                     const char *trace_id, const char *message,
                                                     uint64_t timestamp_ns);
 
@@ -272,28 +271,28 @@ AGENTRT_API agentrt_error_t heapstore_logging_write(const char *module, int leve
  * @brief 获取 heapstore 集成健康状态
  *
  * @param out_health_json [out] 输出健康状态 JSON（需调用者释放）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_health_json
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_integration_health_check(char **out_health_json);
+AIRY_API airy_err_t heapstore_integration_health_check(char **out_health_json);
 
 /**
  * @brief 获取 heapstore 集成统计信息
  *
  * @param out_stats_json [out] 输出统计信息 JSON（需调用者释放）
- * @return agentrt_error_t 错误码
+ * @return airy_err_t 错误码
  *
  * @ownership 调用者负责释放 out_stats_json
  * @threadsafe 是
  * @reentrant 是
  */
-AGENTRT_API agentrt_error_t heapstore_integration_get_stats(char **out_stats_json);
+AIRY_API airy_err_t heapstore_integration_get_stats(char **out_stats_json);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AGENTRT_heapstore_INTEGRATION_H */
+#endif /* AIRY_heapstore_INTEGRATION_H */

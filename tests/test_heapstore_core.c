@@ -5,7 +5,6 @@
  * @brief AgentRT 数据分区核心模块单元测试
  *
  * Copyright (c) 2026 SPHARX. All Rights Reserved.
- * "From data intelligence emerges."
  */
 // @owner: team-B
 
@@ -125,7 +124,7 @@ static void test_get_stats(void)
     heapstore_error_t err = heapstore_init(&manager);
     if (err == heapstore_SUCCESS) {
         heapstore_stats_t stats;
-        AGENTRT_MEMSET(&stats, 0, sizeof(stats));
+        AIRY_MEMSET(&stats, 0, sizeof(stats));
 
         err = heapstore_get_stats(&stats);
         assert(err == heapstore_SUCCESS);
@@ -141,7 +140,7 @@ static void test_get_stats_not_initialized(void)
     printf("Test: get_stats_not_initialized...");
 
     heapstore_stats_t stats;
-    AGENTRT_MEMSET(&stats, 0, sizeof(stats));
+    AIRY_MEMSET(&stats, 0, sizeof(stats));
 
     heapstore_error_t err __attribute__((unused)) = heapstore_get_stats(&stats);
     assert(err == heapstore_ERR_NOT_INITIALIZED);

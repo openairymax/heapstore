@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -43,7 +42,7 @@
 #define stat _stat
 #define S_ISDIR(m) (((m) & _S_IFDIR) == _S_IFDIR)
 #else
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 
 #include <sys/resource.h>
 #include <unistd.h>
@@ -83,7 +82,7 @@ static const char *_get_default_root(void)
 {
     if (s_default_root)
         return s_default_root;
-    const char *env = getenv("AGENTRT_HEAPSTORE_ROOT");
+    const char *env = getenv("AIRY_HEAPSTORE_ROOT");
     if (env && env[0]) {
         s_default_root = env;
         return s_default_root;
@@ -346,7 +345,7 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     set_default_config();
     apply_user_config(manager);
 
-    AGENTRT_STRNCPY_TERM(s_root_path, s_config.root_path, sizeof(s_root_path));
+    AIRY_STRNCPY_TERM(s_root_path, s_config.root_path, sizeof(s_root_path));
 
     heapstore_error_t err = create_directory_structure();
     if (err != heapstore_SUCCESS) {
@@ -1011,16 +1010,16 @@ struct heapstore_batch_context {
     heapstore_batch_item_t *head;
     heapstore_batch_item_t *tail;
 #ifdef _WIN32
-    agentrt_mutex_t lock;
+    airy_mtx_t lock;
 #else
-    agentrt_mutex_t lock;
+    airy_mtx_t lock;
 #endif
 };
 
 heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size)
 {
     heapstore_batch_context_t *ctx =
-        (heapstore_batch_context_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_context_t));
+        (heapstore_batch_context_t *)AIRY_MALLOC(sizeof(heapstore_batch_context_t));
     if (!ctx) {
         return NULL;
     }
@@ -1030,9 +1029,9 @@ heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size)
         ctx->capacity = HEAPSTORE_BATCH_MAX_ITEMS;
     }
 #ifdef _WIN32
-    agentrt_mutex_init(&ctx->lock);
+    airy_mtx_init(&ctx->lock);
 #else
-    agentrt_mutex_init(&ctx->lock);
+    airy_mtx_init(&ctx->lock);
 #endif
     return ctx;
 }
@@ -1047,16 +1046,16 @@ heapstore_error_t heapstore_batch_add_log(heapstore_batch_context_t *ctx, const 
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
     item->type = HEAPSTORE_BATCH_ITEM_LOG;
-    AGENTRT_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
+    AIRY_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
     item->data.log.level = level;
     if (message) {
-        AGENTRT_STRNCPY_TERM(item->data.log.message, message, sizeof(item->data.log.message));
+        AIRY_STRNCPY_TERM(item->data.log.message, message, sizeof(item->data.log.message));
     }
 
     if (ctx->tail) {
@@ -1080,19 +1079,19 @@ heapstore_error_t heapstore_batch_add_log_with_trace(heapstore_batch_context_t *
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
     item->type = HEAPSTORE_BATCH_ITEM_LOG;
-    AGENTRT_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
+    AIRY_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
     item->data.log.level = level;
     if (trace_id) {
-        AGENTRT_STRNCPY_TERM(item->data.log.trace_id, trace_id, sizeof(item->data.log.trace_id));
+        AIRY_STRNCPY_TERM(item->data.log.trace_id, trace_id, sizeof(item->data.log.trace_id));
     }
     if (message) {
-        AGENTRT_STRNCPY_TERM(item->data.log.message, message, sizeof(item->data.log.message));
+        AIRY_STRNCPY_TERM(item->data.log.message, message, sizeof(item->data.log.message));
     }
 
     if (ctx->tail) {
@@ -1117,23 +1116,23 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
     item->type = HEAPSTORE_BATCH_ITEM_SPAN;
-    AGENTRT_STRNCPY_TERM(item->data.span.trace_id, trace_id, sizeof(item->data.span.trace_id));
-    AGENTRT_STRNCPY_TERM(item->data.span.span_id, span_id, sizeof(item->data.span.span_id));
+    AIRY_STRNCPY_TERM(item->data.span.trace_id, trace_id, sizeof(item->data.span.trace_id));
+    AIRY_STRNCPY_TERM(item->data.span.span_id, span_id, sizeof(item->data.span.span_id));
     if (parent_span_id) {
-        AGENTRT_STRNCPY_TERM(item->data.span.parent_span_id, parent_span_id, sizeof(item->data.span.parent_span_id));
+        AIRY_STRNCPY_TERM(item->data.span.parent_span_id, parent_span_id, sizeof(item->data.span.parent_span_id));
     }
-    AGENTRT_STRNCPY_TERM(item->data.span.name, name, sizeof(item->data.span.name));
+    AIRY_STRNCPY_TERM(item->data.span.name, name, sizeof(item->data.span.name));
     item->data.span.start_time_us = start_time_us;
     item->data.span.end_time_us = end_time_us;
     item->data.span.status = status;
     if (attributes) {
-        AGENTRT_STRNCPY_TERM(item->data.span.attributes, attributes, sizeof(item->data.span.attributes));
+        AIRY_STRNCPY_TERM(item->data.span.attributes, attributes, sizeof(item->data.span.attributes));
     }
 
     if (ctx->tail) {
@@ -1156,7 +1155,7 @@ heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1184,7 +1183,7 @@ heapstore_error_t heapstore_batch_add_agent(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1212,7 +1211,7 @@ heapstore_error_t heapstore_batch_add_skill(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1240,7 +1239,7 @@ heapstore_error_t heapstore_batch_add_memory_pool(heapstore_batch_context_t *ctx
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1268,7 +1267,7 @@ heapstore_error_t heapstore_batch_add_allocation(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1296,7 +1295,7 @@ heapstore_error_t heapstore_batch_add_ipc_channel(heapstore_batch_context_t *ctx
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1324,7 +1323,7 @@ heapstore_error_t heapstore_batch_add_ipc_buffer(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AGENTRT_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1362,7 +1361,7 @@ void heapstore_batch_rollback(heapstore_batch_context_t *ctx)
     heapstore_batch_item_t *item = ctx->head;
     while (item) {
         heapstore_batch_item_t *next = item->next;
-        AGENTRT_FREE(item);
+        AIRY_FREE(item);
         item = next;
     }
 
@@ -1378,11 +1377,11 @@ void heapstore_batch_context_destroy(heapstore_batch_context_t *ctx)
 
     heapstore_batch_rollback(ctx);
 #ifdef _WIN32
-    agentrt_mutex_destroy(&ctx->lock);
+    airy_mtx_destroy(&ctx->lock);
 #else
-    agentrt_mutex_destroy(&ctx->lock);
+    airy_mtx_destroy(&ctx->lock);
 #endif
-    AGENTRT_FREE(ctx);
+    AIRY_FREE(ctx);
 }
 
 size_t heapstore_batch_get_count(const heapstore_batch_context_t *ctx)

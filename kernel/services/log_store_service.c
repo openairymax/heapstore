@@ -8,7 +8,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 #include "../../include/heapstore.h"
@@ -26,7 +25,7 @@
 #include "memory_compat.h"
 
 static void log_store_service_check_rotation(const char *current_file);
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 
 #ifdef _WIN32
 #include <direct.h>
@@ -60,7 +59,7 @@ static log_store_service_ctx_t g_ctx = {0};
 int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
 {
     if (!storage_path) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire)) {
@@ -68,7 +67,7 @@ int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
     }
 
     // 设置存储路径
-    AGENTRT_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
+    AIRY_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
 
     g_ctx.max_storage_bytes =
         max_storage_bytes > 0 ? max_storage_bytes : 100 * 1024 * 1024;  // 默认100MB
@@ -79,14 +78,14 @@ int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
     if (_mkdir(g_ctx.storage_path) != 0) {
         // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
-            return AGENTRT_ERR_NOT_FOUND;
+            return AIRY_ERR_NOT_FOUND;
         }
     }
 #else
     if (mkdir(g_ctx.storage_path, 0755) != 0) {
         // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
-            return AGENTRT_ERR_NOT_FOUND;
+            return AIRY_ERR_NOT_FOUND;
         }
     }
 #endif
@@ -109,14 +108,14 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire) || !component ||
         !message) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     time_t now = timestamp ? *timestamp : time(NULL);
     struct tm tm_buf;
     struct tm *tm_info = localtime_r(&now, &tm_buf);
     if (!tm_info) {
-        return AGENTRT_ERR_INVALID_PARAM;
+        return AIRY_ERR_INVALID_PARAM;
     }
 
     // 构建日志文件名
@@ -127,7 +126,7 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
     // 打开日志文件
     FILE *f = fopen(filename, "a");
     if (!f) {
-        return AGENTRT_ERR_NULL_POINTER;
+        return AIRY_ERR_NULL_POINTER;
     }
 
     // 写入日志条目
@@ -211,25 +210,25 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
                                     char ***out_entries, int max_entries)
 {
     if (!out_entries || max_entries <= 0) {
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     }
 
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire)) {
-        return AGENTRT_ERR_OVERFLOW;
+        return AIRY_ERR_OVERFLOW;
     }
 
     *out_entries = NULL;
 
     DIR *dir = opendir(g_ctx.storage_path);
     if (!dir) {
-        return AGENTRT_ERR_INVALID_PARAM;
+        return AIRY_ERR_INVALID_PARAM;
     }
 
     char **results;
     SAFE_MALLOC_ARRAY(results, max_entries, sizeof(char *));
     if (!results) {
         closedir(dir);
-        return AGENTRT_ERR_OUT_OF_MEMORY;
+        return AIRY_ERR_OUT_OF_MEMORY;
     }
 
     int found_count = 0;
@@ -326,15 +325,15 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
                 continue;
             }
 
-            results[found_count] = AGENTRT_STRDUP(line);
+            results[found_count] = AIRY_STRDUP(line);
             if (!results[found_count]) {
                 for (int i = 0; i < found_count; i++) {
-                    AGENTRT_FREE(results[i]);
+                    AIRY_FREE(results[i]);
                 }
-                AGENTRT_FREE(results);
+                AIRY_FREE(results);
                 fclose(f);
                 closedir(dir);
-                return AGENTRT_ERR_OUT_OF_MEMORY;
+                return AIRY_ERR_OUT_OF_MEMORY;
             }
             found_count++;
         }
@@ -345,7 +344,7 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
     closedir(dir);
 
     if (found_count == 0) {
-        AGENTRT_FREE(results);
+        AIRY_FREE(results);
         *out_entries = NULL;
         return 0;
     }
@@ -354,14 +353,14 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
     SAFE_MALLOC_ARRAY(final_results, found_count, sizeof(char *));
     if (!final_results) {
         for (int i = 0; i < found_count; i++) {
-            AGENTRT_FREE(results[i]);
+            AIRY_FREE(results[i]);
         }
-        AGENTRT_FREE(results);
-        return AGENTRT_ERR_OUT_OF_MEMORY;
+        AIRY_FREE(results);
+        return AIRY_ERR_OUT_OF_MEMORY;
     }
 
     __builtin_memcpy(final_results, results, found_count * sizeof(char *));
-    AGENTRT_FREE(results);
+    AIRY_FREE(results);
 
     *out_entries = final_results;
     return found_count;
@@ -381,10 +380,10 @@ void log_store_service_free_entries(char **entries, int count)
 
     for (int i = 0; i < count; i++) {
         if (entries[i]) {
-            AGENTRT_FREE(entries[i]);
+            AIRY_FREE(entries[i]);
         }
     }
-    AGENTRT_FREE(entries);
+    AIRY_FREE(entries);
 }
 
 /**
@@ -396,7 +395,7 @@ void log_store_service_free_entries(char **entries, int count)
 int log_store_service_cleanup_old_files(int days_to_keep)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire))
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
     if (days_to_keep <= 0) {
         days_to_keep = 30;
     }
@@ -437,7 +436,7 @@ int log_store_service_get_status(uint64_t *out_total_bytes, uint32_t *out_file_c
                                  time_t *out_oldest_timestamp)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire))
-        return AGENTRT_EINVAL;
+        return AIRY_EINVAL;
 
     uint64_t total_bytes = 0;
     uint32_t file_count = 0;

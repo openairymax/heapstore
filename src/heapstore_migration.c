@@ -369,7 +369,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
         report->to_version = target_version;
         report->direction = HEAPSTORE_MIGRATE_FORWARD;
         report->step_count = step_count;
-        report->steps = (heapstore_migration_step_t *)AGENTRT_MALLOC(
+        report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
             step_count * sizeof(heapstore_migration_step_t));
         if (report->steps) {
             __builtin_memset(report->steps, 0, step_count * sizeof(heapstore_migration_step_t));
@@ -388,7 +388,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
         uint64_t step_duration = get_time_ms() - step_start;
 
         if (report && report->steps) {
-            AGENTRT_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
+            AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
                                  sizeof(report->steps[i].name));
             report->steps[i].result = step_err;
             report->steps[i].records_affected = records;
@@ -551,7 +551,7 @@ heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
         report->to_version = target_version;
         report->direction = HEAPSTORE_MIGRATE_BACKWARD;
         report->step_count = step_count;
-        report->steps = (heapstore_migration_step_t *)AGENTRT_MALLOC(
+        report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
             step_count * sizeof(heapstore_migration_step_t));
         if (report->steps) {
             __builtin_memset(report->steps, 0, step_count * sizeof(heapstore_migration_step_t));
@@ -569,7 +569,7 @@ heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
         uint64_t step_duration = get_time_ms() - step_start;
 
         if (report && report->steps) {
-            AGENTRT_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
+            AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
                                  sizeof(report->steps[i].name));
             report->steps[i].result = step_err;
             report->steps[i].records_affected = records;
@@ -604,7 +604,7 @@ void heapstore_migration_report_free(heapstore_migration_report_t *report)
     if (!report || !report->steps) {
         return;
     }
-    AGENTRT_FREE(report->steps);
+    AIRY_FREE(report->steps);
     report->steps = NULL;
     report->step_count = 0;
 }
@@ -706,22 +706,22 @@ heapstore_error_t heapstore_migration_list_fields(const char *record_type, char 
     }
 
     /* 分配并复制字段名 */
-    char **out = (char **)AGENTRT_MALLOC((count + 1) * sizeof(char *));
+    char **out = (char **)AIRY_MALLOC((count + 1) * sizeof(char *));
     if (!out) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
     for (size_t i = 0; i < count; i++) {
-        out[i] = (char *)AGENTRT_MALLOC(strlen(selected[i]) + 1);
+        out[i] = (char *)AIRY_MALLOC(strlen(selected[i]) + 1);
         if (!out[i]) {
             /* 释放已分配的内存 */
             for (size_t j = 0; j < i; j++) {
-                AGENTRT_FREE(out[j]);
+                AIRY_FREE(out[j]);
             }
-            AGENTRT_FREE(out);
+            AIRY_FREE(out);
             return heapstore_ERR_OUT_OF_MEMORY;
         }
-        AGENTRT_STRNCPY_TERM(out[i], selected[i], strlen(selected[i]) + 1);
+        AIRY_STRNCPY_TERM(out[i], selected[i], strlen(selected[i]) + 1);
     }
     out[count] = NULL;
 

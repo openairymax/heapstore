@@ -6,7 +6,6 @@
  * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
  * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
- * "From data intelligence emerges."
  */
 
 // @owner: team-B
@@ -24,7 +23,7 @@
 #include <string.h>
 #include <time.h>
 #ifndef _WIN32
-#include "agentrt_dirent.h"
+#include "airy_dirent.h"
 #endif
 
 #ifdef _WIN32
@@ -47,7 +46,7 @@
 #define heapstore_LOG_MAX_PATH 512
 
 static heapstore_log_level_t s_log_level = HEAPSTORE_LOG_INFO;
-static agentrt_mutex_t s_log_lock = {0};
+static airy_mtx_t s_log_lock = {0};
 static FILE *s_main_log_file = NULL;
 static char s_log_root_path[heapstore_LOG_MAX_PATH] = {0};
 static bool s_initialized = false;
@@ -56,13 +55,13 @@ static char s_current_date[16] = {0};
 typedef struct {
     char service_name[heapstore_LOG_MAX_SERVICE_LEN];
     FILE *file;
-    agentrt_mutex_t lock;
+    airy_mtx_t lock;
 } service_log_t;
 
 static service_log_t s_service_logs[heapstore_LOG_MAX_SERVICES];
 static size_t s_service_log_count = 0;
 
-static agentrt_mutex_t s_service_lock = {0};
+static airy_mtx_t s_service_lock = {0};
 
 static const char *level_to_string(heapstore_log_level_t level)
 {
@@ -107,7 +106,7 @@ static FILE *get_main_log_file(void)
     }
 
     const char *base = get_log_base_path();
-    AGENTRT_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
+    AIRY_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
 
     char kernel_path[heapstore_LOG_MAX_PATH];
     snprintf(kernel_path, sizeof(kernel_path), "%s/kernel", base);
@@ -137,12 +136,12 @@ static FILE *get_service_log_file(const char *service)
         return NULL;
     }
 
-    agentrt_mutex_lock(&s_service_lock);
+    airy_mtx_lock(&s_service_lock);
 
     for (size_t i = 0; i < s_service_log_count; i++) {
         if (strcmp(s_service_logs[i].service_name, safe_service) == 0) {
             FILE *fp = s_service_logs[i].file;
-            agentrt_mutex_unlock(&s_service_lock);
+            airy_mtx_unlock(&s_service_lock);
             return fp;
         }
     }
@@ -158,17 +157,17 @@ static FILE *get_service_log_file(const char *service)
 
         FILE *fp = fopen(filepath, "a");
         if (fp) {
-            AGENTRT_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name, safe_service, sizeof(heapstore_LOG_MAX_SERVICE_LEN)); (s_service_logs[s_service_log_count].service_name)[(heapstore_LOG_MAX_SERVICE_LEN)-1] = '\0';
+            AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name, safe_service, sizeof(heapstore_LOG_MAX_SERVICE_LEN)); (s_service_logs[s_service_log_count].service_name)[(heapstore_LOG_MAX_SERVICE_LEN)-1] = '\0';
             s_service_logs[s_service_log_count].file = fp;
-            agentrt_mutex_init(&s_service_logs[s_service_log_count].lock);
+            airy_mtx_init(&s_service_logs[s_service_log_count].lock);
             s_service_log_count++;
         }
 
-        agentrt_mutex_unlock(&s_service_lock);
+        airy_mtx_unlock(&s_service_lock);
         return fp;
     }
 
-    agentrt_mutex_unlock(&s_service_lock);
+    airy_mtx_unlock(&s_service_lock);
     return get_main_log_file();
 }
 
@@ -179,7 +178,7 @@ heapstore_error_t heapstore_log_init(void)
     }
 
     const char *base = get_log_base_path();
-    AGENTRT_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
+    AIRY_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
 
     heapstore_ensure_directory(base);
     heapstore_ensure_directory("agentrt/heapstore/logs/kernel");
@@ -205,7 +204,7 @@ void heapstore_log_shutdown(void)
         return;
     }
 
-    agentrt_mutex_lock(&s_log_lock);
+    airy_mtx_lock(&s_log_lock);
 
     if (s_main_log_file) {
         fflush(s_main_log_file);
@@ -214,25 +213,25 @@ void heapstore_log_shutdown(void)
         s_main_log_file = NULL;
     }
 
-    agentrt_mutex_lock(&s_service_lock);
+    airy_mtx_lock(&s_service_lock);
     for (size_t i = 0; i < s_service_log_count; i++) {
         if (s_service_logs[i].file) {
             fflush(s_service_logs[i].file);
             fclose(s_service_logs[i].file);
             s_service_logs[i].file = NULL;
         }
-        agentrt_mutex_destroy(&s_service_logs[i].lock);
+        airy_mtx_destroy(&s_service_logs[i].lock);
     }
     char _buf2[128];
     snprintf(_buf2, sizeof(_buf2), "[heapstore_LOG INFO] Closed %zu service log files\n", s_service_log_count);
     fputs(_buf2, stdout);
     s_service_log_count = 0;
-    agentrt_mutex_unlock(&s_service_lock);
+    airy_mtx_unlock(&s_service_lock);
 
     s_initialized = false;
     fputs("[heapstore_LOG INFO] Logging system shutdown complete\n", stdout);
 
-    agentrt_mutex_unlock(&s_log_lock);
+    airy_mtx_unlock(&s_log_lock);
 }
 
 void heapstore_log_write(heapstore_log_level_t level, const char *service, const char *trace_id,
@@ -248,11 +247,11 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
 
     update_current_date();
 
-    agentrt_mutex_lock(&s_log_lock);
+    airy_mtx_lock(&s_log_lock);
 
     FILE *fp = service ? get_service_log_file(service) : get_main_log_file();
     if (!fp) {
-        agentrt_mutex_unlock(&s_log_lock);
+        airy_mtx_unlock(&s_log_lock);
         return;
     }
 
@@ -282,7 +281,7 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
 
     va_end(args);
 
-    agentrt_mutex_unlock(&s_log_lock);
+    airy_mtx_unlock(&s_log_lock);
 }
 
 void heapstore_log_writev(heapstore_log_level_t level, const char *service, const char *trace_id,
@@ -296,9 +295,9 @@ void heapstore_log_writev(heapstore_log_level_t level, const char *service, cons
         return;
     }
 
-    agentrt_mutex_lock(&s_log_lock);
+    airy_mtx_lock(&s_log_lock);
 
-    uint64_t now_ms = agentrt_time_ms();
+    uint64_t now_ms = airy_time_ms();
     time_t now = (time_t)(now_ms / 1000);
     struct tm tm_buf3;
     struct tm *tm_info = localtime_r(&now, &tm_buf3);
@@ -333,7 +332,7 @@ void heapstore_log_writev(heapstore_log_level_t level, const char *service, cons
 
     fflush(fp);
 
-    agentrt_mutex_unlock(&s_log_lock);
+    airy_mtx_unlock(&s_log_lock);
 }
 
 heapstore_log_level_t heapstore_log_get_level(void)
@@ -371,7 +370,7 @@ heapstore_error_t heapstore_log_rotate(void)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    agentrt_mutex_lock(&s_log_lock);
+    airy_mtx_lock(&s_log_lock);
 
     if (s_main_log_file) {
         fflush(s_main_log_file);
@@ -389,14 +388,14 @@ heapstore_error_t heapstore_log_rotate(void)
     snprintf(old_path, sizeof(old_path), "agentrt/heapstore/logs/kernel/agentrt.log");
 
     char new_path[heapstore_LOG_MAX_PATH];
-    snprintf(new_path, sizeof(new_path), "agentrt/heapstore/logs/kernel/agentrt_%s.log", timestamp);
+    snprintf(new_path, sizeof(new_path), "agentrt/heapstore/logs/kernel/airy_%s.log", timestamp);
 
     char _buf5[1024];
     if (rename(old_path, new_path) != 0) {
         snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG ERROR] Failed to rotate log file: %s -> %s\n", old_path,
                 new_path);
         fputs(_buf5, stderr);
-        agentrt_mutex_unlock(&s_log_lock);
+        airy_mtx_unlock(&s_log_lock);
         return heapstore_ERR_FILE_OPERATION_FAILED;
     }
 
@@ -405,13 +404,13 @@ heapstore_error_t heapstore_log_rotate(void)
         snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG ERROR] Failed to create new log file after rotation: %s\n",
                 old_path);
         fputs(_buf5, stderr);
-        agentrt_mutex_unlock(&s_log_lock);
+        airy_mtx_unlock(&s_log_lock);
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
 
     snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG INFO] Log rotated: %s -> %s\n", old_path, new_path);
     fputs(_buf5, stdout);
-    agentrt_mutex_unlock(&s_log_lock);
+    airy_mtx_unlock(&s_log_lock);
 
     return heapstore_SUCCESS;
 }
@@ -517,7 +516,7 @@ heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log
         snprintf(filepath, sizeof(filepath), "%s/kernel/agentrt.log", base);
     }
 
-    AGENTRT_STRNCPY_TERM(info->path, filepath, sizeof(info->path));
+    AIRY_STRNCPY_TERM(info->path, filepath, sizeof(info->path));
 
 #ifdef _WIN32
     struct _stat st;
