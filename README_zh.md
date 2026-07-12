@@ -27,13 +27,13 @@ heapstore 围绕**快/慢双路径**写入模型设计：快路径无锁异步�
 
 **A 类 —— 基础 / 原子层。**
 
-heapstore 是基础持久化基底：守护进程和网关在其上构建持久状态。它依赖 `commons`（platform、utils、sync、compat，以及 `agentrt_common` 静态库），逻辑上依赖 `atoms`（其 Syscall session/telemetry 路径触发 `BUILD_HEAPSTORE` 代码路径，其 CoreKern IPC 缓冲原语被 IPC 数据存储镜像）。作为 A 类模块，heapstore 保证跨运行时的稳定持久化 API，在 SQLite 不可用时优雅降级（内存回退）。
+heapstore 是基础持久化基底：守护进程和网关在其上构建持久状态。它依赖 `commons`（platform、utils、sync、compat，以及 `airy_common` 静态库），逻辑上依赖 `atoms`（其 Syscall session/telemetry 路径触发 `BUILD_HEAPSTORE` 代码路径，其 CoreKern IPC 缓冲原语被 IPC 数据存储镜像）。作为 A 类模块，heapstore 保证跨运行时的稳定持久化 API，在 SQLite 不可用时优雅降级（内存回退）。
 
 ## 目录结构
 
 ```
 heapstore/
-├── CMakeLists.txt                       # CMake 构建配置（单一静态库 agentrt_heapstore）
+├── CMakeLists.txt                       # CMake 构建配置（单一静态库 airy_heapstore）
 ├── README.md                            # 英文版
 ├── README_zh.md                         # 本文件（中文）
 ├── LICENSE                              # 双许可证文本（AGPL-3.0 + Apache-2.0）
@@ -97,7 +97,7 @@ heapstore/
 
 | 依赖 | 条件宏 | 缺失时行为 |
 |------|--------|-----------|
-| SQLite3 | `AGENTRT_HAS_SQLITE3` | 注册表回退到内存后端（功能完整但进程退出后无持久化） |
+| SQLite3 | `AIRY_HAS_SQLITE3` | 注册表回退到内存后端（功能完整但进程退出后无持久化） |
 
 ## 架构
 
@@ -118,7 +118,7 @@ heapstore/
 │            commons / OS                       │
 └──────────────────────────────────────────────┘
 
-  heapstore（agentrt_heapstore 静态库）
+  heapstore（airy_heapstore 静态库）
   ┌────────────────────────────────────────────┐
   │  core  （init/路径/统计/熔断器）             │
   │  log   (SQLite)   registry (SQLite)        │
@@ -143,15 +143,15 @@ heapstore/
 
 ## 上游依赖
 
-> `commons` 是所有 agentrt 模块的基础库；heapstore 直接消费它并链接 `agentrt_common` 静态库。heapstore 还逻辑上依赖 `atoms`。
+> `commons` 是所有 agentrt 模块的基础库；heapstore 直接消费它并链接 `airy_common` 静态库。heapstore 还逻辑上依赖 `atoms`。
 
 | 依赖 | 是否必需 | 用途 |
 |------|----------|------|
-| **commons** | 是 | 公共工具——`platform/include`、`utils/include`、`utils/sync/include`、`utils/compat/include`；同时链接 `agentrt_common` 静态库以获取 sync、error、types、内存宏 |
+| **commons** | 是 | 公共工具——`platform/include`、`utils/include`、`utils/sync/include`、`utils/compat/include`；同时链接 `airy_common` 静态库以获取 sync、error、types、内存宏 |
 | **atoms** | 是（逻辑） | 提供 heapstore IPC 数据存储镜像的 CoreKern IPC 缓冲原语，以及触发 `syscall/session.c` 和 `syscall/telemetry.c` 中 `BUILD_HEAPSTORE` 代码路径的 Syscall 接口 |
-| SQLite3 | 否 | registry/log/trace/token 的持久化后端；缺失时回退到内存（`AGENTRT_HAS_SQLITE3`） |
+| SQLite3 | 否 | registry/log/trace/token 的持久化后端；缺失时回退到内存（`AIRY_HAS_SQLITE3`） |
 | Threads::Threads | 是 | 多线程写入路径 |
-| agentrt_compile_defs | 是 | 伞仓编译宏（PUBLIC 链接） |
+| airy_compile_defs | 是 | 伞仓编译宏（PUBLIC 链接） |
 
 ## 下游消费者
 
@@ -166,7 +166,7 @@ heapstore/
 ```bash
 # 标准构建（源外构建，BAN-33 强制要求）
 cmake -S . -B /tmp/heapstore-build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
-cmake --build /tmp/heapstore-build --target agentrt_heapstore --parallel $(nproc)
+cmake --build /tmp/heapstore-build --target airy_heapstore --parallel $(nproc)
 
 # 运行 heapstore 测试
 ctest --test-dir /tmp/heapstore-build -R heapstore --output-on-failure
@@ -187,11 +187,11 @@ cmake --install /tmp/heapstore-build --prefix /opt/airymax
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
 | `BUILD_TESTS` | `ON` | 构建测试套件（单元/集成/fuzz/基准） |
-| `AGENTRT_HAS_SQLITE3` | 自动 | 由伞仓 CMake 自动探测；门控 SQLite 后端（回退到内存） |
+| `AIRY_HAS_SQLITE3` | 自动 | 由伞仓 CMake 自动探测；门控 SQLite 后端（回退到内存） |
 
 **构建产物：**
 
-- `agentrt_heapstore` —— 包含所有存储引擎的静态库
+- `airy_heapstore` —— 包含所有存储引擎的静态库
 - 公共头文件安装到 `include/agentrt/heapstore`
 
 **配置示例：**

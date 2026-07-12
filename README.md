@@ -27,13 +27,13 @@ Within the Airymax 0.1.1 release, the workspace is partitioned into **38 reposit
 
 **Class A — Foundational / Atomic.**
 
-heapstore is a foundational persistence substrate: daemons and the gateway build their durable state on top of it. It depends on `commons` (platform, utils, sync, compat, plus the `agentrt_common` static lib) and logically on `atoms` (whose Syscall session/telemetry paths trigger `BUILD_HEAPSTORE` code-paths, and whose CoreKern IPC buffer primitives the IPC data store mirrors). As a Class-A module, heapstore guarantees a stable persistence API across the runtime and degrades gracefully (in-memory fallback) when SQLite is unavailable.
+heapstore is a foundational persistence substrate: daemons and the gateway build their durable state on top of it. It depends on `commons` (platform, utils, sync, compat, plus the `airy_common` static lib) and logically on `atoms` (whose Syscall session/telemetry paths trigger `BUILD_HEAPSTORE` code-paths, and whose CoreKern IPC buffer primitives the IPC data store mirrors). As a Class-A module, heapstore guarantees a stable persistence API across the runtime and degrades gracefully (in-memory fallback) when SQLite is unavailable.
 
 ## Directory Structure
 
 ```
 heapstore/
-├── CMakeLists.txt                       # CMake build configuration (single static lib agentrt_heapstore)
+├── CMakeLists.txt                       # CMake build configuration (single static lib airy_heapstore)
 ├── README.md                            # This file (English)
 ├── README_zh.md                         # Chinese version
 ├── LICENSE                              # Dual license texts (AGPL-3.0 + Apache-2.0)
@@ -97,7 +97,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 
 | Dependency | Conditional Macro | Behavior When Missing |
 |------------|-------------------|-----------------------|
-| SQLite3 | `AGENTRT_HAS_SQLITE3` | Registry falls back to in-memory backend (full features but no persistence after process exit) |
+| SQLite3 | `AIRY_HAS_SQLITE3` | Registry falls back to in-memory backend (full features but no persistence after process exit) |
 
 ## Architecture
 
@@ -118,7 +118,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 │            commons / OS                       │
 └──────────────────────────────────────────────┘
 
-  heapstore (agentrt_heapstore static lib)
+  heapstore (airy_heapstore static lib)
   ┌────────────────────────────────────────────┐
   │  core  (init/paths/stats/circuit breaker)  │
   │  log   (SQLite)   registry (SQLite)        │
@@ -143,15 +143,15 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 
 ## Upstream Dependencies
 
-> `commons` is the foundation for all agentrt modules; heapstore consumes it directly and links the `agentrt_common` static lib. heapstore also logically depends on `atoms`.
+> `commons` is the foundation for all agentrt modules; heapstore consumes it directly and links the `airy_common` static lib. heapstore also logically depends on `atoms`.
 
 | Dependency | Required | Purpose |
 |------------|----------|---------|
-| **commons** | Yes | Public utilities — `platform/include`, `utils/include`, `utils/sync/include`, `utils/compat/include`; also links `agentrt_common` static lib for sync, error, types, memory macros |
+| **commons** | Yes | Public utilities — `platform/include`, `utils/include`, `utils/sync/include`, `utils/compat/include`; also links `airy_common` static lib for sync, error, types, memory macros |
 | **atoms** | Yes (logical) | Provides the CoreKern IPC buffer primitives that heapstore's IPC data store mirrors, and the Syscall surface that triggers `BUILD_HEAPSTORE` code-paths in `syscall/session.c` and `syscall/telemetry.c` |
-| SQLite3 | No | Persistence backend for registry/log/trace/token; falls back to in-memory when absent (`AGENTRT_HAS_SQLITE3`) |
+| SQLite3 | No | Persistence backend for registry/log/trace/token; falls back to in-memory when absent (`AIRY_HAS_SQLITE3`) |
 | Threads::Threads | Yes | Multi-threaded write paths |
-| agentrt_compile_defs | Yes | Umbrella compile definitions (linked PUBLIC) |
+| airy_compile_defs | Yes | Umbrella compile definitions (linked PUBLIC) |
 
 ## Downstream Consumers
 
@@ -166,7 +166,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 ```bash
 # Standard build (out-of-source, enforced by BAN-33)
 cmake -S . -B /tmp/heapstore-build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
-cmake --build /tmp/heapstore-build --target agentrt_heapstore --parallel $(nproc)
+cmake --build /tmp/heapstore-build --target airy_heapstore --parallel $(nproc)
 
 # Run heapstore tests
 ctest --test-dir /tmp/heapstore-build -R heapstore --output-on-failure
@@ -187,11 +187,11 @@ cmake --install /tmp/heapstore-build --prefix /opt/airymax
 | Option | Default | Description |
 |--------|---------|-------------|
 | `BUILD_TESTS` | `ON` | Build the test suite (unit / integration / fuzz / benchmark) |
-| `AGENTRT_HAS_SQLITE3` | auto | Auto-detected by umbrella CMake; gates SQLite backend (falls back to in-memory) |
+| `AIRY_HAS_SQLITE3` | auto | Auto-detected by umbrella CMake; gates SQLite backend (falls back to in-memory) |
 
 **Build artifacts:**
 
-- `agentrt_heapstore` — static library containing all storage engines
+- `airy_heapstore` — static library containing all storage engines
 - Public headers installed under `include/agentrt/heapstore`
 
 **Configuration example:**
