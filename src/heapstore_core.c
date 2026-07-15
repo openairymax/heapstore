@@ -16,6 +16,7 @@
 #include "heapstore_migration.h"
 #include "heapstore_registry.h"
 #include "heapstore_trace.h"
+#include "logging_compat.h"
 #include "platform.h"
 #include "private.h"
 #include "utils.h"
@@ -146,7 +147,10 @@ static void set_default_config(void)
 
 static inline void circuit_breaker_record_success(void)
 {
-    atomic_store(&s_circuit_breaker.failure_count, 0);
+    uint32_t prev = atomic_exchange(&s_circuit_breaker.failure_count, 0);
+    if (prev > 0) {
+        AIRY_LOG_INFO("heapstore: circuit breaker reset (was %u failures)", prev);
+    }
     atomic_store(&s_circuit_breaker.state, 0);
 }
 
@@ -157,7 +161,10 @@ static inline void circuit_breaker_record_failure(void)
     atomic_store(&s_circuit_breaker.last_failure_time, now);
 
     if (count >= s_circuit_breaker.threshold) {
-        atomic_store(&s_circuit_breaker.state, 1);
+        if (atomic_exchange(&s_circuit_breaker.state, 1) == 0) {
+            AIRY_LOG_ERROR("heapstore: circuit breaker OPEN (threshold=%u failures, timeout=%us)",
+                           s_circuit_breaker.threshold, s_circuit_breaker.timeout_sec);
+        }
         atomic_fetch_add(&s_metrics.circuit_breaker_trips, 1);
     }
 }
@@ -175,7 +182,9 @@ static inline bool circuit_breaker_is_open(void)
     uint64_t last_failure = atomic_load(&s_circuit_breaker.last_failure_time);
     uint64_t now = (uint64_t)time(NULL);
     if (now - last_failure >= s_circuit_breaker.timeout_sec) {
-        atomic_store(&s_circuit_breaker.state, 2);
+        if (atomic_exchange(&s_circuit_breaker.state, 2) == 1) {
+            AIRY_LOG_INFO("heapstore: circuit breaker HALF-OPEN (timeout elapsed)");
+        }
         return false;
     }
     return true;
@@ -339,8 +348,11 @@ init_subsystem_with_rollback(subsystem_init_func init, subsystem_shutdown_func s
 heapstore_error_t heapstore_init(const heapstore_config_t *manager)
 {
     if (s_initialized) {
+        AIRY_LOG_WARN("heapstore_init: already initialized");
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
+
+    AIRY_LOG_INFO("heapstore_init: initializing (root=%s)", manager && manager->root_path ? manager->root_path : "default");
 
     set_default_config();
     apply_user_config(manager);
@@ -349,20 +361,22 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
 
     heapstore_error_t err = create_directory_structure();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: directory structure creation failed, err=%d", err);
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] directory structure created");
 
     initialize_atomic_vars();
 
     s_initialized = true;
 
-    /* P3.20.1: Schema 版本检查与自动迁移
-     * 在子系统初始化之前检查数据格式版本，
-     * 如有需要则自动触发前向兼容迁移。 */
+    /* P3.20.1: Schema 版本检查与自动迁移 */
     bool needs_migration = false;
     uint32_t disk_version = 0;
     heapstore_error_t mig_err = heapstore_migration_check(&needs_migration, &disk_version);
     if (mig_err == heapstore_SUCCESS && needs_migration) {
+        AIRY_LOG_INFO("heapstore_init: schema migration: disk=v%u, code=v%u, running forward migration",
+                      disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
         char line_buf[4096];
         snprintf(line_buf, sizeof(line_buf),
                  "[heapstore] Schema version mismatch: disk=v%u, code=v%u. "
@@ -373,6 +387,8 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
         heapstore_migration_report_t report;
         mig_err = heapstore_migration_forward(0, &report);
         if (mig_err != heapstore_SUCCESS) {
+            AIRY_LOG_ERROR("heapstore_init: migration FAILED: %s, data preserved at v%u",
+                           heapstore_strerror(mig_err), disk_version);
             snprintf(line_buf, sizeof(line_buf),
                      "[heapstore] Migration FAILED: %s. Data preserved at version v%u.\n",
                      heapstore_strerror(mig_err), disk_version);
@@ -381,6 +397,10 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
             s_initialized = false;
             return heapstore_ERR_INTERNAL;
         }
+        AIRY_LOG_INFO("heapstore_init: migration complete: v%u->v%u (%lu steps, %lums)",
+                      report.from_version, report.to_version,
+                      (unsigned long)report.step_count,
+                      (unsigned long)report.total_duration_ms);
         snprintf(line_buf, sizeof(line_buf),
                  "[heapstore] Migration complete: v%u → v%u (%lu steps, %lums)\n",
                  report.from_version, report.to_version,
@@ -392,36 +412,45 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
 
     err = heapstore_registry_init();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: registry init failed, err=%d", err);
         s_initialized = false;
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] registry initialized");
 
     err = heapstore_trace_init();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: trace init failed, err=%d", err);
         heapstore_registry_shutdown();
         s_initialized = false;
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] trace initialized");
 
     err = heapstore_ipc_init();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: ipc init failed, err=%d", err);
         heapstore_trace_shutdown();
         heapstore_registry_shutdown();
         s_initialized = false;
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] ipc initialized");
 
     err = heapstore_memory_init();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: memory init failed, err=%d", err);
         heapstore_ipc_shutdown();
         heapstore_trace_shutdown();
         heapstore_registry_shutdown();
         s_initialized = false;
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] memory initialized");
 
     err = heapstore_log_init();
     if (err != heapstore_SUCCESS) {
+        AIRY_LOG_ERROR("heapstore_init: log init failed, err=%d", err);
         heapstore_memory_shutdown();
         heapstore_ipc_shutdown();
         heapstore_trace_shutdown();
@@ -429,19 +458,28 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
         s_initialized = false;
         return err;
     }
+    AIRY_LOG_INFO("heapstore_init: [OK] log initialized");
 
+    AIRY_LOG_INFO("heapstore_init: heapstore initialized successfully (root=%s)", s_root_path);
     return heapstore_SUCCESS;
 }
 
 void heapstore_shutdown(void)
 {
     if (s_initialized) {
+        AIRY_LOG_INFO("heapstore_shutdown: shutting down heapstore...");
         heapstore_log_shutdown();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] log shutdown");
         heapstore_trace_shutdown();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] trace shutdown");
         heapstore_ipc_shutdown();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] ipc shutdown");
         heapstore_memory_shutdown();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] memory shutdown");
         heapstore_registry_shutdown();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] registry shutdown");
         s_initialized = false;
+        AIRY_LOG_INFO("heapstore_shutdown: heapstore shutdown complete");
     }
 }
 

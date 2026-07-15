@@ -2,6 +2,15 @@
 -- Description: AgentRT Heapstore Initial Schema
 -- Created: 2026-06-16T00:00:00Z
 -- Forward-only: true
+--
+-- NOTE (P1-15): This file uses PostgreSQL syntax (UUID, gen_random_uuid(),
+-- JSONB, TIMESTAMPTZ, GIN indexes). The current heapstore migration system is
+-- file-based (heapstore_migration.c uses .schema_version files), NOT SQL-based.
+-- These SQL migrations are schema definitions for future PostgreSQL backend
+-- integration. The current SQLite backend does not execute these SQL files.
+-- When a PostgreSQL backend is introduced, this schema will be used as the
+-- authoritative initial schema. For SQLite compatibility, JSONB→JSON,
+-- UUID→TEXT, gen_random_uuid()→lower(hex(randomblob(16))), TIMESTAMPTZ→TEXT.
 
 BEGIN;
 
