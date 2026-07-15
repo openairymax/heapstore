@@ -3,6 +3,8 @@
 -- Created: 2026-06-17T00:00:00Z
 -- Forward-only: true
 --
+-- NOTE (P1-15): PostgreSQL syntax — see V001_initial_schema.sql header for
+-- full explanation. Not executed by the current file-based migration system.
 -- Forward-compatible changes (non-destructive):
 --   1. Add tags column to agents table (JSONB, default '[]')
 --   2. Add retry_count to turns table (INTEGER, default 0)
