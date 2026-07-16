@@ -24,7 +24,7 @@
 
 /* 跨平台原子操作支持 - 使用统一的 atomic_compat.h */
 #include "atomic_compat.h"
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /* 平台特定头文件 */
 #ifdef _WIN32

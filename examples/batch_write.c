@@ -19,7 +19,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /**
  * @brief 主函数：批量写入示例

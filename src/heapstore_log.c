@@ -11,11 +11,14 @@
 // @owner: team-B
 #include "heapstore_log.h"
 
+/* d6 清理：从 logging_compat.h 迁移到 logger.h（AIRY_LOG_* 宏和 airy_log_* 函数声明的权威提供者）。
+ * logging_compat.h 是 IRON-8 兼容层，已删除；airy_log_* 实现迁移到 observability/src/logger.c。 */
+#include "logger.h"
 #include "platform.h"
 #include "private.h"
 #include "utils.h"
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -130,9 +133,7 @@ static FILE *get_service_log_file(const char *service)
 
     char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
     if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
-        char _buf[heapstore_LOG_MAX_SERVICE_LEN + 128];
-        snprintf(_buf, sizeof(_buf), "[heapstore_LOG SECURITY] Rejected unsafe service name: %s\n", service);
-        fputs(_buf, stderr);
+        AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
         return NULL;
     }
 
@@ -200,7 +201,7 @@ heapstore_error_t heapstore_log_init(void)
 void heapstore_log_shutdown(void)
 {
     if (!s_initialized) {
-        fputs("[heapstore_LOG WARN] Shutdown called but not initialized\n", stderr);
+        AIRY_LOG_WARN("heapstore_log: shutdown called but not initialized");
         return;
     }
 
@@ -209,7 +210,7 @@ void heapstore_log_shutdown(void)
     if (s_main_log_file) {
         fflush(s_main_log_file);
         fclose(s_main_log_file);
-        fputs("[heapstore_LOG INFO] Main log file closed\n", stdout);
+        AIRY_LOG_INFO("heapstore_log: main log file closed");
         s_main_log_file = NULL;
     }
 
@@ -222,14 +223,12 @@ void heapstore_log_shutdown(void)
         }
         airy_mtx_destroy(&s_service_logs[i].lock);
     }
-    char _buf2[128];
-    snprintf(_buf2, sizeof(_buf2), "[heapstore_LOG INFO] Closed %zu service log files\n", s_service_log_count);
-    fputs(_buf2, stdout);
+    AIRY_LOG_INFO("heapstore_log: closed %zu service log files", s_service_log_count);
     s_service_log_count = 0;
     airy_mtx_unlock(&s_service_lock);
 
     s_initialized = false;
-    fputs("[heapstore_LOG INFO] Logging system shutdown complete\n", stdout);
+        AIRY_LOG_INFO("heapstore_log: logging system shutdown complete");
 
     airy_mtx_unlock(&s_log_lock);
 }
@@ -349,7 +348,7 @@ heapstore_error_t heapstore_log_get_service_path(const char *service, char *buff
                                                  size_t buffer_size)
 {
     if (!buffer || buffer_size == 0) {
-        fputs("[heapstore_LOG ERROR] Invalid buffer parameter\n", stderr);
+        AIRY_LOG_ERROR("heapstore_log: invalid buffer parameter");
         return heapstore_ERR_INVALID_PARAM;
     }
 
@@ -366,7 +365,7 @@ heapstore_error_t heapstore_log_get_service_path(const char *service, char *buff
 heapstore_error_t heapstore_log_rotate(void)
 {
     if (!s_initialized) {
-        fputs("[heapstore_LOG ERROR] Log rotate called but not initialized\n", stderr);
+        AIRY_LOG_ERROR("heapstore_log: log rotate called but not initialized");
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -392,24 +391,19 @@ heapstore_error_t heapstore_log_rotate(void)
 
     char _buf5[1024];
     if (rename(old_path, new_path) != 0) {
-        snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG ERROR] Failed to rotate log file: %s -> %s\n", old_path,
-                new_path);
-        fputs(_buf5, stderr);
+        AIRY_LOG_ERROR("heapstore_log: failed to rotate log file: %s -> %s", old_path, new_path);
         airy_mtx_unlock(&s_log_lock);
         return heapstore_ERR_FILE_OPERATION_FAILED;
     }
 
     s_main_log_file = fopen(old_path, "a");
     if (!s_main_log_file) {
-        snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG ERROR] Failed to create new log file after rotation: %s\n",
-                old_path);
-        fputs(_buf5, stderr);
+        AIRY_LOG_ERROR("heapstore_log: failed to create new log file after rotation: %s", old_path);
         airy_mtx_unlock(&s_log_lock);
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
 
-    snprintf(_buf5, sizeof(_buf5), "[heapstore_LOG INFO] Log rotated: %s -> %s\n", old_path, new_path);
-    fputs(_buf5, stdout);
+    AIRY_LOG_INFO("heapstore_log: log rotated: %s -> %s", old_path, new_path);
     airy_mtx_unlock(&s_log_lock);
 
     return heapstore_SUCCESS;
@@ -501,7 +495,7 @@ heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log_file_info_t *info)
 {
     if (!info) {
-        fputs("[heapstore_LOG ERROR] Invalid info parameter (NULL)\n", stderr);
+        AIRY_LOG_ERROR("heapstore_log: invalid info parameter (NULL)");
         return heapstore_ERR_INVALID_PARAM;
     }
 
@@ -529,9 +523,7 @@ heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log
         info->created_at = st.st_ctime;
         info->modified_at = st.st_mtime;
     } else {
-        char _buf6[heapstore_LOG_MAX_PATH + 128];
-        snprintf(_buf6, sizeof(_buf6), "[heapstore_LOG WARN] Failed to get file info: %s\n", filepath);
-        fputs(_buf6, stderr);
+        AIRY_LOG_WARN("heapstore_log: failed to get file info: %s", filepath);
         return heapstore_ERR_FILE_NOT_FOUND;
     }
 

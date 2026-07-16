@@ -20,7 +20,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #ifdef _WIN32
 #include <direct.h>

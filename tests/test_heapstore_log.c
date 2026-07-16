@@ -10,7 +10,7 @@
 
 #include "heapstore.h"
 #include "heapstore_log.h"
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #include <assert.h>
 #include <stdio.h>

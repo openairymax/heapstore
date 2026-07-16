@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #ifdef _WIN32
 #else
