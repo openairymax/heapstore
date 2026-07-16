@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /* ==================== 内部辅助函数 ==================== */
 

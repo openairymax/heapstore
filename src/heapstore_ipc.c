@@ -20,7 +20,8 @@
 #include <string.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
+#include "logging_compat.h"
 
 #ifdef _WIN32
 #include <direct.h>
@@ -299,6 +300,7 @@ heapstore_error_t heapstore_ipc_init(void)
 
     s_initialized = true;
 
+    AIRY_LOG_INFO("heapstore_ipc_init: IPC initialized (path=%s)", s_ipc_path);
     return heapstore_SUCCESS;
 }
 
@@ -325,6 +327,8 @@ void heapstore_ipc_shutdown(void)
     s_shm_region_count = 0;
 #endif
 
+    AIRY_LOG_INFO("heapstore_ipc_shutdown: IPC shutdown (channels=%zu buffers=%zu)",
+                  s_channel_count, s_buffer_count);
     __builtin_memset(s_channels, 0, sizeof(s_channels));
     __builtin_memset(s_buffers, 0, sizeof(s_buffers));
     s_channel_count = 0;
@@ -694,6 +698,7 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
         heapstore_ipc_create_channel(channel_id, channel_id, "auto", len + 256);
         ac = find_active_channel(channel_id);
         if (!ac) {
+            AIRY_LOG_ERROR("heapstore_ipc_send: failed to create channel '%s'", channel_id);
             airy_mtx_unlock(&s_ipc_lock);
             return heapstore_ERR_INTERNAL;
         }
@@ -701,6 +706,8 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
 
     size_t header_size = sizeof(uint32_t) * 2;
     if (len + header_size > ac->shm->mapped_size) {
+        AIRY_LOG_ERROR("heapstore_ipc_send: message too large for channel '%s' (len=%zu mapped=%zu)",
+                       channel_id, len, ac->shm->mapped_size);
         airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_INTERNAL;
     }
@@ -763,6 +770,7 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
 
     void *buf = AIRY_MALLOC(len);
     if (!buf) {
+        AIRY_LOG_ERROR("heapstore_ipc_receive: alloc failed for channel '%s' (len=%u)", channel_id, len);
         airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }

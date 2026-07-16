@@ -1,5 +1,6 @@
 // @owner: team-B
 #include "error.h"
+#include "logging_compat.h"
 /**
  * @file trace_store_service.c
  * @brief 内核追踪数据存储服务实现
@@ -23,7 +24,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #ifdef _WIN32
 #include <direct.h>
@@ -222,21 +223,12 @@ static void trace_store_service_check_storage_limit(const char *current_file)
     (void)current_file;
     int deleted = trace_store_service_cleanup_old_files(1);
     if (deleted > 0) {
-        {
-        char _buf[256];
-        snprintf(_buf, sizeof(_buf), "Trace storage limit exceeded, cleaned %d old files\n", deleted);
-        fputs(_buf, stderr);
-    }
+        AIRY_LOG_WARN("trace_store: storage limit exceeded, cleaned %d old files", deleted);
     } else {
-        {
-        char _buf[256];
-        snprintf(_buf, sizeof(_buf),
-                "Warning: Trace storage limit exceeded (%llu bytes > %llu bytes), no old files to "
-                "clean\n",
-                (unsigned long long)g_ctx.total_bytes_stored,
-                (unsigned long long)g_ctx.max_storage_bytes);
+        AIRY_LOG_WARN("trace_store: storage limit exceeded (%llu bytes > %llu bytes), no old files to clean",
+                      (unsigned long long)g_ctx.total_bytes_stored,
+                      (unsigned long long)g_ctx.max_storage_bytes);
     }
-}
 }
 
 /**

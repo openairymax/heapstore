@@ -14,7 +14,7 @@
 #include "heapstore_memory.h"
 #include "heapstore_registry.h"
 #include "heapstore_trace.h"
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #include <assert.h>
 #include <stdio.h>

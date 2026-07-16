@@ -16,7 +16,8 @@
 #include "heapstore_migration.h"
 #include "heapstore_registry.h"
 #include "heapstore_trace.h"
-#include "logging_compat.h"
+#include "logging.h"
+#include "logging_compat.h"  /* LOG-06: AIRY_LOG_* 宏唯一定义源 */
 #include "platform.h"
 #include "private.h"
 #include "utils.h"
@@ -29,7 +30,7 @@
 #include <sys/types.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /* 跨平台原子操作支持 - 使用统一的 atomic_compat.h */
 #include "atomic_compat.h"
@@ -317,9 +318,7 @@ init_subsystem_with_rollback(subsystem_init_func init, subsystem_shutdown_func s
 
     heapstore_error_t err = init();
     if (err != heapstore_SUCCESS) {
-        char line_buf[4096];
-        snprintf(line_buf, sizeof(line_buf), "[heapstore] Failed to initialize %s: %s\n", name, heapstore_strerror(err));
-        fputs(line_buf, stderr);
+        AIRY_LOG_ERROR("heapstore: failed to initialize %s: %s", name, heapstore_strerror(err));
         return err;
     }
     return heapstore_SUCCESS;
@@ -377,22 +376,12 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     if (mig_err == heapstore_SUCCESS && needs_migration) {
         AIRY_LOG_INFO("heapstore_init: schema migration: disk=v%u, code=v%u, running forward migration",
                       disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
-        char line_buf[4096];
-        snprintf(line_buf, sizeof(line_buf),
-                 "[heapstore] Schema version mismatch: disk=v%u, code=v%u. "
-                 "Running forward migration...\n",
-                 disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
-        fputs(line_buf, stderr);
 
         heapstore_migration_report_t report;
         mig_err = heapstore_migration_forward(0, &report);
         if (mig_err != heapstore_SUCCESS) {
             AIRY_LOG_ERROR("heapstore_init: migration FAILED: %s, data preserved at v%u",
                            heapstore_strerror(mig_err), disk_version);
-            snprintf(line_buf, sizeof(line_buf),
-                     "[heapstore] Migration FAILED: %s. Data preserved at version v%u.\n",
-                     heapstore_strerror(mig_err), disk_version);
-            fputs(line_buf, stderr);
             heapstore_migration_report_free(&report);
             s_initialized = false;
             return heapstore_ERR_INTERNAL;
@@ -401,12 +390,6 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
                       report.from_version, report.to_version,
                       (unsigned long)report.step_count,
                       (unsigned long)report.total_duration_ms);
-        snprintf(line_buf, sizeof(line_buf),
-                 "[heapstore] Migration complete: v%u → v%u (%lu steps, %lums)\n",
-                 report.from_version, report.to_version,
-                 (unsigned long)report.step_count,
-                 (unsigned long)report.total_duration_ms);
-        fputs(line_buf, stderr);
         heapstore_migration_report_free(&report);
     }
 

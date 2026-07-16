@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 static void log_store_service_check_rotation(const char *current_file);
 #include "airy_dirent.h"

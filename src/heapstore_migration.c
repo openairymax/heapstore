@@ -25,7 +25,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /* ========== 内部常量 ========== */
 

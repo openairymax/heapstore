@@ -15,7 +15,7 @@
 #include "private.h"
 #include "utils.h"
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 #include <stdio.h>
 #include <stdlib.h>

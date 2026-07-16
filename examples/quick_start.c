@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "memory_compat.h"
+#include "airy_memory.h"
 
 /**
  * @brief 错误处理辅助函数
