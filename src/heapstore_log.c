@@ -389,7 +389,6 @@ heapstore_error_t heapstore_log_rotate(void)
     char new_path[heapstore_LOG_MAX_PATH];
     snprintf(new_path, sizeof(new_path), "agentrt/heapstore/logs/kernel/airy_%s.log", timestamp);
 
-    char _buf5[1024];
     if (rename(old_path, new_path) != 0) {
         AIRY_LOG_ERROR("heapstore_log: failed to rotate log file: %s -> %s", old_path, new_path);
         airy_mtx_unlock(&s_log_lock);
