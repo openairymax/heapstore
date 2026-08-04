@@ -27,11 +27,16 @@
 
 #include "airy_memory.h"
 
+#ifdef AIRY_HAS_SQLITE3
+#include <sqlite3.h>
+#endif
+
 /* ========== 内部常量 ========== */
 
 #define HEAPSTORE_MIGRATION_VERSION_FILE ".schema_version"
 #define HEAPSTORE_MIGRATION_BACKUP_SUFFIX ".pre_migration_bak"
 #define HEAPSTORE_MIGRATION_MAX_STEPS 64
+#define HEAPSTORE_MIGRATION_DB_REL_PATH "/registry/registry.db"
 
 /* ========== 工具函数 ========== */
 
@@ -219,51 +224,269 @@ typedef struct {
 /* ---- 具体迁移步骤实现 ---- */
 
 /**
- * @brief v1.0.0 → v1.1.0: 为 agent_record 新增 priority 和 tags 字段
+ * @brief 解析 registry 数据库路径：heapstore 根 + registry/registry.db
  */
-static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_affected)
+static void mig_db_path(char *buffer, size_t buffer_size)
 {
-    /* 非破坏性迁移：新增字段
-     * 在实际实现中，这会遍历 registry 中的所有 agent 记录，
-     * 为每条记录添加默认的 priority 和 tags 字段值。
-     *
-     * 对于文件格式的 heapstore，这涉及读取、解析、修改、写回。
-     */
-    *records_affected = 0;
-
-    /* 获取 registry 中 agent 数据文件的路径 */
     const char *root = heapstore_get_root();
-    char agent_path[heapstore_MAX_PATH_LEN];
-    snprintf(agent_path, sizeof(agent_path), "%s/registry/agents.dat", root);
+    snprintf(buffer, buffer_size, "%s%s", root, HEAPSTORE_MIGRATION_DB_REL_PATH);
+}
 
-    /* 检查文件是否存在 */
-    struct stat st;
-    if (stat(agent_path, &st) != 0) {
-        /* 没有 agent 数据，无需迁移 */
+#ifdef AIRY_HAS_SQLITE3
+
+/**
+ * @brief 打开 registry 数据库（只读迁移视图，失败返回 NULL）
+ */
+static sqlite3 *mig_db_open(void)
+{
+    char db_path[heapstore_MAX_PATH_LEN];
+    mig_db_path(db_path, sizeof(db_path));
+
+    sqlite3 *db = NULL;
+    if (sqlite3_open_v2(db_path, &db,
+                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) != SQLITE_OK) {
+        if (db) {
+            sqlite3_close(db);
+        }
+        return NULL;
+    }
+    return db;
+}
+
+/**
+ * @brief 检查表是否包含指定列
+ */
+static bool mig_table_has_column(sqlite3 *db, const char *table, const char *column)
+{
+    char sql[192];
+    snprintf(sql, sizeof(sql), "PRAGMA table_info(%s);", table);
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return false;
+    }
+
+    bool found = false;
+    int rc;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *name = (const char *)sqlite3_column_text(stmt, 1);
+        if (name && strcmp(name, column) == 0) {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+/**
+ * @brief 幂等添加列（已存在则跳过），返回变更行数
+ */
+static heapstore_error_t mig_add_column(sqlite3 *db, const char *table,
+                                        const char *column, const char *column_def,
+                                        uint64_t *records_affected)
+{
+    if (mig_table_has_column(db, table, column)) {
+        *records_affected = 0;
         return heapstore_SUCCESS;
     }
 
-    /* 备份原始文件 */
-    heapstore_error_t err = backup_data_file(agent_path);
+    char sql[256];
+    snprintf(sql, sizeof(sql), "ALTER TABLE %s ADD COLUMN %s;", table, column_def);
+
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(err_msg);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    /* 统计现有记录数作为受影响记录数（默认值已由 ADD COLUMN DEFAULT 生效） */
+    snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s;", table);
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW) {
+        *records_affected = (uint64_t)sqlite3_column_int64(stmt, 0);
+    } else {
+        *records_affected = 0;
+    }
+    if (stmt) {
+        sqlite3_finalize(stmt);
+    }
+    return heapstore_SUCCESS;
+}
+
+/**
+ * @brief 通过重建表方式移除列（兼容 SQLite < 3.35 无 DROP COLUMN）
+ *
+ * 仅在目标列存在时执行；重建后恢复同名表与索引。
+ */
+static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
+                                          const char *const *drop_columns,
+                                          size_t drop_count, uint64_t *records_affected)
+{
+    *records_affected = 0;
+
+    /* 收集保留列 */
+    char keep_cols[1024] = {0};
+    {
+        char sql[192];
+        snprintf(sql, sizeof(sql), "PRAGMA table_info(%s);", table);
+        sqlite3_stmt *stmt = NULL;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+            return heapstore_ERR_DB_QUERY_FAILED;
+        }
+        int rc;
+        while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+            const char *name = (const char *)sqlite3_column_text(stmt, 1);
+            if (!name) {
+                continue;
+            }
+            bool drop = false;
+            for (size_t i = 0; i < drop_count; i++) {
+                if (strcmp(name, drop_columns[i]) == 0) {
+                    drop = true;
+                    break;
+                }
+            }
+            if (drop) {
+                continue;
+            }
+            if (keep_cols[0]) {
+                strncat(keep_cols, ", ", sizeof(keep_cols) - strlen(keep_cols) - 1);
+            }
+            strncat(keep_cols, name, sizeof(keep_cols) - strlen(keep_cols) - 1);
+        }
+        sqlite3_finalize(stmt);
+        if (keep_cols[0] == '\0') {
+            return heapstore_ERR_DB_QUERY_FAILED;
+        }
+    }
+
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL);
+    if (rc != SQLITE_OK) {
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    char sql[1200];
+    snprintf(sql, sizeof(sql), "CREATE TABLE %s_tmp AS SELECT %s FROM %s;", table, keep_cols, table);
+    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(err_msg);
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+    sqlite3_free(err_msg);
+    err_msg = NULL;
+
+    snprintf(sql, sizeof(sql), "DROP TABLE %s;", table);
+    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(err_msg);
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+    sqlite3_free(err_msg);
+    err_msg = NULL;
+
+    snprintf(sql, sizeof(sql), "ALTER TABLE %s_tmp RENAME TO %s;", table, table);
+    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(err_msg);
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+    sqlite3_free(err_msg);
+    err_msg = NULL;
+
+    /* 恢复索引 */
+    if (strcmp(table, "agents") == 0) {
+        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_agent_type ON agents(type);",
+                     NULL, NULL, NULL);
+    } else if (strcmp(table, "sessions") == 0) {
+        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_session_user ON sessions(user_id);",
+                     NULL, NULL, NULL);
+    }
+
+    rc = sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
+    if (rc != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    /* 统计受影响行数（迁移后剩余记录） */
+    snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s;", table);
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW) {
+        *records_affected = (uint64_t)sqlite3_column_int64(stmt, 0);
+    }
+    if (stmt) {
+        sqlite3_finalize(stmt);
+    }
+    return heapstore_SUCCESS;
+}
+
+#endif /* AIRY_HAS_SQLITE3 */
+
+/**
+ * @brief v1.0.0 → v1.1.0: 为 agent_record 新增 priority 和 tags 字段
+ *
+ * 真实实现：在 registry 数据库的 agents 表中追加 priority/tags 列
+ * （幂等：列已存在则跳过），并为存量记录应用默认值。
+ */
+static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_affected)
+{
+    *records_affected = 0;
+
+#ifdef AIRY_HAS_SQLITE3
+    /* 无数据库文件时视为空库，无需迁移 */
+    char db_path[heapstore_MAX_PATH_LEN];
+    mig_db_path(db_path, sizeof(db_path));
+    struct stat st;
+    if (stat(db_path, &st) != 0) {
+        return heapstore_SUCCESS;
+    }
+
+    /* 备份原始数据库 */
+    heapstore_error_t err = backup_data_file(db_path);
     if (err != heapstore_SUCCESS) {
         return err;
     }
 
-    /* 读取并处理每条记录 */
-    FILE *f = fopen(agent_path, "r+b");
-    if (!f) {
-        restore_data_file(agent_path);
-        return heapstore_ERR_FILE_OPEN_FAILED;
+    sqlite3 *db = mig_db_open();
+    if (!db) {
+        restore_data_file(db_path);
+        return heapstore_ERR_DB_INIT_FAILED;
     }
 
-    /* 在文件末尾追加新增字段的默认值 */
-    /* 实际场景中，这里会解析每条记录并追加新字段 */
-    fprintf(f, "\n# Migration v1.1.0: added priority, tags fields\n");
-    fclose(f);
+    uint64_t affected = 0;
+    uint64_t step_affected = 0;
+    err = mig_add_column(db, "agents", "priority", "priority INTEGER DEFAULT 0",
+                         &step_affected);
+    if (err != heapstore_SUCCESS) {
+        sqlite3_close(db);
+        restore_data_file(db_path);
+        return err;
+    }
+    affected += step_affected;
+    err = mig_add_column(db, "agents", "tags", "tags TEXT DEFAULT ''", &step_affected);
+    if (err != heapstore_SUCCESS) {
+        sqlite3_close(db);
+        restore_data_file(db_path);
+        return err;
+    }
+    affected += step_affected;
 
-    cleanup_backup_file(agent_path);
-    *records_affected = 1; /* 标记有变更 */
+    sqlite3_close(db);
+    cleanup_backup_file(db_path);
+    *records_affected = affected;
     return heapstore_SUCCESS;
+#else
+    /* 非 SQLite 构建：内存链表实现无持久化 schema，迁移为空操作 */
+    return heapstore_SUCCESS;
+#endif
 }
 
 /**
@@ -273,32 +496,40 @@ static heapstore_error_t migrate_v1_1_to_v2_0_session_metadata(uint64_t *records
 {
     *records_affected = 0;
 
-    const char *root = heapstore_get_root();
-    char session_path[heapstore_MAX_PATH_LEN];
-    snprintf(session_path, sizeof(session_path), "%s/registry/sessions.dat", root);
-
+#ifdef AIRY_HAS_SQLITE3
+    char db_path[heapstore_MAX_PATH_LEN];
+    mig_db_path(db_path, sizeof(db_path));
     struct stat st;
-    if (stat(session_path, &st) != 0) {
+    if (stat(db_path, &st) != 0) {
         return heapstore_SUCCESS;
     }
 
-    heapstore_error_t err = backup_data_file(session_path);
+    heapstore_error_t err = backup_data_file(db_path);
     if (err != heapstore_SUCCESS) {
         return err;
     }
 
-    FILE *f = fopen(session_path, "a");
-    if (!f) {
-        restore_data_file(session_path);
-        return heapstore_ERR_FILE_OPEN_FAILED;
+    sqlite3 *db = mig_db_open();
+    if (!db) {
+        restore_data_file(db_path);
+        return heapstore_ERR_DB_INIT_FAILED;
     }
 
-    fprintf(f, "\n# Migration v2.0.0: added metadata field\n");
-    fclose(f);
+    uint64_t affected = 0;
+    err = mig_add_column(db, "sessions", "metadata", "metadata TEXT DEFAULT ''", &affected);
+    if (err != heapstore_SUCCESS) {
+        sqlite3_close(db);
+        restore_data_file(db_path);
+        return err;
+    }
 
-    cleanup_backup_file(session_path);
-    *records_affected = 1;
+    sqlite3_close(db);
+    cleanup_backup_file(db_path);
+    *records_affected = affected;
     return heapstore_SUCCESS;
+#else
+    return heapstore_SUCCESS;
+#endif
 }
 
 /* ---- 迁移步骤注册表 ---- */
@@ -422,73 +653,94 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
 /**
  * @brief v2.0.0 → v1.1.0: 移除 session metadata 字段
+ *
+ * 真实实现：通过重建 sessions 表移除 metadata 列，保留核心字段。
  */
 static heapstore_error_t rollback_v2_0_to_v1_1_session_metadata(uint64_t *records_affected)
 {
     *records_affected = 0;
 
-    const char *root = heapstore_get_root();
-    char session_path[heapstore_MAX_PATH_LEN];
-    snprintf(session_path, sizeof(session_path), "%s/registry/sessions.dat", root);
-
+#ifdef AIRY_HAS_SQLITE3
+    char db_path[heapstore_MAX_PATH_LEN];
+    mig_db_path(db_path, sizeof(db_path));
     struct stat st;
-    if (stat(session_path, &st) != 0) {
+    if (stat(db_path, &st) != 0) {
         return heapstore_SUCCESS;
     }
 
-    heapstore_error_t err = backup_data_file(session_path);
+    heapstore_error_t err = backup_data_file(db_path);
     if (err != heapstore_SUCCESS) {
         return err;
     }
 
-    FILE *f = fopen(session_path, "r+b");
-    if (!f) {
-        restore_data_file(session_path);
-        return heapstore_ERR_FILE_OPEN_FAILED;
+    sqlite3 *db = mig_db_open();
+    if (!db) {
+        restore_data_file(db_path);
+        return heapstore_ERR_DB_INIT_FAILED;
     }
 
-    /* 移除 metadata 相关行，保留核心数据 */
-    fprintf(f, "\n# Rollback v2.0→v1.1: removed metadata field\n");
-    fclose(f);
+    static const char *drop_cols[] = {"metadata"};
+    uint64_t affected = 0;
+    err = mig_drop_columns(db, "sessions", drop_cols, 1, &affected);
+    if (err != heapstore_SUCCESS) {
+        sqlite3_close(db);
+        restore_data_file(db_path);
+        return err;
+    }
 
-    cleanup_backup_file(session_path);
-    *records_affected = 1;
+    sqlite3_close(db);
+    cleanup_backup_file(db_path);
+    *records_affected = affected;
     return heapstore_SUCCESS;
+#else
+    return heapstore_SUCCESS;
+#endif
 }
 
 /**
  * @brief v1.1.0 → v1.0.0: 移除 agent priority 和 tags 字段
+ *
+ * 真实实现：通过重建 agents 表移除 priority/tags 列，保留核心字段。
  */
 static heapstore_error_t rollback_v1_1_to_v1_0_agent_fields(uint64_t *records_affected)
 {
     *records_affected = 0;
 
-    const char *root = heapstore_get_root();
-    char agent_path[heapstore_MAX_PATH_LEN];
-    snprintf(agent_path, sizeof(agent_path), "%s/registry/agents.dat", root);
-
+#ifdef AIRY_HAS_SQLITE3
+    char db_path[heapstore_MAX_PATH_LEN];
+    mig_db_path(db_path, sizeof(db_path));
     struct stat st;
-    if (stat(agent_path, &st) != 0) {
+    if (stat(db_path, &st) != 0) {
         return heapstore_SUCCESS;
     }
 
-    heapstore_error_t err = backup_data_file(agent_path);
+    heapstore_error_t err = backup_data_file(db_path);
     if (err != heapstore_SUCCESS) {
         return err;
     }
 
-    FILE *f = fopen(agent_path, "r+b");
-    if (!f) {
-        restore_data_file(agent_path);
-        return heapstore_ERR_FILE_OPEN_FAILED;
+    sqlite3 *db = mig_db_open();
+    if (!db) {
+        restore_data_file(db_path);
+        return heapstore_ERR_DB_INIT_FAILED;
     }
 
-    fprintf(f, "\n# Rollback v1.1→v1.0: removed priority/tags fields\n");
-    fclose(f);
+    static const char *drop_cols[] = {"priority", "tags"};
+    uint64_t affected = 0;
+    err = mig_drop_columns(db, "agents", drop_cols, 2, &affected);
+    if (err != heapstore_SUCCESS) {
+        sqlite3_close(db);
+        restore_data_file(db_path);
+        return err;
+    }
 
-    cleanup_backup_file(agent_path);
-    *records_affected = 1;
+    sqlite3_close(db);
+    cleanup_backup_file(db_path);
+    *records_affected = affected;
     return heapstore_SUCCESS;
+#else
+    return heapstore_SUCCESS;
+#endif
 }
 
 static const migration_step_def_t g_rollback_steps[] = {

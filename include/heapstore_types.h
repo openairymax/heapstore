@@ -34,6 +34,9 @@ typedef struct heapstore_agent_record {
     char config_path[512];
     uint64_t created_at;
     uint64_t updated_at;
+    /* v1.1.0 新增：调度优先级与标签（schema 迁移目标字段） */
+    int priority;
+    char tags[256];
 } heapstore_agent_record_t;
 
 typedef struct heapstore_skill_record {
@@ -52,6 +55,8 @@ typedef struct heapstore_session_record {
     uint64_t last_active_at;
     uint32_t ttl_seconds;
     char status[32];
+    /* v2.0.0 新增：会话元数据（schema 迁移目标字段） */
+    char metadata[512];
 } heapstore_session_record_t;
 
 /* ========== 内存管理类型 ========== */
