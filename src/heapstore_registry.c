@@ -469,7 +469,9 @@ static heapstore_error_t init_database(sqlite3 *db)
                       "    status TEXT,"
                       "    config_path TEXT,"
                       "    created_at INTEGER,"
-                      "    updated_at INTEGER"
+                      "    updated_at INTEGER,"
+                      "    priority INTEGER DEFAULT 0,"
+                      "    tags TEXT DEFAULT ''"
                       ");"
                       "CREATE TABLE IF NOT EXISTS agent_capabilities ("
                       "    agent_id TEXT,"
@@ -490,7 +492,8 @@ static heapstore_error_t init_database(sqlite3 *db)
                       "    created_at INTEGER,"
                       "    last_active_at INTEGER,"
                       "    ttl_seconds INTEGER,"
-                      "    status TEXT"
+                      "    status TEXT,"
+                      "    metadata TEXT DEFAULT ''"
                       ");"
                       "CREATE INDEX IF NOT EXISTS idx_agent_type ON agents(type);"
                       "CREATE INDEX IF NOT EXISTS idx_skill_status ON skills(name);"
@@ -637,8 +640,9 @@ heapstore_error_t heapstore_registry_add_agent(const heapstore_agent_record_t *r
     }
 
     const char *sql = "INSERT INTO agents "
-                      "(id, name, type, version, status, config_path, created_at, updated_at) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                      "(id, name, type, version, status, config_path, created_at, updated_at, "
+                      " priority, tags) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     return execute_sql_with_lock(sql, bind_agent_record, (void *)record);
 }
@@ -655,7 +659,8 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
 
     airy_mtx_lock(&s_registry.lock);
 
-    const char *sql = "SELECT id, name, type, version, status, config_path, created_at, updated_at "
+    const char *sql = "SELECT id, name, type, version, status, config_path, created_at, "
+                      "updated_at, priority, tags "
                       "FROM agents WHERE id = ?;";
     sqlite3_stmt *stmt;
 
@@ -708,6 +713,12 @@ heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_r
 
         record->created_at = sqlite3_column_int64(stmt, 6);
         record->updated_at = sqlite3_column_int64(stmt, 7);
+        record->priority = sqlite3_column_int(stmt, 8);
+        text = (const char *)sqlite3_column_text(stmt, 9);
+        if (text) {
+            AIRY_STRNCPY_TERM(record->tags, text, sizeof(record->tags));
+        } else
+            record->tags[0] = '\0';
 
         sqlite3_finalize(stmt);
         airy_mtx_unlock(&s_registry.lock);
@@ -733,7 +744,8 @@ heapstore_error_t heapstore_registry_update_agent(const heapstore_agent_record_t
 
     const char *sql =
         "UPDATE agents SET "
-        "name = ?, type = ?, version = ?, status = ?, config_path = ?, updated_at = ? "
+        "name = ?, type = ?, version = ?, status = ?, config_path = ?, updated_at = ?, "
+        "priority = ?, tags = ? "
         "WHERE id = ?;";
     sqlite3_stmt *stmt;
 
@@ -749,7 +761,9 @@ heapstore_error_t heapstore_registry_update_agent(const heapstore_agent_record_t
     sqlite3_bind_text(stmt, 4, record->status, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 5, record->config_path, -1, SQLITE_STATIC);
     sqlite3_bind_int64(stmt, 6, record->updated_at);
-    sqlite3_bind_text(stmt, 7, record->id, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 7, record->priority);
+    sqlite3_bind_text(stmt, 8, record->tags, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 9, record->id, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -997,8 +1011,8 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
     airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "INSERT INTO sessions "
-                      "(id, user_id, created_at, last_active_at, ttl_seconds, status) "
-                      "VALUES (?, ?, ?, ?, ?, ?);";
+                      "(id, user_id, created_at, last_active_at, ttl_seconds, status, metadata) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt *stmt;
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
@@ -1013,6 +1027,7 @@ heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_
     sqlite3_bind_int64(stmt, 4, record->last_active_at);
     sqlite3_bind_int(stmt, 5, record->ttl_seconds);
     sqlite3_bind_text(stmt, 6, record->status, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 7, record->metadata, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -1037,7 +1052,8 @@ heapstore_error_t heapstore_registry_get_session(const char *id, heapstore_sessi
 
     airy_mtx_lock(&s_registry.lock);
 
-    const char *sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status FROM "
+    const char *sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status, "
+                      "metadata FROM "
                       "sessions WHERE id = ?;";
     sqlite3_stmt *stmt;
 
@@ -1067,6 +1083,10 @@ heapstore_error_t heapstore_registry_get_session(const char *id, heapstore_sessi
         if (text) {
             AIRY_STRNCPY_TERM(record->status, text, sizeof(record->status));
         }
+        text = (const char *)sqlite3_column_text(stmt, 6);
+        if (text) {
+            AIRY_STRNCPY_TERM(record->metadata, text, sizeof(record->metadata));
+        }
         sqlite3_finalize(stmt);
         airy_mtx_unlock(&s_registry.lock);
         return heapstore_SUCCESS;
@@ -1090,7 +1110,7 @@ heapstore_error_t heapstore_registry_update_session(const heapstore_session_reco
     airy_mtx_lock(&s_registry.lock);
 
     const char *sql = "UPDATE sessions SET user_id = ?, last_active_at = ?, ttl_seconds = ?, "
-                      "status = ? WHERE id = ?;";
+                      "status = ?, metadata = ? WHERE id = ?;";
     sqlite3_stmt *stmt;
 
     int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
@@ -1103,7 +1123,8 @@ heapstore_error_t heapstore_registry_update_session(const heapstore_session_reco
     sqlite3_bind_int64(stmt, 2, record->last_active_at);
     sqlite3_bind_int(stmt, 3, record->ttl_seconds);
     sqlite3_bind_text(stmt, 4, record->status, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, record->id, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, record->metadata, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 6, record->id, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -1214,10 +1235,12 @@ heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
     sqlite3_stmt *stmt;
 
     if (filter_status && filter_status[0]) {
-        sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status FROM sessions "
+        sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status, metadata "
+              "FROM sessions "
               "WHERE status = ? ORDER BY last_active_at DESC;";
     } else {
-        sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status FROM sessions "
+        sql = "SELECT id, user_id, created_at, last_active_at, ttl_seconds, status, metadata "
+              "FROM sessions "
               "ORDER BY last_active_at DESC;";
     }
 
@@ -1336,6 +1359,9 @@ heapstore_error_t heapstore_registry_iter_next(heapstore_registry_iter_t *iter, 
         text = (const char *)sqlite3_column_text(iter->stmt, 5);
         if (text)
             AIRY_STRNCPY_TERM(session_rec->status, text, sizeof(session_rec->status));
+        text = (const char *)sqlite3_column_text(iter->stmt, 6);
+        if (text)
+            AIRY_STRNCPY_TERM(session_rec->metadata, text, sizeof(session_rec->metadata));
         break;
     }
     default:
@@ -1384,8 +1410,9 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
     }
 
     const char *sql = "INSERT INTO agents "
-                      "(id, name, type, version, status, config_path, created_at, updated_at) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                      "(id, name, type, version, status, config_path, created_at, updated_at, "
+                      " priority, tags) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     airy_mtx_lock(&s_registry.lock);
 
@@ -1415,6 +1442,8 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
         sqlite3_bind_text(stmt, 6, record->config_path, -1, SQLITE_STATIC);
         sqlite3_bind_int64(stmt, 7, record->created_at);
         sqlite3_bind_int64(stmt, 8, record->updated_at);
+        sqlite3_bind_int(stmt, 9, record->priority);
+        sqlite3_bind_text(stmt, 10, record->tags, -1, SQLITE_STATIC);
 
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
@@ -1451,8 +1480,8 @@ heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *recor
     }
 
     const char *sql = "INSERT INTO sessions "
-                      "(id, user_id, created_at, last_active_at, ttl_seconds, status) "
-                      "VALUES (?, ?, ?, ?, ?, ?);";
+                      "(id, user_id, created_at, last_active_at, ttl_seconds, status, metadata) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
     airy_mtx_lock(&s_registry.lock);
 
@@ -1480,6 +1509,7 @@ heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *recor
         sqlite3_bind_int64(stmt, 4, record->last_active_at);
         sqlite3_bind_int(stmt, 5, record->ttl_seconds);
         sqlite3_bind_text(stmt, 6, record->status, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 7, record->metadata, -1, SQLITE_STATIC);
 
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
