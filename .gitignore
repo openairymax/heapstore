@@ -220,3 +220,12 @@ Cargo.lock
 
 # 环境模板保留（例外规则）
 !.env.example
+
+# ===== 通用兜底（2026-08 统一更新） =====
+# 误放的大型运行时目录（JDK 等）与运行时产物
+oracleJdk-*/
+jdk-*/
+*.log
+*.sock
+/run/
+/logs/
