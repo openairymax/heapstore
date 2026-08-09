@@ -52,6 +52,10 @@ heapstore_error_t heapstore_memory_init(void)
         return heapstore_SUCCESS;
     }
 
+    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化；
+     * Linux 覆盖静态零值并升级为递归锁） */
+    airy_mtx_init(&s_memory_lock);
+
     const char *root = heapstore_get_root();
     char base_path[512];
     if (root && root[0]) {

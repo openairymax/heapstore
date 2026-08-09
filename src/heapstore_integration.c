@@ -80,6 +80,9 @@ static void integration_unlock(void)
 
 airy_err_t heapstore_integration_init(const char *root_path)
 {
+    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
+    integration_lock_init();
+
     integration_lock();
 
     if (g_integration_initialized) {

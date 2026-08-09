@@ -178,6 +178,11 @@ heapstore_error_t heapstore_log_init(void)
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
 
+    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化；
+     * Linux 覆盖静态零值并升级为递归锁） */
+    airy_mtx_init(&s_log_lock);
+    airy_mtx_init(&s_service_lock);
+
     const char *base = get_log_base_path();
     AIRY_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
 

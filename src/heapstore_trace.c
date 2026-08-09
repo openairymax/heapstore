@@ -53,6 +53,9 @@ heapstore_error_t heapstore_trace_init(void)
         return heapstore_SUCCESS;
     }
 
+    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
+    airy_mtx_init(&s_trace_lock);
+
     const char *base_path = "agentrt/heapstore/traces";
     AIRY_STRNCPY_TERM(s_trace_path, base_path, sizeof(s_trace_path));
 
