@@ -280,6 +280,9 @@ heapstore_error_t heapstore_ipc_init(void)
         return heapstore_SUCCESS;
     }
 
+    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
+    airy_mtx_init(&s_ipc_lock);
+
     const char *base_path = "agentrt/heapstore/kernel/ipc";
     AIRY_STRNCPY_TERM(s_ipc_path, base_path, sizeof(s_ipc_path));
 
