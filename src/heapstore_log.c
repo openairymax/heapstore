@@ -84,7 +84,17 @@ static const char *level_to_string(heapstore_log_level_t level)
 
 static const char *get_log_base_path(void)
 {
-    static char base_path[256] = "agentrt/heapstore/logs";
+    /* 与 heapstore_core 的 root 解析一致：AIRY_HEAPSTORE_ROOT → $TMPDIR/agentrt/heapstore。
+     * 原实现用相对路径 "agentrt/heapstore/logs"，依赖 CWD，导致 init 打开的
+     * 日志文件与实际运行日志路径错位，且写入源码树/CWD 违反运行时数据收敛约定。 */
+    static char base_path[512];
+    const char *env = getenv("AIRY_HEAPSTORE_ROOT");
+    if (env && env[0]) {
+        snprintf(base_path, sizeof(base_path), "%s/logs", env);
+    } else {
+        snprintf(base_path, sizeof(base_path), "%s/agentrt/heapstore/logs",
+                 getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
+    }
     return base_path;
 }
 
@@ -158,7 +168,14 @@ static FILE *get_service_log_file(const char *service)
 
         FILE *fp = fopen(filepath, "a");
         if (fp) {
-            AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name, safe_service, sizeof(heapstore_LOG_MAX_SERVICE_LEN)); (s_service_logs[s_service_log_count].service_name)[(heapstore_LOG_MAX_SERVICE_LEN)-1] = '\0';
+            /* 修复 sizeof(宏) 误用：原写法取 heapstore_LOG_MAX_SERVICE_LEN
+             * 的 int 大小（4/8 字节），服务名被截断，导致日志服务文件与
+             * 真实服务名错配。改为取目标数组实际大小。 */
+            AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name,
+                              safe_service,
+                              sizeof(s_service_logs[s_service_log_count].service_name));
+            s_service_logs[s_service_log_count].service_name
+                [sizeof(s_service_logs[s_service_log_count].service_name) - 1] = '\0';
             s_service_logs[s_service_log_count].file = fp;
             airy_mtx_init(&s_service_logs[s_service_log_count].lock);
             s_service_log_count++;
@@ -186,13 +203,22 @@ heapstore_error_t heapstore_log_init(void)
     const char *base = get_log_base_path();
     AIRY_STRNCPY_TERM(s_log_root_path, base, sizeof(s_log_root_path));
 
+    char kernel_dir[heapstore_LOG_MAX_PATH];
+    char services_dir[heapstore_LOG_MAX_PATH];
+    char apps_dir[heapstore_LOG_MAX_PATH];
+    char main_log_path[heapstore_LOG_MAX_PATH];
+    snprintf(kernel_dir, sizeof(kernel_dir), "%s/kernel", base);
+    snprintf(services_dir, sizeof(services_dir), "%s/services", base);
+    snprintf(apps_dir, sizeof(apps_dir), "%s/apps", base);
+    snprintf(main_log_path, sizeof(main_log_path), "%s/kernel/agentrt.log", base);
+
     heapstore_ensure_directory(base);
-    heapstore_ensure_directory("agentrt/heapstore/logs/kernel");
-    heapstore_ensure_directory("agentrt/heapstore/logs/services");
-    heapstore_ensure_directory("agentrt/heapstore/logs/apps");
+    heapstore_ensure_directory(kernel_dir);
+    heapstore_ensure_directory(services_dir);
+    heapstore_ensure_directory(apps_dir);
 
     update_current_date();
-    s_main_log_file = fopen("agentrt/heapstore/logs/kernel/agentrt.log", "a");
+    s_main_log_file = fopen(main_log_path, "a");
     if (!s_main_log_file) {
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
@@ -389,10 +415,10 @@ heapstore_error_t heapstore_log_rotate(void)
     strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", tm_info);
 
     char old_path[heapstore_LOG_MAX_PATH];
-    snprintf(old_path, sizeof(old_path), "agentrt/heapstore/logs/kernel/agentrt.log");
+    snprintf(old_path, sizeof(old_path), "%s/kernel/agentrt.log", get_log_base_path());
 
     char new_path[heapstore_LOG_MAX_PATH];
-    snprintf(new_path, sizeof(new_path), "agentrt/heapstore/logs/kernel/airy_%s.log", timestamp);
+    snprintf(new_path, sizeof(new_path), "%s/kernel/airy_%s.log", get_log_base_path(), timestamp);
 
     if (rename(old_path, new_path) != 0) {
         AIRY_LOG_ERROR("heapstore_log: failed to rotate log file: %s -> %s", old_path, new_path);
