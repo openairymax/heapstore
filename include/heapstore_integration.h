@@ -1,11 +1,9 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_integration.h
  * @brief heapstore 与 AgentRT 核心模块集成接口
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @details
  * 本文件定义 heapstore 数据分区存储系统与 AgentRT 核心模块的集成接口。
@@ -23,7 +21,7 @@
  * ```
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_heapstore_INTEGRATION_H
 #define AIRY_heapstore_INTEGRATION_H
 
@@ -39,7 +37,6 @@
 extern "C" {
 #endif
 
-/* ==================== 系统初始化集成 ==================== */
 
 /**
  * @brief 初始化 heapstore 并与 AgentRT 核心集成
@@ -71,7 +68,6 @@ AIRY_API airy_err_t heapstore_integration_init(const char *root_path);
  */
 AIRY_API void heapstore_integration_shutdown(void);
 
-/* ==================== syscall 层集成 ==================== */
 
 /**
  * @brief 为 syscall 层提供会话持久化接口
@@ -86,10 +82,8 @@ AIRY_API void heapstore_integration_shutdown(void);
  * @threadsafe 是
  * @reentrant 是
  */
-AIRY_API airy_err_t heapstore_syscall_session_save(const char *session_id,
-                                                           const char *metadata,
-                                                           uint64_t created_ns,
-                                                           uint64_t last_active_ns);
+AIRY_API airy_err_t heapstore_syscall_session_save(const char *session_id, const char *metadata,
+                                                   uint64_t created_ns, uint64_t last_active_ns);
 
 /**
  * @brief 为 syscall 层提供会话加载接口
@@ -104,10 +98,9 @@ AIRY_API airy_err_t heapstore_syscall_session_save(const char *session_id,
  * @threadsafe 是
  * @reentrant 是
  */
-AIRY_API airy_err_t heapstore_syscall_session_load(const char *session_id,
-                                                           char **out_metadata,
-                                                           uint64_t *out_created_ns,
-                                                           uint64_t *out_last_active_ns);
+AIRY_API airy_err_t heapstore_syscall_session_load(const char *session_id, char **out_metadata,
+                                                   uint64_t *out_created_ns,
+                                                   uint64_t *out_last_active_ns);
 
 /**
  * @brief 为 syscall 层提供会话删除接口
@@ -133,7 +126,6 @@ AIRY_API airy_err_t heapstore_syscall_session_delete(const char *session_id);
  */
 AIRY_API airy_err_t heapstore_syscall_session_list(char ***out_sessions, size_t *out_count);
 
-/* ==================== telemetry 层集成 ==================== */
 
 /**
  * @brief 为 telemetry 层提供追踪数据存储接口
@@ -153,9 +145,9 @@ AIRY_API airy_err_t heapstore_syscall_session_list(char ***out_sessions, size_t 
  * @reentrant 是
  */
 AIRY_API airy_err_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
-                                                         const char *parent_id, const char *name,
-                                                         int64_t start_time_us, int64_t end_time_us,
-                                                         int status, const char *events_json);
+                                                 const char *parent_id, const char *name,
+                                                 int64_t start_time_us, int64_t end_time_us,
+                                                 int status, const char *events_json);
 
 /**
  * @brief 为 telemetry 层提供追踪数据导出接口
@@ -169,7 +161,6 @@ AIRY_API airy_err_t heapstore_syscall_trace_save(const char *trace_id, const cha
  */
 AIRY_API airy_err_t heapstore_syscall_trace_export(char **out_traces);
 
-/* ====================== memory (built-in) 层集成 ====================== */
 
 /**
  * @brief 为 memory (built-in) 层提供原始记忆数据存储接口
@@ -184,8 +175,8 @@ AIRY_API airy_err_t heapstore_syscall_trace_export(char **out_traces);
  * @threadsafe 是
  * @reentrant 是
  */
-AIRY_API airy_err_t heapstore_memory_raw_save(const void *data, size_t len,
-                                                      const char *metadata, char **out_record_id);
+AIRY_API airy_err_t heapstore_memory_raw_save(const void *data, size_t len, const char *metadata,
+                                              char **out_record_id);
 
 /**
  * @brief 为 memory (built-in) 层提供原始记忆数据加载接口
@@ -201,7 +192,7 @@ AIRY_API airy_err_t heapstore_memory_raw_save(const void *data, size_t len,
  * @reentrant 是
  */
 AIRY_API airy_err_t heapstore_memory_raw_load(const char *record_id, void **out_data,
-                                                      size_t *out_len, char **out_metadata);
+                                              size_t *out_len, char **out_metadata);
 
 /**
  * @brief 为 memory (built-in) 层提供原始记忆数据删除接口
@@ -214,7 +205,6 @@ AIRY_API airy_err_t heapstore_memory_raw_load(const char *record_id, void **out_
  */
 AIRY_API airy_err_t heapstore_memory_raw_delete(const char *record_id);
 
-/* ==================== corekern IPC 层集成 ==================== */
 
 /**
  * @brief 为 corekern IPC 层提供通道状态存储接口
@@ -227,8 +217,7 @@ AIRY_API airy_err_t heapstore_memory_raw_delete(const char *record_id);
  * @threadsafe 是
  * @reentrant 是
  */
-AIRY_API airy_err_t heapstore_ipc_channel_save(const char *channel_id,
-                                                       const char *state_json);
+AIRY_API airy_err_t heapstore_ipc_channel_save(const char *channel_id, const char *state_json);
 
 /**
  * @brief 为 corekern IPC 层提供通道状态加载接口
@@ -243,7 +232,6 @@ AIRY_API airy_err_t heapstore_ipc_channel_save(const char *channel_id,
  */
 AIRY_API airy_err_t heapstore_ipc_channel_load(const char *channel_id, char **out_state);
 
-/* ==================== commons logging 层集成 ==================== */
 
 /**
  * @brief 为 commons logging 层提供日志存储接口
@@ -261,11 +249,9 @@ AIRY_API airy_err_t heapstore_ipc_channel_load(const char *channel_id, char **ou
  *
  * @note 此接口同时支持快速路径和慢速路径
  */
-AIRY_API airy_err_t heapstore_logging_write(const char *module, int level,
-                                                    const char *trace_id, const char *message,
-                                                    uint64_t timestamp_ns);
+AIRY_API airy_err_t heapstore_logging_write(const char *module, int level, const char *trace_id,
+                                            const char *message, uint64_t timestamp_ns);
 
-/* ==================== 健康检查与可观测性 ==================== */
 
 /**
  * @brief 获取 heapstore 集成健康状态

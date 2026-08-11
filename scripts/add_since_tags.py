@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 批量为 heapstore 头文件添加 @since 版本标记
 
 使用示例:

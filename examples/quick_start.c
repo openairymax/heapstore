@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file quick_start.c
  * @brief heapstore 快速入门示例
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 本示例展示 heapstore 的基本使用方法，
  *       适合首次使用 heapstore 的开发者快速上手。
@@ -59,7 +57,6 @@ int main(int argc, char **argv)
     printf("heapstore Quick Start Example\n");
     printf("========================================\n\n");
 
-    /* 1. 初始化 heapstore */
     printf("Step 1: Initialize heapstore\n");
     heapstore_config_t config = {.root_path = "./heapstore_data",
                                  .max_log_size_mb = 100,
@@ -76,13 +73,11 @@ int main(int argc, char **argv)
     check_error(err, "heapstore_init");
     printf("\n");
 
-    /* 2. 初始化 Token 计数器 */
     printf("Step 2: Initialize Token Counter\n");
     err = heapstore_token_init();
     check_error(err, "heapstore_token_init");
     printf("\n");
 
-    /* 3. 记录 Token 使用 */
     printf("Step 3: Record Token Usage\n");
     err = heapstore_token_record(HEAPSTORE_TOKEN_TYPE_PROMPT, 150, HEAPSTORE_TOKEN_OP_WRITE);
     check_error(err, "record prompt tokens");
@@ -90,7 +85,6 @@ int main(int argc, char **argv)
     check_error(err, "record completion tokens");
     printf("\n");
 
-    /* 4. 获取 Token 统计 */
     printf("Step 4: Get Token Statistics\n");
     heapstore_token_stats_t token_stats;
     err = heapstore_token_get_stats(&token_stats);
@@ -103,14 +97,12 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
-    /* 5. 写入日志 */
     printf("Step 5: Write Log\n");
     err = heapstore_log_write(HEAPSTORE_LOG_INFO, "quick_start_example", NULL, NULL, 0,
                               "Hello from heapstore quick start!");
     check_error(err, "heapstore_log_write");
     printf("\n");
 
-    /* 6. 写入追踪数据 */
     printf("Step 6: Write Trace Span\n");
     heapstore_span_t span = {0};
     AIRY_STRNCPY_TERM(span.trace_id, "trace-001", sizeof(span.trace_id));
@@ -125,12 +117,10 @@ int main(int argc, char **argv)
     check_error(err, "heapstore_trace_write_span");
     printf("\n");
 
-    /* 7. 获取内存池统计 */
     printf("Step 7: Get Memory Pool Statistics\n");
     print_memory_stats();
     printf("\n");
 
-    /* 8. 获取堆存储统计 */
     printf("Step 8: Get Heapstore Statistics\n");
     heapstore_stats_t stats;
     err = heapstore_get_stats(&stats);
@@ -141,7 +131,6 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
-    /* 9. 健康检查 */
     printf("Step 9: Health Check\n");
     heapstore_health_status_t health;
     err = heapstore_health_check(&health);
@@ -152,7 +141,6 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
-    /* 10. 清理资源 */
     printf("Step 10: Cleanup\n");
     heapstore_token_shutdown();
     heapstore_cleanup();

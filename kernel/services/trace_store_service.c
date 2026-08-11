@@ -1,13 +1,12 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 // @owner: team-B
 #include "error.h"
 #include "logging_compat.h"
 /**
  * @file trace_store_service.c
  * @brief 内核追踪数据存储服务实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -74,7 +73,7 @@ typedef struct {
 typedef struct {
     char storage_path[512];
     uint64_t max_storage_bytes;
-    uint32_t sampling_rate;  // 采样率，每N个追踪点存储1个
+    uint32_t sampling_rate;
     atomic_uint_fast32_t is_initialized;
     uint64_t total_traces_stored;
     uint64_t total_bytes_stored;
@@ -101,26 +100,21 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
         return 0;
     }
 
-    // 设置存储路径
     AIRY_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
 
-    g_ctx.max_storage_bytes =
-        max_storage_bytes > 0 ? max_storage_bytes : 500 * 1024 * 1024;  // 默认500MB
-    g_ctx.sampling_rate = sampling_rate > 0 ? sampling_rate : 1;        // 默认采样所有
+    g_ctx.max_storage_bytes = max_storage_bytes > 0 ? max_storage_bytes : 500 * 1024 * 1024;
+    g_ctx.sampling_rate = sampling_rate > 0 ? sampling_rate : 1;
     g_ctx.total_traces_stored = 0;
     g_ctx.total_bytes_stored = 0;
 
-    // 创建存储目录
 #ifdef _WIN32
     if (_mkdir(g_ctx.storage_path) != 0) {
-        // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
             return AIRY_ERR_NOT_FOUND;
         }
     }
 #else
     if (mkdir(g_ctx.storage_path, 0755) != 0) {
-        // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
             return AIRY_ERR_NOT_FOUND;
         }
@@ -143,11 +137,10 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
         return AIRY_EINVAL;
     }
 
-    // 应用采样率
     static uint32_t counter = 0;
     counter++;
     if (counter % g_ctx.sampling_rate != 0) {
-        return 0;  // 跳过此次存储
+        return 0;
     }
 
     time_t now = time(NULL);
@@ -157,18 +150,15 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
         return AIRY_ERR_INVALID_PARAM;
     }
 
-    // 构建追踪文件名
     char filename[512];
     snprintf(filename, sizeof(filename), "%s/trace_%04d%02d%02d.bin", g_ctx.storage_path,
              tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday);
 
-    // 打开追踪文件
     FILE *f = fopen(filename, "ab");
     if (!f) {
         return AIRY_ERR_NULL_POINTER;
     }
 
-    // 写入追踪点
     size_t written = fwrite(trace_point, sizeof(heapstore_trace_point_t), 1, f);
     fclose(f);
 
@@ -176,7 +166,6 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
         return AIRY_ERR_OUT_OF_MEMORY;
     }
 
-    // 更新统计
     g_ctx.total_traces_stored++;
     g_ctx.total_bytes_stored += sizeof(heapstore_trace_point_t);
 
@@ -225,9 +214,10 @@ static void trace_store_service_check_storage_limit(const char *current_file)
     if (deleted > 0) {
         AIRY_LOG_WARN("trace_store: storage limit exceeded, cleaned %d old files", deleted);
     } else {
-        AIRY_LOG_WARN("trace_store: storage limit exceeded (%llu bytes > %llu bytes), no old files to clean",
-                      (unsigned long long)g_ctx.total_bytes_stored,
-                      (unsigned long long)g_ctx.max_storage_bytes);
+        AIRY_LOG_WARN(
+            "trace_store: storage limit exceeded (%llu bytes > %llu bytes), no old files to clean",
+            (unsigned long long)g_ctx.total_bytes_stored,
+            (unsigned long long)g_ctx.max_storage_bytes);
     }
 }
 

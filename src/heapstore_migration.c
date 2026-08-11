@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_migration.c
  * @brief AgentRT heapstore Schema 版本化与数据迁移实现
@@ -8,9 +11,6 @@
  * - 前向兼容 (v1 → v2) 非破坏性迁移
  * - 后向兼容 (v2 → v1) 安全回滚
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  */
 
 // @owner: team-C
@@ -31,14 +31,10 @@
 #include <sqlite3.h>
 #endif
 
-/* ========== 内部常量 ========== */
-
 #define HEAPSTORE_MIGRATION_VERSION_FILE ".schema_version"
 #define HEAPSTORE_MIGRATION_BACKUP_SUFFIX ".pre_migration_bak"
 #define HEAPSTORE_MIGRATION_MAX_STEPS 64
 #define HEAPSTORE_MIGRATION_DB_REL_PATH "/registry/registry.db"
-
-/* ========== 工具函数 ========== */
 
 /**
  * @brief 获取迁移版本文件的完整路径
@@ -68,7 +64,6 @@ static heapstore_error_t backup_data_file(const char *file_path)
     snprintf(backup_path, sizeof(backup_path), "%s%s", file_path,
              HEAPSTORE_MIGRATION_BACKUP_SUFFIX);
 
-    /* 复制文件 */
     FILE *src = fopen(file_path, "rb");
     if (!src) {
         return heapstore_ERR_FILE_OPEN_FAILED;
@@ -121,8 +116,6 @@ static void cleanup_backup_file(const char *file_path)
     remove(backup_path);
 }
 
-/* ========== P3.20.1: Schema 版本化 ========== */
-
 heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 {
     if (!version) {
@@ -138,13 +131,13 @@ heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 
     FILE *f = fopen(version_path, "r");
     if (!f) {
-        /* 文件不存在，版本为 0 */
+
         *version = 0;
         return heapstore_SUCCESS;
     }
 
     uint32_t ver = 0;
-    /* BAN-151: 使用 fgets+strtoul 替代被禁止的 fscanf */
+
     char ver_buf[32];
     if (fgets(ver_buf, sizeof(ver_buf), f) != NULL) {
         ver = (uint32_t)strtoul(ver_buf, NULL, 10);
@@ -195,7 +188,7 @@ heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *cur
     }
 
     if (disk_version == 0) {
-        /* 首次初始化，写入当前版本 */
+
         *needs_migration = false;
         return heapstore_migration_set_version(HEAPSTORE_SCHEMA_VERSION_CURRENT);
     }
@@ -203,8 +196,6 @@ heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *cur
     *needs_migration = (disk_version < HEAPSTORE_SCHEMA_VERSION_CURRENT);
     return heapstore_SUCCESS;
 }
-
-/* ========== P3.20.2: 前向兼容迁移 ========== */
 
 /**
  * @brief 迁移步骤函数类型
@@ -220,8 +211,6 @@ typedef struct {
     uint32_t from_version;
     uint32_t to_version;
 } migration_step_def_t;
-
-/* ---- 具体迁移步骤实现 ---- */
 
 /**
  * @brief 解析 registry 数据库路径：heapstore 根 + registry/registry.db
@@ -243,8 +232,8 @@ static sqlite3 *mig_db_open(void)
     mig_db_path(db_path, sizeof(db_path));
 
     sqlite3 *db = NULL;
-    if (sqlite3_open_v2(db_path, &db,
-                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) != SQLITE_OK) {
+    if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) !=
+        SQLITE_OK) {
         if (db) {
             sqlite3_close(db);
         }
@@ -282,9 +271,8 @@ static bool mig_table_has_column(sqlite3 *db, const char *table, const char *col
 /**
  * @brief 幂等添加列（已存在则跳过），返回变更行数
  */
-static heapstore_error_t mig_add_column(sqlite3 *db, const char *table,
-                                        const char *column, const char *column_def,
-                                        uint64_t *records_affected)
+static heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const char *column,
+                                        const char *column_def, uint64_t *records_affected)
 {
     if (mig_table_has_column(db, table, column)) {
         *records_affected = 0;
@@ -301,7 +289,6 @@ static heapstore_error_t mig_add_column(sqlite3 *db, const char *table,
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
-    /* 统计现有记录数作为受影响记录数（默认值已由 ADD COLUMN DEFAULT 生效） */
     snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s;", table);
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
@@ -322,12 +309,11 @@ static heapstore_error_t mig_add_column(sqlite3 *db, const char *table,
  * 仅在目标列存在时执行；重建后恢复同名表与索引。
  */
 static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
-                                          const char *const *drop_columns,
-                                          size_t drop_count, uint64_t *records_affected)
+                                          const char *const *drop_columns, size_t drop_count,
+                                          uint64_t *records_affected)
 {
     *records_affected = 0;
 
-    /* 收集保留列 */
     char keep_cols[1024] = {0};
     {
         char sql[192];
@@ -370,7 +356,8 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
     }
 
     char sql[1200];
-    snprintf(sql, sizeof(sql), "CREATE TABLE %s_tmp AS SELECT %s FROM %s;", table, keep_cols, table);
+    snprintf(sql, sizeof(sql), "CREATE TABLE %s_tmp AS SELECT %s FROM %s;", table, keep_cols,
+             table);
     rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
     if (rc != SQLITE_OK) {
         sqlite3_free(err_msg);
@@ -400,13 +387,12 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
     sqlite3_free(err_msg);
     err_msg = NULL;
 
-    /* 恢复索引 */
     if (strcmp(table, "agents") == 0) {
-        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_agent_type ON agents(type);",
-                     NULL, NULL, NULL);
+        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_agent_type ON agents(type);", NULL, NULL,
+                     NULL);
     } else if (strcmp(table, "sessions") == 0) {
-        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_session_user ON sessions(user_id);",
-                     NULL, NULL, NULL);
+        sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_session_user ON sessions(user_id);", NULL,
+                     NULL, NULL);
     }
 
     rc = sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
@@ -415,7 +401,6 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
-    /* 统计受影响行数（迁移后剩余记录） */
     snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s;", table);
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
@@ -429,7 +414,6 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
 }
 
 #endif /* AIRY_HAS_SQLITE3 */
-
 /**
  * @brief v1.0.0 → v1.1.0: 为 agent_record 新增 priority 和 tags 字段
  *
@@ -441,7 +425,7 @@ static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_aff
     *records_affected = 0;
 
 #ifdef AIRY_HAS_SQLITE3
-    /* 无数据库文件时视为空库，无需迁移 */
+
     char db_path[heapstore_MAX_PATH_LEN];
     mig_db_path(db_path, sizeof(db_path));
     struct stat st;
@@ -449,7 +433,6 @@ static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_aff
         return heapstore_SUCCESS;
     }
 
-    /* 备份原始数据库 */
     heapstore_error_t err = backup_data_file(db_path);
     if (err != heapstore_SUCCESS) {
         return err;
@@ -463,8 +446,7 @@ static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_aff
 
     uint64_t affected = 0;
     uint64_t step_affected = 0;
-    err = mig_add_column(db, "agents", "priority", "priority INTEGER DEFAULT 0",
-                         &step_affected);
+    err = mig_add_column(db, "agents", "priority", "priority INTEGER DEFAULT 0", &step_affected);
     if (err != heapstore_SUCCESS) {
         sqlite3_close(db);
         restore_data_file(db_path);
@@ -484,7 +466,7 @@ static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_aff
     *records_affected = affected;
     return heapstore_SUCCESS;
 #else
-    /* 非 SQLite 构建：内存链表实现无持久化 schema，迁移为空操作 */
+
     return heapstore_SUCCESS;
 #endif
 }
@@ -532,8 +514,6 @@ static heapstore_error_t migrate_v1_1_to_v2_0_session_metadata(uint64_t *records
 #endif
 }
 
-/* ---- 迁移步骤注册表 ---- */
-
 static const migration_step_def_t g_forward_steps[] = {
     {
         .name = "v1.0→v1.1: Agent priority/tags fields",
@@ -549,8 +529,7 @@ static const migration_step_def_t g_forward_steps[] = {
     },
 };
 
-static const size_t g_forward_step_count =
-    sizeof(g_forward_steps) / sizeof(g_forward_steps[0]);
+static const size_t g_forward_step_count = sizeof(g_forward_steps) / sizeof(g_forward_steps[0]);
 
 heapstore_error_t heapstore_migration_forward(uint32_t target_version,
                                               heapstore_migration_report_t *report)
@@ -570,7 +549,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
     }
 
     if (current_ver >= target_version) {
-        /* 无需迁移 */
+
         if (report) {
             __builtin_memset(report, 0, sizeof(*report));
             report->from_version = current_ver;
@@ -581,7 +560,6 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
         return heapstore_SUCCESS;
     }
 
-    /* 收集需要执行的迁移步骤 */
     migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
     size_t step_count = 0;
 
@@ -593,7 +571,6 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
         }
     }
 
-    /* 初始化报告 */
     if (report) {
         __builtin_memset(report, 0, sizeof(*report));
         report->from_version = current_ver;
@@ -610,7 +587,6 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
     uint64_t total_start = get_time_ms();
     bool all_success = true;
 
-    /* 执行迁移步骤 */
     for (size_t i = 0; i < step_count; i++) {
         uint64_t step_start = get_time_ms();
         uint64_t records = 0;
@@ -620,7 +596,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
         if (report && report->steps) {
             AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
-                                 sizeof(report->steps[i].name));
+                              sizeof(report->steps[i].name));
             report->steps[i].result = step_err;
             report->steps[i].records_affected = records;
             report->steps[i].duration_ms = step_duration;
@@ -628,13 +604,13 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
         if (step_err != heapstore_SUCCESS) {
             all_success = false;
-            /* 迁移失败：停止执行后续步骤，但不回滚已执行的步骤 */
+
             break;
         }
     }
 
     if (all_success) {
-        /* 所有步骤成功，更新版本号 */
+
         err = heapstore_migration_set_version(target_version);
         if (err != heapstore_SUCCESS) {
             all_success = false;
@@ -648,8 +624,6 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
     return all_success ? heapstore_SUCCESS : heapstore_ERR_INTERNAL;
 }
-
-/* ========== P3.20.3: 后向兼容回滚 ========== */
 
 /**
  * @brief v2.0.0 → v1.1.0: 移除 session metadata 字段
@@ -758,8 +732,7 @@ static const migration_step_def_t g_rollback_steps[] = {
     },
 };
 
-static const size_t g_rollback_step_count =
-    sizeof(g_rollback_steps) / sizeof(g_rollback_steps[0]);
+static const size_t g_rollback_step_count = sizeof(g_rollback_steps) / sizeof(g_rollback_steps[0]);
 
 heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
                                                heapstore_migration_report_t *report)
@@ -785,7 +758,6 @@ heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
         return heapstore_SUCCESS;
     }
 
-    /* 收集需要执行的回滚步骤 */
     migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
     size_t step_count = 0;
 
@@ -822,7 +794,7 @@ heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
 
         if (report && report->steps) {
             AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
-                                 sizeof(report->steps[i].name));
+                              sizeof(report->steps[i].name));
             report->steps[i].result = step_err;
             report->steps[i].records_affected = records;
             report->steps[i].duration_ms = step_duration;
@@ -849,8 +821,6 @@ heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
     return all_success ? heapstore_SUCCESS : heapstore_ERR_INTERNAL;
 }
 
-/* ========== 工具函数 ========== */
-
 void heapstore_migration_report_free(heapstore_migration_report_t *report)
 {
     if (!report || !report->steps) {
@@ -871,56 +841,39 @@ heapstore_error_t heapstore_migration_list_fields(const char *record_type, char 
     *fields = NULL;
     *field_count = 0;
 
-    /* 根据 record_type 返回对应的字段列表 */
-    /* 这些定义应与 heapstore_types.h 中的结构体定义保持同步 */
-    static const char *agent_fields[] = {
-        "id", "name", "type", "version", "status", "config_path",
-        "created_at", "updated_at",
-        /* v1.1.0 新增 */
-        "priority", "tags",
-        NULL
-    };
+    static const char *agent_fields[] = {"id",       "name",        "type",       "version",
+                                         "status",   "config_path", "created_at", "updated_at",
 
-    static const char *session_fields[] = {
-        "id", "user_id", "created_at", "last_active_at", "ttl_seconds", "status",
-        /* v2.0.0 新增 */
-        "metadata",
-        NULL
-    };
+                                         "priority", "tags",        NULL};
+
+    static const char *session_fields[] = {"id",          "user_id", "created_at", "last_active_at",
+                                           "ttl_seconds", "status",
+
+                                           "metadata",    NULL};
 
     static const char *skill_fields[] = {
-        "id", "name", "version", "library_path", "manifest_path", "installed_at",
-        NULL
-    };
+        "id", "name", "version", "library_path", "manifest_path", "installed_at", NULL};
 
-    static const char *memory_pool_fields[] = {
-        "pool_id", "name", "total_size", "used_size", "block_size",
-        "block_count", "free_block_count", "created_at", "status",
-        NULL
-    };
+    static const char *memory_pool_fields[] = {"pool_id",          "name",
+                                               "total_size",       "used_size",
+                                               "block_size",       "block_count",
+                                               "free_block_count", "created_at",
+                                               "status",           NULL};
 
-    static const char *memory_alloc_fields[] = {
-        "allocation_id", "pool_id", "size", "address",
-        "allocated_at", "freed_at", "status",
-        NULL
-    };
+    static const char *memory_alloc_fields[] = {"allocation_id", "pool_id",  "size",   "address",
+                                                "allocated_at",  "freed_at", "status", NULL};
 
-    static const char *ipc_channel_fields[] = {
-        "channel_id", "name", "type", "status",
-        "created_at", "last_activity_at", "buffer_size", "current_usage",
-        NULL
-    };
+    static const char *ipc_channel_fields[] = {"channel_id",  "name",          "type",
+                                               "status",      "created_at",    "last_activity_at",
+                                               "buffer_size", "current_usage", NULL};
 
-    static const char *ipc_buffer_fields[] = {
-        "buffer_id", "channel_id", "size", "used", "created_at", "status",
-        NULL
-    };
+    static const char *ipc_buffer_fields[] = {"buffer_id",  "channel_id", "size", "used",
+                                              "created_at", "status",     NULL};
 
-    static const char *span_fields[] = {
-        "trace_id", "span_id", "parent_span_id", "name", "kind",
-        "start_time_ns", "end_time_ns", "service_name", "status",
-        NULL
-    };
+    static const char *span_fields[] = {"trace_id",    "span_id",      "parent_span_id",
+                                        "name",        "kind",         "start_time_ns",
+                                        "end_time_ns", "service_name", "status",
+                                        NULL};
 
     typedef struct {
         const char *type;
@@ -951,13 +904,11 @@ heapstore_error_t heapstore_migration_list_fields(const char *record_type, char 
         return heapstore_ERR_NOT_FOUND;
     }
 
-    /* 计算字段数量 */
     size_t count = 0;
     while (selected[count] != NULL) {
         count++;
     }
 
-    /* 分配并复制字段名 */
     char **out = (char **)AIRY_MALLOC((count + 1) * sizeof(char *));
     if (!out) {
         return heapstore_ERR_OUT_OF_MEMORY;
@@ -966,7 +917,7 @@ heapstore_error_t heapstore_migration_list_fields(const char *record_type, char 
     for (size_t i = 0; i < count; i++) {
         out[i] = (char *)AIRY_MALLOC(strlen(selected[i]) + 1);
         if (!out[i]) {
-            /* 释放已分配的内存 */
+
             for (size_t j = 0; j < i; j++) {
                 AIRY_FREE(out[j]);
             }

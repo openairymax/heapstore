@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_core.c
  * @brief AgentRT 数据分区核心实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -17,7 +16,7 @@
 #include "heapstore_registry.h"
 #include "heapstore_trace.h"
 #include "logging.h"
-#include "logging_compat.h"  /* LOG-06: AIRY_LOG_* 宏唯一定义源 */
+#include "logging_compat.h"
 #include "platform.h"
 #include "private.h"
 #include "utils.h"
@@ -32,10 +31,8 @@
 
 #include "airy_memory.h"
 
-/* 跨平台原子操作支持 - 使用统一的 atomic_compat.h */
 #include "atomic_compat.h"
 
-/* 平台特定头文件 */
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <direct.h>
@@ -69,14 +66,15 @@ static heapstore_path_type_t s_path_order[] = {
 static const char *s_path_names[] = {"kernel", "logs",       "registry",     "services",
                                      "traces", "kernel/ipc", "kernel/memory"};
 
-static const char *s_subpath_map[][heapstore_MAX_SUBPATHS] = {
-    {NULL},
-    {"apps", "kernel", "services", NULL},
-    {NULL},
-    {"llm_d", "market_d", "tool_d", NULL},
-    {"spans", NULL},
-    {"channels", "buffers", NULL},
-    {"pools", "allocations", "stats", "index", "meta", "patterns", "raw", NULL}};
+static const char *s_subpath_map[][heapstore_MAX_SUBPATHS] = {{NULL},
+                                                              {"apps", "kernel", "services", NULL},
+                                                              {NULL},
+                                                              {"llm_d", "market_d", "tool_d", NULL},
+                                                              {"spans", NULL},
+                                                              {"channels", "buffers", NULL},
+                                                              {"pools", "allocations", "stats",
+                                                               "index", "meta", "patterns", "raw",
+                                                               NULL}};
 
 static const char *s_default_root = NULL;
 
@@ -115,12 +113,13 @@ typedef struct {
     atomic_uint_fast32_t current_concurrent_ops;
 } heapstore_internal_metrics_t;
 
-static heapstore_circuit_breaker_t s_circuit_breaker = {
-    .state = 0,
-    .failure_count = 0,
-    .last_failure_time = 0,
-    .threshold = heapstore_DEFAULT_CIRCUIT_THRESHOLD,
-    .timeout_sec = heapstore_DEFAULT_CIRCUIT_TIMEOUT_SEC};
+static heapstore_circuit_breaker_t s_circuit_breaker = {.state = 0,
+                                                        .failure_count = 0,
+                                                        .last_failure_time = 0,
+                                                        .threshold =
+                                                            heapstore_DEFAULT_CIRCUIT_THRESHOLD,
+                                                        .timeout_sec =
+                                                            heapstore_DEFAULT_CIRCUIT_TIMEOUT_SEC};
 
 static heapstore_internal_metrics_t s_metrics = {.total_operations = 0,
                                                  .failed_operations = 0,
@@ -311,9 +310,8 @@ static void initialize_atomic_vars(void)
 typedef heapstore_error_t (*subsystem_init_func)(void);
 typedef void (*subsystem_shutdown_func)(void);
 
-static heapstore_error_t __attribute__((unused))
-init_subsystem_with_rollback(subsystem_init_func init, subsystem_shutdown_func shutdown,
-                             const char *name)
+static heapstore_error_t __attribute__((unused)) init_subsystem_with_rollback(
+    subsystem_init_func init, subsystem_shutdown_func shutdown, const char *name)
 {
 
     heapstore_error_t err = init();
@@ -324,24 +322,26 @@ init_subsystem_with_rollback(subsystem_init_func init, subsystem_shutdown_func s
     return heapstore_SUCCESS;
 }
 
-#define INIT_SUBSYSTEM(init_func, shutdown_func, name)                                         \
-    do {                                                                                       \
-        heapstore_error_t err = init_subsystem_with_rollback(                                  \
-            (subsystem_init_func)(init_func), (subsystem_shutdown_func)(shutdown_func), name); \
-        if (err != heapstore_SUCCESS) {                                                        \
-            return err;                                                                        \
-        }                                                                                      \
+#define INIT_SUBSYSTEM(init_func, shutdown_func, name)                                    \
+    do {                                                                                  \
+        heapstore_error_t err =                                                           \
+            init_subsystem_with_rollback((subsystem_init_func)(init_func),                \
+                                         (subsystem_shutdown_func)(shutdown_func), name); \
+        if (err != heapstore_SUCCESS) {                                                   \
+            return err;                                                                   \
+        }                                                                                 \
     } while (0)
 
-#define ROLLBACK_AND_RETURN(init_func, shutdown_func, name)                                    \
-    do {                                                                                       \
-        heapstore_error_t err = init_subsystem_with_rollback(                                  \
-            (subsystem_init_func)(init_func), (subsystem_shutdown_func)(shutdown_func), name); \
-        if (err != heapstore_SUCCESS) {                                                        \
-            shutdown_func();                                                                   \
-            s_initialized = false;                                                             \
-            return err;                                                                        \
-        }                                                                                      \
+#define ROLLBACK_AND_RETURN(init_func, shutdown_func, name)                               \
+    do {                                                                                  \
+        heapstore_error_t err =                                                           \
+            init_subsystem_with_rollback((subsystem_init_func)(init_func),                \
+                                         (subsystem_shutdown_func)(shutdown_func), name); \
+        if (err != heapstore_SUCCESS) {                                                   \
+            shutdown_func();                                                              \
+            s_initialized = false;                                                        \
+            return err;                                                                   \
+        }                                                                                 \
     } while (0)
 
 heapstore_error_t heapstore_init(const heapstore_config_t *manager)
@@ -351,7 +351,8 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
 
-    AIRY_LOG_INFO("heapstore_init: initializing (root=%s)", manager && manager->root_path ? manager->root_path : "default");
+    AIRY_LOG_INFO("heapstore_init: initializing (root=%s)",
+                  manager && manager->root_path ? manager->root_path : "default");
 
     set_default_config();
     apply_user_config(manager);
@@ -369,13 +370,13 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
 
     s_initialized = true;
 
-    /* P3.20.1: Schema 版本检查与自动迁移 */
     bool needs_migration = false;
     uint32_t disk_version = 0;
     heapstore_error_t mig_err = heapstore_migration_check(&needs_migration, &disk_version);
     if (mig_err == heapstore_SUCCESS && needs_migration) {
-        AIRY_LOG_INFO("heapstore_init: schema migration: disk=v%u, code=v%u, running forward migration",
-                      disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
+        AIRY_LOG_INFO(
+            "heapstore_init: schema migration: disk=v%u, code=v%u, running forward migration",
+            disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
 
         heapstore_migration_report_t report;
         mig_err = heapstore_migration_forward(0, &report);
@@ -387,8 +388,7 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
             return heapstore_ERR_INTERNAL;
         }
         AIRY_LOG_INFO("heapstore_init: migration complete: v%u->v%u (%lu steps, %lums)",
-                      report.from_version, report.to_version,
-                      (unsigned long)report.step_count,
+                      report.from_version, report.to_version, (unsigned long)report.step_count,
                       (unsigned long)report.total_duration_ms);
         heapstore_migration_report_free(&report);
     }
@@ -979,8 +979,6 @@ heapstore_error_t heapstore_reset_circuit(void)
     return heapstore_SUCCESS;
 }
 
-/* ==================== 批量写入实现 ==================== */
-
 #define HEAPSTORE_BATCH_MAX_ITEMS 1024
 
 typedef enum {
@@ -1067,7 +1065,8 @@ heapstore_error_t heapstore_batch_add_log(heapstore_batch_context_t *ctx, const 
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1100,7 +1099,8 @@ heapstore_error_t heapstore_batch_add_log_with_trace(heapstore_batch_context_t *
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1137,7 +1137,8 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1146,14 +1147,16 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
     AIRY_STRNCPY_TERM(item->data.span.trace_id, trace_id, sizeof(item->data.span.trace_id));
     AIRY_STRNCPY_TERM(item->data.span.span_id, span_id, sizeof(item->data.span.span_id));
     if (parent_span_id) {
-        AIRY_STRNCPY_TERM(item->data.span.parent_span_id, parent_span_id, sizeof(item->data.span.parent_span_id));
+        AIRY_STRNCPY_TERM(item->data.span.parent_span_id, parent_span_id,
+                          sizeof(item->data.span.parent_span_id));
     }
     AIRY_STRNCPY_TERM(item->data.span.name, name, sizeof(item->data.span.name));
     item->data.span.start_time_us = start_time_us;
     item->data.span.end_time_us = end_time_us;
     item->data.span.status = status;
     if (attributes) {
-        AIRY_STRNCPY_TERM(item->data.span.attributes, attributes, sizeof(item->data.span.attributes));
+        AIRY_STRNCPY_TERM(item->data.span.attributes, attributes,
+                          sizeof(item->data.span.attributes));
     }
 
     if (ctx->tail) {
@@ -1176,7 +1179,8 @@ heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1204,7 +1208,8 @@ heapstore_error_t heapstore_batch_add_agent(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1232,7 +1237,8 @@ heapstore_error_t heapstore_batch_add_skill(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1260,7 +1266,8 @@ heapstore_error_t heapstore_batch_add_memory_pool(heapstore_batch_context_t *ctx
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1288,7 +1295,8 @@ heapstore_error_t heapstore_batch_add_allocation(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1316,7 +1324,8 @@ heapstore_error_t heapstore_batch_add_ipc_channel(heapstore_batch_context_t *ctx
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -1344,7 +1353,8 @@ heapstore_error_t heapstore_batch_add_ipc_buffer(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }

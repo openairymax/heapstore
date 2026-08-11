@@ -1,3 +1,6 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_migration.h
  * @brief AgentRT heapstore Schema 版本化与数据迁移接口
@@ -8,12 +11,9 @@
  * - 前向兼容 (v1 → v2) 非破坏性迁移
  * - 后向兼容 (v2 → v1) 回滚（保留核心数据）
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  */
 
-// @owner: team-C
+/* @owner: team-C */
 #ifndef AIRY_RT_HEAPSTORE_MIGRATION_H
 #define AIRY_RT_HEAPSTORE_MIGRATION_H
 
@@ -39,32 +39,32 @@ extern "C" {
  * @brief 迁移方向
  */
 typedef enum {
-    HEAPSTORE_MIGRATE_FORWARD = 0,  /* 前向兼容迁移 (v1 → v2) */
-    HEAPSTORE_MIGRATE_BACKWARD      /* 后向兼容回滚 (v2 → v1) */
+    HEAPSTORE_MIGRATE_FORWARD = 0,
+    HEAPSTORE_MIGRATE_BACKWARD
 } heapstore_migration_direction_t;
 
 /**
  * @brief 迁移步骤结果
  */
 typedef struct heapstore_migration_step {
-    char name[128];             /* 步骤名称 */
-    heapstore_error_t result;   /* 执行结果 */
-    uint64_t records_affected;  /* 影响的记录数 */
-    uint64_t duration_ms;       /* 耗时（毫秒） */
+    char name[128];
+    heapstore_error_t result;
+    uint64_t records_affected;
+    uint64_t duration_ms;
 } heapstore_migration_step_t;
 
 /**
  * @brief 迁移报告
  */
 typedef struct heapstore_migration_report {
-    uint32_t from_version;              /* 源版本 */
-    uint32_t to_version;                /* 目标版本 */
-    heapstore_migration_direction_t direction;  /* 迁移方向 */
-    size_t step_count;                  /* 步骤总数 */
-    heapstore_migration_step_t *steps;  /* 步骤详情数组 */
-    bool success;                       /* 是否全部成功 */
-    uint64_t total_duration_ms;         /* 总耗时 */
-    uint64_t total_records_affected;    /* 总影响记录数 */
+    uint32_t from_version;
+    uint32_t to_version;
+    heapstore_migration_direction_t direction;
+    size_t step_count;
+    heapstore_migration_step_t *steps;
+    bool success;
+    uint64_t total_duration_ms;
+    uint64_t total_records_affected;
 } heapstore_migration_report_t;
 
 /**

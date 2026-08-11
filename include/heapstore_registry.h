@@ -1,14 +1,13 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_registry.h
  * @brief AgentRT 数据分区注册表接口
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_heapstore_REGISTRY_H
 #define AIRY_heapstore_REGISTRY_H
 
@@ -20,15 +19,14 @@
 extern "C" {
 #endif
 
-/* 共享类型已在 heapstore_types.h 中定义，此处仅用于 API 声明 */
 
 /**
  * @brief 注册表类型
  */
 typedef enum {
-    heapstore_REG_AGENTS,   /* Agent 注册表 */
-    heapstore_REG_SKILLS,   /* 技能注册表 */
-    heapstore_REG_SESSIONS, /* 会话注册表 */
+    heapstore_REG_AGENTS,
+    heapstore_REG_SKILLS,
+    heapstore_REG_SESSIONS,
     heapstore_REG_MAX
 } heapstore_registry_type_t;
 
@@ -313,10 +311,10 @@ heapstore_error_t heapstore_registry_vacuum(void);
  * @example
  * @code
  * heapstore_agent_record_t records[100];
- * // ... 初始化 records ...
+ *
  * heapstore_error_t err = heapstore_registry_batch_insert_agents(records, 100);
  * if (err == heapstore_SUCCESS) {
- *     // 批量插入成功
+ *
  * }
  * @endcode
  */
@@ -338,8 +336,8 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
  * @see heapstore_registry_add_session()
  * @since v0.1.0
  */
-heapstore_error_t
-heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *records, size_t count);
+heapstore_error_t heapstore_registry_batch_insert_sessions(
+    const heapstore_session_record_t *records, size_t count);
 
 /**
  * @brief 批量插入 Skill 记录（事务优化版本）

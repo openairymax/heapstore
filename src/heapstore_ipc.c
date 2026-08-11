@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_ipc.c
  * @brief AgentRT 数据分区 IPC 数据存储实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -64,13 +63,13 @@ static heapstore_error_t persist_channel_to_file(const heapstore_ipc_channel_t *
         return heapstore_ERR_FILE_OPEN_FAILED;
     char _buf[1024];
     snprintf(_buf, sizeof(_buf),
-            "{\"channel_id\":\"%s\",\"name\":\"%s\",\"type\":\"%s\","
-            "\"status\":\"%s\",\"created_at\":%llu,"
-            "\"last_activity_at\":%llu,\"buffer_size\":%zu,"
-            "\"current_usage\":%zu}\n",
-            channel->channel_id, channel->name, channel->type, channel->status,
-            (unsigned long long)channel->created_at, (unsigned long long)channel->last_activity_at,
-            channel->buffer_size, channel->current_usage);
+             "{\"channel_id\":\"%s\",\"name\":\"%s\",\"type\":\"%s\","
+             "\"status\":\"%s\",\"created_at\":%llu,"
+             "\"last_activity_at\":%llu,\"buffer_size\":%zu,"
+             "\"current_usage\":%zu}\n",
+             channel->channel_id, channel->name, channel->type, channel->status,
+             (unsigned long long)channel->created_at, (unsigned long long)channel->last_activity_at,
+             channel->buffer_size, channel->current_usage);
     fputs(_buf, fp);
     fclose(fp);
     return heapstore_SUCCESS;
@@ -87,11 +86,11 @@ static heapstore_error_t persist_buffer_to_file(const heapstore_ipc_buffer_t *bu
         return heapstore_ERR_FILE_OPEN_FAILED;
     char _buf[1024];
     snprintf(_buf, sizeof(_buf),
-            "{\"buffer_id\":\"%s\",\"channel_id\":\"%s\","
-            "\"size\":%zu,\"used\":%zu,"
-            "\"created_at\":%llu,\"status\":\"%s\"}\n",
-            buffer->buffer_id, buffer->channel_id, buffer->size, buffer->used,
-            (unsigned long long)buffer->created_at, buffer->status);
+             "{\"buffer_id\":\"%s\",\"channel_id\":\"%s\","
+             "\"size\":%zu,\"used\":%zu,"
+             "\"created_at\":%llu,\"status\":\"%s\"}\n",
+             buffer->buffer_id, buffer->channel_id, buffer->size, buffer->used,
+             (unsigned long long)buffer->created_at, buffer->status);
     fputs(_buf, fp);
     fclose(fp);
     return heapstore_SUCCESS;
@@ -280,7 +279,6 @@ heapstore_error_t heapstore_ipc_init(void)
         return heapstore_SUCCESS;
     }
 
-    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
     airy_mtx_init(&s_ipc_lock);
 
     const char *base_path = "agentrt/heapstore/kernel/ipc";
@@ -409,7 +407,8 @@ heapstore_error_t heapstore_ipc_get_channel(const char *channel_id,
     if (file_err == heapstore_SUCCESS) {
         airy_mtx_lock(&s_ipc_lock);
         if (s_channel_count < heapstore_IPC_MAX_CHANNELS) {
-            __builtin_memcpy(&s_channels[s_channel_count], channel, sizeof(heapstore_ipc_channel_t));
+            __builtin_memcpy(&s_channels[s_channel_count], channel,
+                             sizeof(heapstore_ipc_channel_t));
             s_channel_count++;
         }
         airy_mtx_unlock(&s_ipc_lock);
@@ -657,7 +656,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
                     if (s_shm_regions[j].shm_name[0])
                         shm_unlink(s_shm_regions[j].shm_name);
                     __builtin_memmove(&s_shm_regions[j], &s_shm_regions[s_shm_region_count - 1],
-                            sizeof(ipc_shm_region_t));
+                                      sizeof(ipc_shm_region_t));
                     s_shm_region_count--;
                     break;
                 }
@@ -665,7 +664,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
 
             if (i < s_active_count - 1) {
                 __builtin_memmove(&s_active_channels[i], &s_active_channels[s_active_count - 1],
-                        sizeof(ipc_active_channel_t));
+                                  sizeof(ipc_active_channel_t));
             }
             s_active_count--;
             break;
@@ -676,7 +675,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
         if (strcmp(s_channels[i].channel_id, channel_id) == 0) {
             if (i < s_channel_count - 1) {
                 __builtin_memmove(&s_channels[i], &s_channels[s_channel_count - 1],
-                        sizeof(heapstore_ipc_channel_t));
+                                  sizeof(heapstore_ipc_channel_t));
             }
             s_channel_count--;
             break;
@@ -709,8 +708,9 @@ heapstore_error_t heapstore_ipc_send(const char *channel_id, const void *data, s
 
     size_t header_size = sizeof(uint32_t) * 2;
     if (len + header_size > ac->shm->mapped_size) {
-        AIRY_LOG_ERROR("heapstore_ipc_send: message too large for channel '%s' (len=%zu mapped=%zu)",
-                       channel_id, len, ac->shm->mapped_size);
+        AIRY_LOG_ERROR(
+            "heapstore_ipc_send: message too large for channel '%s' (len=%zu mapped=%zu)",
+            channel_id, len, ac->shm->mapped_size);
         airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_INTERNAL;
     }
@@ -773,7 +773,8 @@ heapstore_error_t heapstore_ipc_receive(const char *channel_id, void **out_data,
 
     void *buf = AIRY_MALLOC(len);
     if (!buf) {
-        AIRY_LOG_ERROR("heapstore_ipc_receive: alloc failed for channel '%s' (len=%u)", channel_id, len);
+        AIRY_LOG_ERROR("heapstore_ipc_receive: alloc failed for channel '%s' (len=%u)", channel_id,
+                       len);
         airy_mtx_unlock(&s_ipc_lock);
         return heapstore_ERR_OUT_OF_MEMORY;
     }

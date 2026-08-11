@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_token.c
  * @brief AgentRT heapstore Token 计数实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 实现 Token 使用统计和监控功能，
  *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
@@ -22,21 +20,15 @@
 #include <string.h>
 #include <time.h>
 
-/* 跨平台原子操作支持 - 使用统一的 atomic_compat.h */
 #include "atomic_compat.h"
 #include "airy_memory.h"
 
-/* 平台特定头文件 */
 #ifdef _WIN32
 #else
 #endif
 
-/* ==================== 常量定义 ==================== */
-
 #define MAX_TASK_ID_LEN 128
 #define MAX_BUDGET_ENTRIES 1024
-
-/* ==================== 内部状态 ==================== */
 
 static atomic_int g_token_initialized = 0;
 
@@ -55,8 +47,6 @@ static airy_mtx_t g_token_mutex;
 #else
 static airy_mtx_t g_token_mutex = {0};
 #endif
-
-/* ==================== 内部数据结构和函数 ==================== */
 
 typedef struct {
     char task_id[MAX_TASK_ID_LEN];
@@ -130,8 +120,6 @@ static int allocate_budget_entry(void)
     }
     return AIRY_EINVAL;
 }
-
-/* ==================== 公共 API 实现 ==================== */
 
 heapstore_error_t heapstore_token_init(void)
 {

@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file utils.c
  * @brief AgentRT heapstore 公共工具函数实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -131,7 +130,7 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
         }
 
         if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            /* 递归计算子目录 */
+
             char sub_path[MAX_PATH];
             snprintf(sub_path, sizeof(sub_path), "%s\\%s", path, find_data.cFileName);
 
@@ -172,7 +171,7 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
         }
 
         if (S_ISDIR(st.st_mode)) {
-            /* 递归计算子目录 */
+
             uint64_t sub_size = 0;
             uint32_t sub_count = 0;
             if (heapstore_calculate_directory_size(full_path, &sub_size, &sub_count)) {

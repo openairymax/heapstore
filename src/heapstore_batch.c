@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_batch.c
  * @brief AgentRT heapstore 批量写入模块实现（优化版）
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 本模块采用 DRY 原则重构，消除重复代码，
  *       将圈复杂度控制在7以下，提升可维护性。
@@ -23,8 +21,6 @@
 #include <string.h>
 
 #include "airy_memory.h"
-
-/* ==================== 内部辅助函数 ==================== */
 
 /**
  * @brief 处理日志类型的批量写入
@@ -60,7 +56,8 @@ static heapstore_error_t batch_commit_span(const void *data)
     AIRY_STRNCPY_TERM(span_rec.span_id, trace_entry->span_id, sizeof(span_rec.span_id));
 
     if (trace_entry->parent_span_id[0]) {
-        AIRY_STRNCPY_TERM(span_rec.parent_span_id, trace_entry->parent_span_id, sizeof(span_rec.parent_span_id));
+        AIRY_STRNCPY_TERM(span_rec.parent_span_id, trace_entry->parent_span_id,
+                          sizeof(span_rec.parent_span_id));
     }
 
     AIRY_STRNCPY_TERM(span_rec.name, trace_entry->name, sizeof(span_rec.name));
@@ -102,10 +99,10 @@ static const struct {
     batch_handler_fn handler;
 } batch_handlers[] = {
     {HEAPSTORE_BATCH_ITEM_LOG, batch_commit_log}, {HEAPSTORE_BATCH_ITEM_SPAN, batch_commit_span},
-    {HEAPSTORE_BATCH_ITEM_SESSION, NULL}, /* 使用默认处理 */
-    {HEAPSTORE_BATCH_ITEM_AGENT, NULL},           {HEAPSTORE_BATCH_ITEM_SKILL, NULL},
-    {HEAPSTORE_BATCH_ITEM_MEMORY_POOL, NULL},     {HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC, NULL},
-    {HEAPSTORE_BATCH_ITEM_IPC_CHANNEL, NULL},     {HEAPSTORE_BATCH_ITEM_IPC_BUFFER, NULL}};
+    {HEAPSTORE_BATCH_ITEM_SESSION, NULL},         {HEAPSTORE_BATCH_ITEM_AGENT, NULL},
+    {HEAPSTORE_BATCH_ITEM_SKILL, NULL},           {HEAPSTORE_BATCH_ITEM_MEMORY_POOL, NULL},
+    {HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC, NULL},    {HEAPSTORE_BATCH_ITEM_IPC_CHANNEL, NULL},
+    {HEAPSTORE_BATCH_ITEM_IPC_BUFFER, NULL}};
 
 #define BATCH_HANDLER_COUNT (sizeof(batch_handlers) / sizeof(batch_handlers[0]))
 
@@ -139,7 +136,8 @@ static heapstore_error_t batch_default_handler(const heapstore_batch_item_t *ite
  */
 static heapstore_batch_item_t *batch_alloc_item(heapstore_batch_item_type_t type)
 {
-    heapstore_batch_item_t *item = (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
     if (!item) {
         return NULL;
     }
@@ -184,8 +182,6 @@ static bool batch_validate_context(const heapstore_batch_context_t *ctx)
 {
     return (ctx != NULL && ctx->count <= ctx->capacity && ctx->capacity > 0);
 }
-
-/* ==================== 公共 API 实现 ==================== */
 
 /**
  * @brief 通用批量添加接口（内部使用，减少代码重复）
@@ -274,7 +270,8 @@ heapstore_error_t heapstore_batch_add_span(heapstore_batch_context_t *ctx,
     __builtin_memset(&converted, 0, sizeof(converted));
     AIRY_STRNCPY_TERM(converted.trace_id, span->trace_id, sizeof(converted.trace_id));
     AIRY_STRNCPY_TERM(converted.span_id, span->span_id, sizeof(converted.span_id));
-    AIRY_STRNCPY_TERM(converted.parent_span_id, span->parent_span_id, sizeof(converted.parent_span_id));
+    AIRY_STRNCPY_TERM(converted.parent_span_id, span->parent_span_id,
+                      sizeof(converted.parent_span_id));
     AIRY_STRNCPY_TERM(converted.name, span->name, sizeof(converted.name));
     AIRY_STRNCPY_TERM(converted.kind, span->kind, sizeof(converted.kind));
     converted.start_time_us = span->start_time_ns / 1000;
@@ -312,9 +309,8 @@ heapstore_error_t heapstore_batch_add_memory_pool(heapstore_batch_context_t *ctx
     return batch_add_generic(ctx, HEAPSTORE_BATCH_ITEM_MEMORY_POOL, pool, sizeof(*pool));
 }
 
-heapstore_error_t
-heapstore_batch_add_memory_allocation(heapstore_batch_context_t *ctx,
-                                      const heapstore_memory_allocation_t *allocation)
+heapstore_error_t heapstore_batch_add_memory_allocation(
+    heapstore_batch_context_t *ctx, const heapstore_memory_allocation_t *allocation)
 {
 
     return batch_add_generic(ctx, HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC, allocation,

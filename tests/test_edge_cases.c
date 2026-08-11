@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file test_edge_cases.c
  * @brief heapstore 模块边界条件测试
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -163,9 +162,10 @@ static int test_special_characters_in_service_name(void)
         return -1;
     }
 
-    const char *dangerous_names[] = {
-        "service; rm -rf /",   "service$(whoami)",   "service`id`",  "service|cat /etc/passwd",
-        "service& echo pwned", "service\ninjection", "service\ttab", NULL};
+    const char *dangerous_names[] = {"service; rm -rf /",   "service$(whoami)",
+                                     "service`id`",         "service|cat /etc/passwd",
+                                     "service& echo pwned", "service\ninjection",
+                                     "service\ttab",        NULL};
 
     for (int i = 0; dangerous_names[i] != NULL; i++) {
         err = heapstore_log_write_fast(dangerous_names[i], 0, "test");

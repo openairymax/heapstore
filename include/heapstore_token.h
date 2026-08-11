@@ -1,17 +1,15 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_token.h
  * @brief AgentRT heapstore Token 计数接口
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 本模块实现 Token 使用统计和监控功能，
  *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_RT_HEAPSTORE_TOKEN_H
 #define AIRY_RT_HEAPSTORE_TOKEN_H
 
@@ -50,26 +48,26 @@ typedef enum {
  * @brief Token 统计数据结构
  */
 typedef struct {
-    uint64_t total_prompt_tokens;        /**< 总 Prompt Token 数 */
-    uint64_t total_completion_tokens;    /**< 总 Completion Token 数 */
-    uint64_t total_system_tokens;        /**< 总 System Token 数 */
-    uint64_t total_user_tokens;          /**< 总 User Token 数 */
-    uint64_t tokens_saved_by_cache;      /**< 缓存节省的 Token 数 */
-    uint64_t total_write_operations;     /**< 总写入操作次数 */
-    uint64_t total_read_operations;      /**< 总读取操作次数 */
-    uint64_t total_batch_operations;     /**< 总批量操作次数 */
-    uint64_t last_operation_time;        /**< 上次操作时间戳 */
-    double average_tokens_per_operation; /**< 平均每次操作的 Token 数 */
+    uint64_t total_prompt_tokens;
+    uint64_t total_completion_tokens;
+    uint64_t total_system_tokens;
+    uint64_t total_user_tokens;
+    uint64_t tokens_saved_by_cache;
+    uint64_t total_write_operations;
+    uint64_t total_read_operations;
+    uint64_t total_batch_operations;
+    uint64_t last_operation_time;
+    double average_tokens_per_operation;
 } heapstore_token_stats_t;
 
 /**
  * @brief Token 预算配置
  */
 typedef struct {
-    uint64_t max_tokens_per_task;        /**< 任务最大 Token 数 */
-    uint64_t warning_threshold_percent;  /**< 警告阈值百分比 */
-    uint64_t critical_threshold_percent; /**< 临界阈值百分比 */
-    bool enable_budget_enforcement;      /**< 是否强制执行预算 */
+    uint64_t max_tokens_per_task;
+    uint64_t warning_threshold_percent;
+    uint64_t critical_threshold_percent;
+    bool enable_budget_enforcement;
 } heapstore_token_budget_t;
 
 /**
