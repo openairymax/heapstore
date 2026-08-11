@@ -1,14 +1,13 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_trace.h
  * @brief AgentRT 数据分区追踪数据存储接口
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_heapstore_TRACE_H
 #define AIRY_heapstore_TRACE_H
 
@@ -22,7 +21,6 @@
 extern "C" {
 #endif
 
-/* 共享类型 (span, trace_entry) 已在 heapstore_types.h 中定义 */
 
 /**
  * @brief 追踪导出器配置

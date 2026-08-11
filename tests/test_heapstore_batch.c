@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file test_heapstore_batch.c
  * @brief heapstore 批量写入模块单元测试
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 测试覆盖目标: 90%+
  */
@@ -17,8 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* ==================== 测试框架宏定义 ==================== */
 
 #define TEST_ASSERT(condition, msg)                        \
     do {                                                   \
@@ -45,8 +41,6 @@
 
 static int test_passes = 0;
 static int test_failures = 0;
-
-/* ==================== 测试用例 ==================== */
 
 /**
  * @brief 测试批量上下文初始化和销毁
@@ -225,8 +219,6 @@ static void test_batch_double_destroy(void)
     err = heapstore_batch_destroy(ctx);
     TEST_ASSERT(err != heapstore_SUCCESS, "second destroy of same pointer should fail");
 }
-
-/* ==================== 主测试入口 ==================== */
 
 int main(int argc, char **argv)
 {

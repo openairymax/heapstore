@@ -1,3 +1,6 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_types.h
  * @brief AgentRT heapstore 共享类型定义（打破循环依赖）
@@ -5,12 +8,9 @@
  * 本文件集中定义所有子模块间共享的结构体类型，
  * 避免循环包含导致的类型可见性问题。
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_RT_HEAPSTORE_TYPES_H
 #define AIRY_RT_HEAPSTORE_TYPES_H
 
@@ -23,7 +23,6 @@
 extern "C" {
 #endif
 
-/* ========== 注册表类型 ========== */
 
 typedef struct heapstore_agent_record {
     char id[128];
@@ -34,7 +33,7 @@ typedef struct heapstore_agent_record {
     char config_path[512];
     uint64_t created_at;
     uint64_t updated_at;
-    /* v1.1.0 新增：调度优先级与标签（schema 迁移目标字段） */
+
     int priority;
     char tags[256];
 } heapstore_agent_record_t;
@@ -55,11 +54,10 @@ typedef struct heapstore_session_record {
     uint64_t last_active_at;
     uint32_t ttl_seconds;
     char status[32];
-    /* v2.0.0 新增：会话元数据（schema 迁移目标字段） */
+
     char metadata[512];
 } heapstore_session_record_t;
 
-/* ========== 内存管理类型 ========== */
 
 typedef struct heapstore_memory_pool {
     char pool_id[128];
@@ -83,7 +81,6 @@ typedef struct heapstore_memory_allocation {
     char status[32];
 } heapstore_memory_allocation_t;
 
-/* ========== IPC 类型 ========== */
 
 typedef struct heapstore_ipc_channel {
     char channel_id[128];
@@ -105,7 +102,6 @@ typedef struct heapstore_ipc_buffer {
     char status[32];
 } heapstore_ipc_buffer_t;
 
-/* ========== Trace/Span 类型 ========== */
 
 typedef struct heapstore_span {
     char trace_id[64];
@@ -133,7 +129,6 @@ typedef struct heapstore_trace_entry {
     char attributes[256];
 } heapstore_trace_entry_t;
 
-/* ========== 日志类型 ========== */
 
 typedef struct heapstore_log_entry {
     int level;

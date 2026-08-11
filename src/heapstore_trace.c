@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_trace.c
  * @brief AgentRT 数据分区追踪数据存储实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -53,7 +52,6 @@ heapstore_error_t heapstore_trace_init(void)
         return heapstore_SUCCESS;
     }
 
-    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
     airy_mtx_init(&s_trace_lock);
 
     const char *base_path = "agentrt/heapstore/traces";
@@ -65,7 +63,8 @@ heapstore_error_t heapstore_trace_init(void)
     snprintf(spans_path, sizeof(spans_path), "%s/spans", s_trace_path);
     heapstore_ensure_directory(spans_path);
 
-    s_span_buffer = (heapstore_span_t *)AIRY_CALLOC(heapstore_TRACE_MAX_SPANS, sizeof(heapstore_span_t));
+    s_span_buffer =
+        (heapstore_span_t *)AIRY_CALLOC(heapstore_TRACE_MAX_SPANS, sizeof(heapstore_span_t));
     if (!s_span_buffer) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
@@ -75,7 +74,8 @@ heapstore_error_t heapstore_trace_init(void)
     s_exporter_config.enabled = false;
     s_exporter_config.batch_size = heapstore_TRACE_BATCH_SIZE;
     s_exporter_config.export_interval_sec = 30;
-    AIRY_STRNCPY_TERM(s_exporter_config.export_format, "json", sizeof(s_exporter_config.export_format));
+    AIRY_STRNCPY_TERM(s_exporter_config.export_format, "json",
+                      sizeof(s_exporter_config.export_format));
 
     s_initialized = true;
 
@@ -319,9 +319,10 @@ heapstore_error_t heapstore_trace_flush(void)
         snprintf(_buf, sizeof(_buf), "      \"name\": \"%s\",\n", s_span_buffer[i].name);
         fputs(_buf, fp);
         snprintf(_buf, sizeof(_buf), "      \"start_time_ns\": %lu,\n",
-                (unsigned long)s_span_buffer[i].start_time_ns);
+                 (unsigned long)s_span_buffer[i].start_time_ns);
         fputs(_buf, fp);
-        snprintf(_buf, sizeof(_buf), "      \"end_time_ns\": %lu\n", (unsigned long)s_span_buffer[i].end_time_ns);
+        snprintf(_buf, sizeof(_buf), "      \"end_time_ns\": %lu\n",
+                 (unsigned long)s_span_buffer[i].end_time_ns);
         fputs(_buf, fp);
         snprintf(_buf, sizeof(_buf), "    }%s\n", (i < s_span_count - 1) ? "," : "");
         fputs(_buf, fp);
@@ -486,14 +487,12 @@ heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_e
         return heapstore_ERR_OUT_OF_MEMORY;
     }
 
-    /* 构建 JSON 数组 */
     size_t pos = 0;
     pos += snprintf(json_buffer + pos, estimated_size - pos, "[\n");
 
     for (size_t i = 0; i < s_span_count; i++) {
         const heapstore_span_t *span = &s_span_buffer[i];
 
-        /* 转义字符串中的特殊字符 */
         char escaped_name[256];
         size_t name_idx = 0;
         for (size_t j = 0;
@@ -506,25 +505,24 @@ heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_e
         }
         escaped_name[name_idx] = '\0';
 
-        /* 写入单个 span 的 JSON 对象 */
-        pos += snprintf(
-            json_buffer + pos, estimated_size - pos,
-            "  {\n"
-            "    \"traceId\": \"%s\",\n"
-            "    \"spanId\": \"%s\",\n"
-            "    \"parentSpanId\": \"%s\",\n"
-            "    \"name\": \"%s\",\n"
-            "    \"startTimeNs\": %llu,\n"
-            "    \"endTimeNs\": %llu,\n"
-            "    \"status\": \"%s\",\n"
-            "    \"attributeCount\": %zu%s\n"
-            "  }%s\n",
-            span->trace_id, span->span_id, span->parent_span_id[0] ? span->parent_span_id : "",
-            escaped_name, (unsigned long long)span->start_time_ns,
-            (unsigned long long)span->end_time_ns, span->status, span->attribute_count,
-            include_events ? ",\n    \"events\": []" : "", (i < s_span_count - 1) ? "," : "");
+        pos += snprintf(json_buffer + pos, estimated_size - pos,
+                        "  {\n"
+                        "    \"traceId\": \"%s\",\n"
+                        "    \"spanId\": \"%s\",\n"
+                        "    \"parentSpanId\": \"%s\",\n"
+                        "    \"name\": \"%s\",\n"
+                        "    \"startTimeNs\": %llu,\n"
+                        "    \"endTimeNs\": %llu,\n"
+                        "    \"status\": \"%s\",\n"
+                        "    \"attributeCount\": %zu%s\n"
+                        "  }%s\n",
+                        span->trace_id, span->span_id,
+                        span->parent_span_id[0] ? span->parent_span_id : "", escaped_name,
+                        (unsigned long long)span->start_time_ns,
+                        (unsigned long long)span->end_time_ns, span->status, span->attribute_count,
+                        include_events ? ",\n    \"events\": []" : "",
+                        (i < s_span_count - 1) ? "," : "");
 
-        /* 检查缓冲区是否足够 */
         if (pos >= estimated_size - 512) {
             estimated_size *= 2;
             char *new_buffer = (char *)AIRY_REALLOC(json_buffer, estimated_size);

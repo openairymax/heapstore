@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file test_fuzzing.c
  * @brief heapstore 模糊测试 (Fuzz Testing) 和并发压力测试
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
-// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 本测试套件包含:
  *       1. 输入模糊测试 - 验证边界条件处理
@@ -28,20 +26,14 @@
 #include <time.h>
 #include <unistd.h>
 
-/* ==================== 测试配置 ==================== */
-
-#define FUZZ_TEST_ITERATIONS 10000     /* 模糊测试迭代次数 */
-#define CONCURRENT_THREADS 8           /* 并发线程数 */
-#define CONCURRENT_OPS_PER_THREAD 1000 /* 每个线程的操作数 */
-#define MAX_INPUT_LENGTH 1024          /* 最大输入长度 */
-
-/* ==================== 全局状态 ==================== */
+#define FUZZ_TEST_ITERATIONS 10000
+#define CONCURRENT_THREADS 8
+#define CONCURRENT_OPS_PER_THREAD 1000
+#define MAX_INPUT_LENGTH 1024
 
 static int g_tests_passed = 0;
 static int g_tests_failed = 0;
 static int g_init_done = 0;
-
-/* ==================== 辅助宏 ==================== */
 
 #define TEST_PASS(name)                \
     do {                               \
@@ -103,14 +95,12 @@ static void test_fuzz_sanitize_path(void)
     char output[MAX_INPUT_LENGTH];
 
     for (int i = 0; i < FUZZ_TEST_ITERATIONS; i++) {
-        /* 生成随机长度的输入 */
+
         size_t len = (rand() % (MAX_INPUT_LENGTH - 1)) + 1;
         generate_random_string(input, len, true);
 
-        /* 测试净化函数 */
         int result = heapstore_sanitize_path_component(output, input, sizeof(output));
 
-        /* 验证: 输出不应包含危险字符 */
         if (result == 0) {
             ASSERT_TRUE(strstr(output, "..") == NULL, "Output should not contain '..'");
             ASSERT_TRUE(strchr(output, '/') == NULL, "Output should not contain '/'");
@@ -141,7 +131,6 @@ static void test_fuzz_safe_identifier(void)
 
         bool result = heapstore_is_safe_identifier(input);
 
-        /* 如果返回true，验证标识符确实安全 */
         if (result) {
             for (size_t j = 0; j < strlen(input); j++) {
                 char c = input[j];
@@ -168,9 +157,8 @@ static void test_fuzz_config_params(void)
     for (int i = 0; i < 1000; i++) {
         AIRY_MEMSET(&config, 0, sizeof(config));
 
-        /* 生成随机但合理的配置 */
         config.root_path = AIRY_TMP_DIR "/airy_heapstore_test";
-        config.max_log_size_mb = rand() % 10000 + 1;   /* 1-10000 MB */
+        config.max_log_size_mb = rand() % 10000 + 1; /* 1-10000 MB */
         config.log_retention_days = rand() % 3650 + 1; /* 1-3650 days */
         config.trace_retention_days = rand() % 3650 + 1;
         config.enable_auto_cleanup = rand() % 2;
@@ -180,10 +168,8 @@ static void test_fuzz_config_params(void)
         config.circuit_breaker_threshold = rand() % 100 + 1;
         config.circuit_breaker_timeout_sec = rand() % 3600 + 1;
 
-        /* 尝试初始化 (应该不会崩溃) */
         heapstore_error_t err = heapstore_init(&config);
 
-        /* 清理以便下次测试 */
         if (err == heapstore_SUCCESS) {
             heapstore_shutdown();
         }
@@ -268,7 +254,6 @@ static void test_concurrent_log_writing(void)
     atomic_int total_success = 0;
     atomic_int total_failure = 0;
 
-    /* 创建并发线程 */
     for (int i = 0; i < CONCURRENT_THREADS; i++) {
         contexts[i].thread_id = i;
         contexts[i].operations_count = CONCURRENT_OPS_PER_THREAD;
@@ -279,7 +264,6 @@ static void test_concurrent_log_writing(void)
         ASSERT_TRUE(rc == 0, "Failed to create thread");
     }
 
-    /* 等待所有线程完成 */
     for (int i = 0; i < CONCURRENT_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
@@ -293,7 +277,6 @@ static void test_concurrent_log_writing(void)
            (float)actual_success / expected_ops * 100);
     printf("  Failed: %d (%.1f%%)\n", actual_failure, (float)actual_failure / expected_ops * 100);
 
-    /* 允许少量失败（竞态条件） */
     float success_rate = (float)actual_success / expected_ops;
     ASSERT_TRUE(success_rate > 0.95, "Success rate should be > 95%");
 
@@ -312,10 +295,9 @@ static void test_concurrent_registry_operations(void)
     atomic_int total_success = 0;
     atomic_int total_failure = 0;
 
-    /* 创建并发线程 */
     for (int i = 0; i < CONCURRENT_THREADS; i++) {
         contexts[i].thread_id = i;
-        contexts[i].operations_count = CONCURRENT_OPS_PER_THREAD / 10;  // 减少操作数避免过慢
+        contexts[i].operations_count = CONCURRENT_OPS_PER_THREAD / 10;
         contexts[i].success_count = &total_success;
         contexts[i].failure_count = &total_failure;
 
@@ -323,7 +305,6 @@ static void test_concurrent_registry_operations(void)
         ASSERT_TRUE(rc == 0, "Failed to create thread");
     }
 
-    /* 等待所有线程完成 */
     for (int i = 0; i < CONCURRENT_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
@@ -334,7 +315,6 @@ static void test_concurrent_registry_operations(void)
     printf("  Successful ops: %d\n", actual_success);
     printf("  Failed ops: %d\n", actual_failure);
 
-    /* 注册表操作成功率应接近100%（有锁保护） */
     float success_rate = (float)actual_success / (actual_success + actual_failure);
     ASSERT_TRUE(success_rate > 0.99, "Registry operation success rate should be > 99%");
 
@@ -348,7 +328,6 @@ static void test_concurrent_init_shutdown_race(void)
 {
     printf("\n=== Concurrent Test: Init/Shutdown Race Condition ===\n");
 
-    /* 多次快速初始化/关闭循环 */
     for (int round = 0; round < 100; round++) {
         heapstore_config_t config = {.root_path = AIRY_TMP_DIR "/airy_heapstore_race_test",
                                      .max_log_size_mb = 10,
@@ -362,10 +341,8 @@ static void test_concurrent_init_shutdown_race(void)
                                      .circuit_breaker_timeout_sec = 30};
 
         heapstore_error_t err = heapstore_init(&config);
-        /* 不检查错误，因为可能已经初始化 */
 
         err = heapstore_shutdown();
-        /* 不检查错误 */
     }
 
     TEST_PASS("init/shutdown race condition test (100 rounds)");
@@ -384,9 +361,8 @@ static void test_memory_stability_under_load(void)
 {
     printf("\n=== Memory Stability Test Under Load ===\n");
 
-    size_t initial_memory = 0;  // 简化版：实际应用中可使用系统API获取
+    size_t initial_memory = 0;
 
-    /* 批量插入大量记录 */
     const int BATCH_SIZE = 1000;
     heapstore_agent_record_t *agents = calloc(BATCH_SIZE, sizeof(heapstore_agent_record_t));
     ASSERT_TRUE(agents != NULL, "Memory allocation failed");
@@ -400,12 +376,10 @@ static void test_memory_stability_under_load(void)
         }
 
         heapstore_error_t err = heapstore_registry_batch_insert_agents(agents, BATCH_SIZE);
-        /* 忽略错误，重点测试内存稳定性 */
     }
 
     free(agents);
 
-    /* 执行清理 */
     heapstore_cleanup(true, NULL);
 
     TEST_PASS("memory stability under load (10000 inserts)");
@@ -423,7 +397,6 @@ int main(int argc, char *argv[])
 
     srand((unsigned int)time(NULL));
 
-    /* 初始化模块 */
     printf("--- Initializing heapstore module ---\n");
     heapstore_config_t config = {.root_path = AIRY_TMP_DIR "/airy_heapstore_fuzz_test",
                                  .max_log_size_mb = 50,
@@ -445,14 +418,12 @@ int main(int argc, char *argv[])
         printf("✅ Module initialized successfully\n\n");
     }
 
-    /* 运行模糊测试 */
     if (g_init_done) {
         test_fuzz_sanitize_path();
         test_fuzz_safe_identifier();
     }
     test_fuzz_config_params();
 
-    /* 运行并发测试 */
     if (g_init_done) {
         test_concurrent_log_writing();
         test_concurrent_registry_operations();
@@ -460,14 +431,12 @@ int main(int argc, char *argv[])
         test_memory_stability_under_load();
     }
 
-    /* 清理 */
     if (g_init_done) {
         printf("\n--- Shutting down heapstore module ---\n");
         heapstore_shutdown();
         printf("✅ Module shutdown complete\n");
     }
 
-    /* 输出结果摘要 */
     printf("\n================================================================\n");
     printf(" Test Results Summary\n");
     printf("================================================================\n");

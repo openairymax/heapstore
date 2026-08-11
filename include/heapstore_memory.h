@@ -1,14 +1,13 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore_memory.h
  * @brief AgentRT 数据分区内存管理数据存储接口
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_heapstore_MEMORY_H
 #define AIRY_heapstore_MEMORY_H
 
@@ -20,7 +19,6 @@
 extern "C" {
 #endif
 
-/* 共享类型已在 heapstore_types.h 中定义，此处仅用于 API 声明 */
 
 /**
  * @brief 初始化内存数据存储
@@ -100,8 +98,8 @@ heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t
  * @reentrant 否
 
  * @since v1.0.0*/
-heapstore_error_t
-heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocation);
+heapstore_error_t heapstore_memory_record_allocation(
+    const heapstore_memory_allocation_t *allocation);
 
 /**
  * @brief 获取内存分配记录

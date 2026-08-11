@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_integration.c
  * @brief heapstore 与 AgentRT 核心模块集成实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -80,7 +79,7 @@ static void integration_unlock(void)
 
 airy_err_t heapstore_integration_init(const char *root_path)
 {
-    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化） */
+
     integration_lock_init();
 
     integration_lock();
@@ -156,7 +155,7 @@ void heapstore_integration_shutdown(void)
 }
 
 airy_err_t heapstore_syscall_session_save(const char *session_id, const char *metadata,
-                                               uint64_t created_ns, uint64_t last_active_ns)
+                                          uint64_t created_ns, uint64_t last_active_ns)
 {
 
     if (!g_integration_initialized) {
@@ -182,8 +181,7 @@ airy_err_t heapstore_syscall_session_save(const char *session_id, const char *me
 }
 
 airy_err_t heapstore_syscall_session_load(const char *session_id, char **out_metadata,
-                                               uint64_t *out_created_ns,
-                                               uint64_t *out_last_active_ns)
+                                          uint64_t *out_created_ns, uint64_t *out_last_active_ns)
 {
 
     if (!g_integration_initialized) {
@@ -304,9 +302,9 @@ cleanup_error:
 }
 
 airy_err_t heapstore_syscall_trace_save(const char *trace_id, const char *span_id,
-                                             const char *parent_id, const char *name,
-                                             int64_t start_time_us, int64_t end_time_us, int status,
-                                             const char *events_json)
+                                        const char *parent_id, const char *name,
+                                        int64_t start_time_us, int64_t end_time_us, int status,
+                                        const char *events_json)
 {
 
     if (!g_integration_initialized) {
@@ -361,7 +359,7 @@ airy_err_t heapstore_syscall_trace_export(char **out_traces)
 }
 
 airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *metadata,
-                                           char **out_record_id)
+                                      char **out_record_id)
 {
 
     if (!g_integration_initialized) {
@@ -413,7 +411,7 @@ airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *
 }
 
 airy_err_t heapstore_memoryrovol_load(const char *record_id, void **out_data, size_t *out_len,
-                                           char **out_metadata)
+                                      char **out_metadata)
 {
 
     if (!g_integration_initialized) {
@@ -478,11 +476,8 @@ airy_err_t heapstore_memoryrovol_delete(const char *record_id)
         return AIRY_EINVAL;
     }
 
-    // 尝试删除内存池记录
     heapstore_error_t err = heapstore_memory_free_allocation(record_id);
     if (err == heapstore_ERR_NOT_FOUND) {
-        // 如果不是分配记录，可能是内存池记录
-        // 通过更新内存池使用量来实现逻辑删除
         heapstore_memory_pool_t pool;
         __builtin_memset(&pool, 0, sizeof(pool));
         AIRY_STRNCPY_TERM(pool.pool_id, record_id, sizeof(pool.pool_id));
@@ -548,7 +543,7 @@ airy_err_t heapstore_ipc_channel_load(const char *channel_id, char **out_state)
 }
 
 airy_err_t heapstore_logging_write(const char *module, int level, const char *trace_id,
-                                        const char *message, uint64_t timestamp_ns)
+                                   const char *message, uint64_t timestamp_ns)
 {
 
     if (!g_integration_initialized) {
@@ -641,40 +636,41 @@ airy_err_t heapstore_integration_get_stats(char **out_stats_json)
     }
 
     char buffer[2048];
-    snprintf(
-        buffer, sizeof(buffer),
-        "{"
-        "\"disk_usage\":{"
-        "\"total_bytes\":%llu,"
-        "\"log_bytes\":%llu,"
-        "\"registry_bytes\":%llu,"
-        "\"trace_bytes\":%llu,"
-        "\"ipc_bytes\":%llu,"
-        "\"memory_bytes\":%llu"
-        "},"
-        "\"file_counts\":{"
-        "\"log_files\":%u,"
-        "\"trace_files\":%u"
-        "},"
-        "\"performance\":{"
-        "\"total_operations\":%llu,"
-        "\"failed_operations\":%llu,"
-        "\"fast_path_ops\":%llu,"
-        "\"slow_path_ops\":%llu,"
-        "\"circuit_breaker_trips\":%llu,"
-        "\"avg_operation_time_ns\":%.2f,"
-        "\"peak_concurrent_ops\":%llu"
-        "}"
-        "}",
-        (unsigned long long)stats.total_disk_usage_bytes, (unsigned long long)stats.log_usage_bytes,
-        (unsigned long long)stats.registry_usage_bytes, (unsigned long long)stats.trace_usage_bytes,
-        (unsigned long long)stats.ipc_usage_bytes, (unsigned long long)stats.memory_usage_bytes,
-        stats.log_file_count, stats.trace_file_count, (unsigned long long)metrics.total_operations,
-        (unsigned long long)metrics.failed_operations,
-        (unsigned long long)metrics.fast_path_operations,
-        (unsigned long long)metrics.slow_path_operations,
-        (unsigned long long)metrics.circuit_breaker_trips, metrics.avg_operation_time_ns,
-        (unsigned long long)metrics.peak_concurrent_ops);
+    snprintf(buffer, sizeof(buffer),
+             "{"
+             "\"disk_usage\":{"
+             "\"total_bytes\":%llu,"
+             "\"log_bytes\":%llu,"
+             "\"registry_bytes\":%llu,"
+             "\"trace_bytes\":%llu,"
+             "\"ipc_bytes\":%llu,"
+             "\"memory_bytes\":%llu"
+             "},"
+             "\"file_counts\":{"
+             "\"log_files\":%u,"
+             "\"trace_files\":%u"
+             "},"
+             "\"performance\":{"
+             "\"total_operations\":%llu,"
+             "\"failed_operations\":%llu,"
+             "\"fast_path_ops\":%llu,"
+             "\"slow_path_ops\":%llu,"
+             "\"circuit_breaker_trips\":%llu,"
+             "\"avg_operation_time_ns\":%.2f,"
+             "\"peak_concurrent_ops\":%llu"
+             "}"
+             "}",
+             (unsigned long long)stats.total_disk_usage_bytes,
+             (unsigned long long)stats.log_usage_bytes,
+             (unsigned long long)stats.registry_usage_bytes,
+             (unsigned long long)stats.trace_usage_bytes, (unsigned long long)stats.ipc_usage_bytes,
+             (unsigned long long)stats.memory_usage_bytes, stats.log_file_count,
+             stats.trace_file_count, (unsigned long long)metrics.total_operations,
+             (unsigned long long)metrics.failed_operations,
+             (unsigned long long)metrics.fast_path_operations,
+             (unsigned long long)metrics.slow_path_operations,
+             (unsigned long long)metrics.circuit_breaker_trips, metrics.avg_operation_time_ns,
+             (unsigned long long)metrics.peak_concurrent_ops);
 
     *out_stats_json = AIRY_STRDUP(buffer);
     return *out_stats_json ? AIRY_SUCCESS : AIRY_ENOMEM;

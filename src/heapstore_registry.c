@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_registry.c
  * @brief AgentRT 数据分区注册表实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -401,8 +400,8 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
     return heapstore_SUCCESS;
 }
 
-heapstore_error_t
-heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *records, size_t count)
+heapstore_error_t heapstore_registry_batch_insert_sessions(
+    const heapstore_session_record_t *records, size_t count)
 {
     if (!records || count == 0)
         return heapstore_ERR_INVALID_PARAM;
@@ -452,9 +451,9 @@ typedef struct {
  * @brief 注册表迭代器内部结构
  */
 struct heapstore_registry_iter {
-    sqlite3_stmt *stmt; /* SQLite 预编译语句 */
-    int current_type;   /* 当前遍历的类型 (agents/skills/sessions) */
-    int has_more;       /* 是否还有更多记录 */
+    sqlite3_stmt *stmt;
+    int current_type;
+    int has_more;
 };
 
 static registry_db_t s_registry = {0};
@@ -573,9 +572,8 @@ void heapstore_registry_shutdown(void)
     airy_mtx_destroy(&s_registry.lock);
 }
 
-static heapstore_error_t
-execute_sql_with_lock(const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *),
-                      void *bind_data)
+static heapstore_error_t execute_sql_with_lock(
+    const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data)
 {
     if (!s_registry.initialized || !s_registry.db) {
         return heapstore_ERR_NOT_INITIALIZED;
@@ -1468,8 +1466,8 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
     return result;
 }
 
-heapstore_error_t
-heapstore_registry_batch_insert_sessions(const heapstore_session_record_t *records, size_t count)
+heapstore_error_t heapstore_registry_batch_insert_sessions(
+    const heapstore_session_record_t *records, size_t count)
 {
     if (!records || count == 0) {
         return heapstore_ERR_INVALID_PARAM;

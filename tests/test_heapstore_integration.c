@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
 // SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file test_heapstore_integration.c
  * @brief AgentRT 数据分区集成测试
  *
- * Copyright (c) 2026 SPHARX. All Rights Reserved.
  */
 // @owner: team-B
 
@@ -253,8 +253,9 @@ static void test_config_reload(void)
 {
     printf("Test: config_reload...");
 
-    heapstore_config_t manager = {
-        .root_path = "hs_integ_reload", .max_log_size_mb = 100, .log_retention_days = 7};
+    heapstore_config_t manager = {.root_path = "hs_integ_reload",
+                                  .max_log_size_mb = 100,
+                                  .log_retention_days = 7};
 
     heapstore_error_t err __attribute__((unused)) = heapstore_init(&manager);
     assert(err == heapstore_SUCCESS);

@@ -1,12 +1,11 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 // @owner: team-B
 #include "error.h"
 /**
  * @file log_store_service.c
  * @brief 内核日志存储服务实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -66,24 +65,19 @@ int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
         return 0;
     }
 
-    // 设置存储路径
     AIRY_STRNCPY_TERM(g_ctx.storage_path, storage_path, sizeof(g_ctx.storage_path));
 
-    g_ctx.max_storage_bytes =
-        max_storage_bytes > 0 ? max_storage_bytes : 100 * 1024 * 1024;  // 默认100MB
-    g_ctx.rotation_count = 10;  // 默认保留10个日志文件
+    g_ctx.max_storage_bytes = max_storage_bytes > 0 ? max_storage_bytes : 100 * 1024 * 1024;
+    g_ctx.rotation_count = 10;
 
-    // 创建存储目录
 #ifdef _WIN32
     if (_mkdir(g_ctx.storage_path) != 0) {
-        // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
             return AIRY_ERR_NOT_FOUND;
         }
     }
 #else
     if (mkdir(g_ctx.storage_path, 0755) != 0) {
-        // 如果目录已存在，忽略错误
         if (errno != EEXIST) {
             return AIRY_ERR_NOT_FOUND;
         }
@@ -118,18 +112,15 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
         return AIRY_ERR_INVALID_PARAM;
     }
 
-    // 构建日志文件名
     char filename[512];
     snprintf(filename, sizeof(filename), "%s/log_%04d%02d%02d.log", g_ctx.storage_path,
              tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday);
 
-    // 打开日志文件
     FILE *f = fopen(filename, "a");
     if (!f) {
         return AIRY_ERR_NULL_POINTER;
     }
 
-    // 写入日志条目
     const char *level_str = "UNKNOWN";
     switch (level) {
     case HEAPSTORE_LOG_FATAL:
@@ -153,10 +144,11 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
 
     {
-    char _buf[512];
-    snprintf(_buf, sizeof(_buf), "[%s] [%s] [%s] %s\n", time_buf, level_str, component, message);
-    fputs(_buf, f);
-}
+        char _buf[512];
+        snprintf(_buf, sizeof(_buf), "[%s] [%s] [%s] %s\n", time_buf, level_str, component,
+                 message);
+        fputs(_buf, f);
+    }
     fclose(f);
 
     log_store_service_check_rotation(filename);
@@ -171,7 +163,6 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
  */
 static void log_store_service_check_rotation(const char *current_file)
 {
-    // 获取文件大小
     FILE *f = fopen(current_file, "rb");
     if (!f) {
         return;
@@ -181,14 +172,10 @@ static void log_store_service_check_rotation(const char *current_file)
     long file_size = ftell(f);
     fclose(f);
 
-    // 如果文件超过最大大小，执行轮转
     if (file_size > (long)g_ctx.max_storage_bytes) {
-        // 这里可以实现更复杂的轮转逻辑
-        // 目前只是简单的实现
         char backup_file[512];
         snprintf(backup_file, sizeof(backup_file), "%s.1", current_file);
 
-        // 在实际实现中，这里应该处理多个备份文件
         remove(backup_file);
         rename(current_file, backup_file);
     }
@@ -261,15 +248,25 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
 
             const char *p = line;
             const char *bracket1 = strchr(p, '[');
-            if (!bracket1) { continue; }
+            if (!bracket1) {
+                continue;
+            }
             const char *close1 = strchr(bracket1, ']');
-            if (!close1) { continue; }
+            if (!close1) {
+                continue;
+            }
             const char *bracket2 = strchr(close1, '[');
-            if (!bracket2) { continue; }
+            if (!bracket2) {
+                continue;
+            }
             const char *close2 = strchr(bracket2, ']');
-            if (!close2) { continue; }
+            if (!close2) {
+                continue;
+            }
             size_t level_len = (size_t)(close2 - bracket2 - 1);
-            if (level_len >= sizeof(level_str)) { level_len = sizeof(level_str) - 1; }
+            if (level_len >= sizeof(level_str)) {
+                level_len = sizeof(level_str) - 1;
+            }
             __builtin_memcpy(level_str, bracket2 + 1, level_len);
             level_str[level_len] = '\0';
             const char *bracket3 = strchr(close2, '[');
@@ -278,7 +275,9 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
                 const char *close3 = strchr(bracket3, ']');
                 if (close3) {
                     size_t comp_len = (size_t)(close3 - bracket3 - 1);
-                    if (comp_len >= sizeof(comp_str)) { comp_len = sizeof(comp_str) - 1; }
+                    if (comp_len >= sizeof(comp_str)) {
+                        comp_len = sizeof(comp_str) - 1;
+                    }
                     __builtin_memcpy(comp_str, bracket3 + 1, comp_len);
                     comp_str[comp_len] = '\0';
                     parsed = 2;
@@ -295,7 +294,9 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
             const char *ts_end = strchr(ts_start, ']');
             if (ts_end && (size_t)(ts_end - ts_start) > 0) {
                 size_t ts_len = (size_t)(ts_end - ts_start);
-                if (ts_len >= sizeof(time_buf)) { ts_len = sizeof(time_buf) - 1; }
+                if (ts_len >= sizeof(time_buf)) {
+                    ts_len = sizeof(time_buf) - 1;
+                }
                 __builtin_memcpy(time_buf, ts_start, ts_len);
                 time_buf[ts_len] = '\0';
                 strptime(time_buf, "%Y-%m-%d %H:%M:%S", &tm_info);

@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_memory.c
  * @brief AgentRT 数据分区内存管理数据存储实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -199,8 +198,10 @@ heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t
     return heapstore_ERR_NOT_FOUND;
 }
 
+// clang-format off
 heapstore_error_t
 heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocation)
+// clang-format on
 {
     if (!s_initialized) {
         return heapstore_ERR_NOT_INITIALIZED;
@@ -225,7 +226,8 @@ heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocati
         }
     }
 
-    __builtin_memcpy(&s_allocations[s_allocation_count], allocation, sizeof(heapstore_memory_allocation_t));
+    __builtin_memcpy(&s_allocations[s_allocation_count], allocation,
+                     sizeof(heapstore_memory_allocation_t));
     s_allocation_count++;
 
     airy_mtx_unlock(&s_memory_lock);

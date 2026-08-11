@@ -1,14 +1,13 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
 /**
  * @file heapstore.h
  * @brief AgentRT 数据分区核心接口
  *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  */
 
-// @owner: team-B
+/* @owner: team-B */
 #ifndef AIRY_heapstore_H
 #define AIRY_heapstore_H
 
@@ -42,10 +41,10 @@ typedef enum {
     heapstore_ERR_INTERNAL = -99
 } heapstore_error_t;
 
-/* 共享类型定义 - 必须在子模块包含之前加载 */
+
 #include "heapstore_types.h"
 
-/* 子模块头文件 - 提供各子系统 API 声明 */
+
 #include "heapstore_ipc.h"
 #include "heapstore_memory.h"
 #include "heapstore_registry.h"
@@ -59,13 +58,13 @@ extern "C" {
  * @brief 数据分区路径类型
  */
 typedef enum {
-    heapstore_PATH_KERNEL,        /* 内核数据路径 */
-    heapstore_PATH_LOGS,          /* 日志文件路径 */
-    heapstore_PATH_REGISTRY,      /* 注册表路径 */
-    heapstore_PATH_SERVICES,      /* 服务数据路径 */
-    heapstore_PATH_TRACES,        /* 追踪数据路径 */
-    heapstore_PATH_KERNEL_IPC,    /* 内核 IPC 数据 */
-    heapstore_PATH_KERNEL_MEMORY, /* 内核内存数据 */
+    heapstore_PATH_KERNEL,
+    heapstore_PATH_LOGS,
+    heapstore_PATH_REGISTRY,
+    heapstore_PATH_SERVICES,
+    heapstore_PATH_TRACES,
+    heapstore_PATH_KERNEL_IPC,
+    heapstore_PATH_KERNEL_MEMORY,
     heapstore_PATH_MAX
 } heapstore_path_type_t;
 
@@ -73,63 +72,63 @@ typedef enum {
  * @brief 熔断器状态
  */
 typedef enum {
-    heapstore_CIRCUIT_CLOSED = 0, /* 正常状态 */
-    heapstore_CIRCUIT_OPEN,       /* 熔断器打开 */
-    heapstore_CIRCUIT_HALF_OPEN   /* 半开状态 */
+    heapstore_CIRCUIT_CLOSED = 0,
+    heapstore_CIRCUIT_OPEN,
+    heapstore_CIRCUIT_HALF_OPEN
 } heapstore_circuit_state_t;
 
 /**
  * @brief 配置项结构
  */
 typedef struct heapstore_config {
-    const char *root_path;                /* 数据分区根路径 */
-    size_t max_log_size_mb;               /* 最大日志文件大小(MB) */
-    int log_retention_days;               /* 日志保留天数 */
-    int trace_retention_days;             /* 追踪数据保留天数 */
-    bool enable_auto_cleanup;             /* 启用自动清理 */
-    bool enable_log_rotation;             /* 启用日志轮转 */
-    bool enable_trace_export;             /* 启用追踪导出 */
-    int db_vacuum_interval_days;          /* 数据库 Vacuum 间隔(天) */
-    uint32_t circuit_breaker_threshold;   /* 熔断器阈值（失败次数） */
-    uint32_t circuit_breaker_timeout_sec; /* 熔断器超时（秒） */
+    const char *root_path;
+    size_t max_log_size_mb;
+    int log_retention_days;
+    int trace_retention_days;
+    bool enable_auto_cleanup;
+    bool enable_log_rotation;
+    bool enable_trace_export;
+    int db_vacuum_interval_days;
+    uint32_t circuit_breaker_threshold;
+    uint32_t circuit_breaker_timeout_sec;
 } heapstore_config_t;
 
 /**
  * @brief 统计信息结构
  */
 typedef struct heapstore_stats {
-    uint64_t total_disk_usage_bytes; /* 总磁盘使用量 */
-    uint64_t log_usage_bytes;        /* 日志使用量 */
-    uint64_t registry_usage_bytes;   /* 注册表使用量 */
-    uint64_t trace_usage_bytes;      /* 追踪数据使用量 */
-    uint64_t ipc_usage_bytes;        /* IPC 数据使用量 */
-    uint64_t memory_usage_bytes;     /* 内存数据使用量 */
-    uint32_t log_file_count;         /* 日志文件数量 */
-    uint32_t trace_file_count;       /* 追踪文件数量 */
+    uint64_t total_disk_usage_bytes;
+    uint64_t log_usage_bytes;
+    uint64_t registry_usage_bytes;
+    uint64_t trace_usage_bytes;
+    uint64_t ipc_usage_bytes;
+    uint64_t memory_usage_bytes;
+    uint32_t log_file_count;
+    uint32_t trace_file_count;
 } heapstore_stats_t;
 
 /**
  * @brief 性能指标结构
  */
 typedef struct heapstore_metrics {
-    uint64_t total_operations;      /* 总操作次数 */
-    uint64_t failed_operations;     /* 失败操作次数 */
-    uint64_t fast_path_operations;  /* 快速路径操作次数 */
-    uint64_t slow_path_operations;  /* 慢速路径操作次数 */
-    uint64_t circuit_breaker_trips; /* 熔断器触发次数 */
-    double avg_operation_time_ns;   /* 平均操作时间（纳秒） */
-    uint64_t peak_concurrent_ops;   /* 峰值并发操作数 */
+    uint64_t total_operations;
+    uint64_t failed_operations;
+    uint64_t fast_path_operations;
+    uint64_t slow_path_operations;
+    uint64_t circuit_breaker_trips;
+    double avg_operation_time_ns;
+    uint64_t peak_concurrent_ops;
 } heapstore_metrics_t;
 
 /**
  * @brief 熔断器状态信息
  */
 typedef struct heapstore_circuit_info {
-    heapstore_circuit_state_t state; /* 当前状态 */
-    uint32_t failure_count;          /* 连续失败次数 */
-    uint64_t last_failure_time;      /* 上次失败时间 */
-    uint32_t threshold;              /* 触发阈值 */
-    uint32_t timeout_sec;            /* 超时时间 */
+    heapstore_circuit_state_t state;
+    uint32_t failure_count;
+    uint64_t last_failure_time;
+    uint32_t threshold;
+    uint32_t timeout_sec;
 } heapstore_circuit_info_t;
 
 /**
@@ -392,7 +391,6 @@ heapstore_error_t heapstore_get_circuit_state(heapstore_circuit_info_t *info);
  */
 heapstore_error_t heapstore_reset_circuit(void);
 
-/* ==================== 批量写入支持 ==================== */
 
 /**
  * @brief 批量写入上下文

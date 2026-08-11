@@ -1,11 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file batch_write.c
  * @brief heapstore 批量写入示例
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
- *
  *
  * @note 本示例展示如何使用 heapstore 的批量写入功能，
  *       包括批量日志、追踪、注册表等操作。
@@ -33,7 +31,6 @@ int main(int argc, char **argv)
     printf("heapstore Batch Write Example\n");
     printf("========================================\n\n");
 
-    /* 1. 初始化 */
     printf("Step 1: Initialize heapstore\n");
     heapstore_config_t config = {.root_path = "./heapstore_data",
                                  .max_log_size_mb = 100,
@@ -53,7 +50,6 @@ int main(int argc, char **argv)
     }
     printf("  SUCCESS: initialized\n\n");
 
-    /* 2. 创建批量上下文 */
     printf("Step 2: Create Batch Context\n");
     heapstore_batch_context_t *ctx = heapstore_batch_begin(1024);
     if (!ctx) {
@@ -63,7 +59,6 @@ int main(int argc, char **argv)
     }
     printf("  SUCCESS: batch context created with capacity %zu\n\n", ctx->capacity);
 
-    /* 3. 批量添加日志 */
     printf("Step 3: Add Logs to Batch\n");
     for (int i = 0; i < 10; i++) {
         char message[128];
@@ -77,7 +72,6 @@ int main(int argc, char **argv)
     }
     printf("  Added 10 logs to batch (count=%zu)\n\n", ctx->count);
 
-    /* 4. 批量添加追踪数据 */
     printf("Step 4: Add Trace Spans to Batch\n");
     for (int i = 0; i < 5; i++) {
         heapstore_trace_entry_t entry = {0};
@@ -103,7 +97,6 @@ int main(int argc, char **argv)
     }
     printf("  Added 5 spans to batch (count=%zu)\n\n", ctx->count);
 
-    /* 5. 批量添加会话记录 */
     printf("Step 5: Add Session Records to Batch\n");
     for (int i = 0; i < 3; i++) {
         heapstore_session_record_t session = {0};
@@ -124,7 +117,6 @@ int main(int argc, char **argv)
     }
     printf("  Added 3 sessions to batch (count=%zu)\n\n", ctx->count);
 
-    /* 6. 提交批量写入 */
     printf("Step 6: Commit Batch\n");
     printf("  Total items before commit: %zu\n", ctx->count);
 
@@ -136,7 +128,6 @@ int main(int argc, char **argv)
     }
     printf("  Total items after commit: %zu\n\n", ctx->count);
 
-    /* 7. 清理 */
     printf("Step 7: Cleanup\n");
     heapstore_batch_destroy(ctx);
     heapstore_cleanup();

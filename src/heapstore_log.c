@@ -1,10 +1,9 @@
+// SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
+// SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
+
 /**
  * @file heapstore_log.c
  * @brief AgentRT 数据分区日志管理实现
- *
- * Copyright (C) 2025-2026 SPHARX Ltd. All Rights Reserved.
- * SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd.
- * SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0
  *
  */
 
@@ -171,11 +170,10 @@ static FILE *get_service_log_file(const char *service)
             /* 修复 sizeof(宏) 误用：原写法取 heapstore_LOG_MAX_SERVICE_LEN
              * 的 int 大小（4/8 字节），服务名被截断，导致日志服务文件与
              * 真实服务名错配。改为取目标数组实际大小。 */
-            AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name,
-                              safe_service,
+            AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name, safe_service,
                               sizeof(s_service_logs[s_service_log_count].service_name));
-            s_service_logs[s_service_log_count].service_name
-                [sizeof(s_service_logs[s_service_log_count].service_name) - 1] = '\0';
+            s_service_logs[s_service_log_count]
+                .service_name[sizeof(s_service_logs[s_service_log_count].service_name) - 1] = '\0';
             s_service_logs[s_service_log_count].file = fp;
             airy_mtx_init(&s_service_logs[s_service_log_count].lock);
             s_service_log_count++;
@@ -259,7 +257,7 @@ void heapstore_log_shutdown(void)
     airy_mtx_unlock(&s_service_lock);
 
     s_initialized = false;
-        AIRY_LOG_INFO("heapstore_log: logging system shutdown complete");
+    AIRY_LOG_INFO("heapstore_log: logging system shutdown complete");
 
     airy_mtx_unlock(&s_log_lock);
 }
@@ -297,7 +295,8 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
     va_start(args, format);
 
     char _buf3[512];
-    snprintf(_buf3, sizeof(_buf3), "[%s] [%s] [%s] [%s:%d] ", s_current_date, timestamp, level_str, file, line);
+    snprintf(_buf3, sizeof(_buf3), "[%s] [%s] [%s] [%s:%d] ", s_current_date, timestamp, level_str,
+             file, line);
     fputs(_buf3, fp);
 
     if (trace_id) {
@@ -305,7 +304,9 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
         fputs(_buf3, fp);
     }
 
-    vfprintf(fp, format, args); /* BAN-70 EXEMPT: heapstore logging - direct FILE* output is the implementation mechanism */
+    /* BAN-70 EXEMPT: heapstore logging - direct FILE* output is the implementation
+     * mechanism */
+    vfprintf(fp, format, args);
     fputs("\n", fp);
     fflush(fp);
 
@@ -351,12 +352,12 @@ void heapstore_log_writev(heapstore_log_level_t level, const char *service, cons
     char _buf4[2048];
     if (trace_id && trace_id[0]) {
         snprintf(_buf4, sizeof(_buf4), "%s.%s [%s] [%s] [trace=%s] [%s:%d] %s\n", timestamp, msec,
-                level_to_string(level), service ? service : "unknown", trace_id, filename, line,
-                message);
+                 level_to_string(level), service ? service : "unknown", trace_id, filename, line,
+                 message);
         fputs(_buf4, fp);
     } else {
-        snprintf(_buf4, sizeof(_buf4), "%s.%s [%s] [%s] [%s:%d] %s\n", timestamp, msec, level_to_string(level),
-                service ? service : "unknown", filename, line, message);
+        snprintf(_buf4, sizeof(_buf4), "%s.%s [%s] [%s] [%s:%d] %s\n", timestamp, msec,
+                 level_to_string(level), service ? service : "unknown", filename, line, message);
         fputs(_buf4, fp);
     }
 
