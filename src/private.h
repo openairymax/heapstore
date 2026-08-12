@@ -3,8 +3,7 @@
 
 /**
  * @file private.h
- * @brief AgentRT 数据分区内部头文件
- *
+ * @brief Internal header for the AgentRT data partition.
  */
 
 /* @owner: team-B */

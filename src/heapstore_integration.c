@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_integration.c
- * @brief heapstore 与 AgentRT 核心模块集成实现
- *
+ * @brief Integration of heapstore with AgentRT core modules.
  */
 
 // @owner: team-B
@@ -34,7 +33,7 @@ static airy_mtx_t g_integration_mutex = {0};
 #endif
 
 /**
- * @brief 初始化集成层互斥锁
+  * @brief Initialize the integration-layer mutex
  */
 static void __attribute__((unused)) integration_lock_init(void)
 {
@@ -44,7 +43,7 @@ static void __attribute__((unused)) integration_lock_init(void)
 }
 
 /**
- * @brief 清理集成层互斥锁
+  * @brief Clean up the integration-layer mutex
  */
 static void __attribute__((unused)) integration_lock_cleanup(void)
 {
@@ -54,7 +53,7 @@ static void __attribute__((unused)) integration_lock_cleanup(void)
 }
 
 /**
- * @brief 获取集成层互斥锁
+  * @brief Acquire the integration-layer mutex
  */
 static void integration_lock(void)
 {
@@ -66,7 +65,7 @@ static void integration_lock(void)
 }
 
 /**
- * @brief 释放集成层互斥锁
+  * @brief Release the integration-layer mutex
  */
 static void integration_unlock(void)
 {

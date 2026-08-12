@@ -3,8 +3,7 @@
 
 /**
  * @file utils.c
- * @brief AgentRT heapstore 公共工具函数实现
- *
+ * @brief AgentRT heapstore common utility functions implementation.
  */
 
 // @owner: team-B

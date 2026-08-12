@@ -6,9 +6,9 @@
  * @brief heapstore 模糊测试 (Fuzz Testing) 和并发压力测试
  *
  * @note 本测试套件包含:
- *       1. 输入模糊测试 - 验证边界条件处理
- *       2. 并发压力测试 - 验证线程安全性
- *       3. 内存泄漏检测 - 验证资源管理
+  *       1. 输入模糊测试 - 验证边界条件处理
+  *       2. 并发压力测试 - 验证线程安全性
+  *       3. 内存泄漏检测 - 验证资源管理
  */
 
 // @owner: team-B
@@ -56,15 +56,15 @@ static int g_init_done = 0;
     } while (0)
 
 /* ===========================================================================
- * Part 1: 模糊测试 (Fuzz Testing)
+  * Part 1: Fuzz testing
  * ===========================================================================*/
 
 /**
- * @brief 生成随机字符串用于模糊测试
+  * @brief Generate random strings for fuzzing
  *
- * @param buffer 输出缓冲区
- * @param length 字符串长度
- * @param include_special 是否包含特殊字符
+  * @param buffer Output buffer
+  * @param length String length
+  * @param include_special Whether to include special characters
  */
 static void generate_random_string(char *buffer, size_t length, bool include_special)
 {
@@ -83,9 +83,9 @@ static void generate_random_string(char *buffer, size_t length, bool include_spe
 }
 
 /**
- * @brief 测试1: 路径组件净化模糊测试
+  * @brief Test 1: path component sanitization fuzzing
  *
- * 使用随机输入测试 heapstore_sanitize_path_component() 的鲁棒性
+  * Fuzz heapstore_sanitize_path_component() with random input
  */
 static void test_fuzz_sanitize_path(void)
 {
@@ -115,9 +115,9 @@ static void test_fuzz_sanitize_path(void)
 }
 
 /**
- * @brief 测试2: 安全标识符验证模糊测试
+  * @brief Test 2: safe-identifier validation fuzzing
  *
- * 使用随机输入测试 heapstore_is_safe_identifier()
+  * Fuzz heapstore_is_safe_identifier() with random input
  */
 static void test_fuzz_safe_identifier(void)
 {
@@ -144,9 +144,9 @@ static void test_fuzz_safe_identifier(void)
 }
 
 /**
- * @brief 测试3: 配置参数边界值模糊测试
+  * @brief Test 3: config parameter boundary fuzzing
  *
- * 使用极端配置参数测试 heapstore_init()
+  * Fuzz heapstore_init() with extreme config values
  */
 static void test_fuzz_config_params(void)
 {
@@ -179,7 +179,7 @@ static void test_fuzz_config_params(void)
 }
 
 /* ===========================================================================
- * Part 2: 并发压力测试 (Concurrency Stress Testing)
+  * Part 2: Concurrency stress testing
  * ===========================================================================*/
 
 typedef struct {
@@ -190,7 +190,7 @@ typedef struct {
 } thread_context_t;
 
 /**
- * @brief 线程工作函数: 并发写入日志
+  * @brief Worker thread: concurrent log writes
  */
 static void *thread_log_writer(void *arg)
 {
@@ -214,7 +214,7 @@ static void *thread_log_writer(void *arg)
 }
 
 /**
- * @brief 线程工作函数: 并发注册表操作
+  * @brief Worker thread: concurrent registry operations
  */
 static void *thread_registry_worker(void *arg)
 {
@@ -243,7 +243,7 @@ static void *thread_registry_worker(void *arg)
 }
 
 /**
- * @brief 测试4: 并发日志写入压力测试
+  * @brief Test 4: concurrent log write stress
  */
 static void test_concurrent_log_writing(void)
 {
@@ -284,7 +284,7 @@ static void test_concurrent_log_writing(void)
 }
 
 /**
- * @brief 测试5: 并发注册表操作压力测试
+  * @brief Test 5: concurrent registry operation stress
  */
 static void test_concurrent_registry_operations(void)
 {
@@ -322,7 +322,7 @@ static void test_concurrent_registry_operations(void)
 }
 
 /**
- * @brief 测试6: 初始化/关闭的并发竞争测试
+  * @brief Test 6: init/shutdown concurrency race
  */
 static void test_concurrent_init_shutdown_race(void)
 {
@@ -349,13 +349,13 @@ static void test_concurrent_init_shutdown_race(void)
 }
 
 /* ===========================================================================
- * Part 3: 内存泄漏检测辅助
+  * Part 3: memory leak detection helpers
  * ===========================================================================*/
 
 /**
- * @brief 测试7: 大量操作的内存稳定性测试
+  * @brief Test 7: memory stability under heavy operations
  *
- * 执行大量操作后检查是否仍有内存可用
+  * Check memory availability after heavy operations
  */
 static void test_memory_stability_under_load(void)
 {
@@ -386,7 +386,7 @@ static void test_memory_stability_under_load(void)
 }
 
 /* ===========================================================================
- * 主测试入口
+  * Main test entry
  * ===========================================================================*/
 
 int main(int argc, char *argv[])

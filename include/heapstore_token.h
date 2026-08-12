@@ -3,10 +3,10 @@
 
 /**
  * @file heapstore_token.h
- * @brief AgentRT heapstore Token 计数接口
+ * @brief AgentRT heapstore token accounting interface.
  *
- * @note 本模块实现 Token 使用统计和监控功能，
- *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
+ * @note Implements token usage statistics and monitoring per the E-2
+ *       observability principle in ARCHITECTURAL_PRINCIPLES.md.
  */
 
 /* @owner: team-B */
@@ -24,7 +24,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Token 统计数据类型
+  * @brief Token statistics data type
  */
 typedef enum {
     HEAPSTORE_TOKEN_TYPE_PROMPT = 0,
@@ -36,7 +36,7 @@ typedef enum {
 } heapstore_token_type_t;
 
 /**
- * @brief Token 操作类型
+  * @brief Token operation type
  */
 typedef enum {
     HEAPSTORE_TOKEN_OP_WRITE = 0,
@@ -45,7 +45,7 @@ typedef enum {
 } heapstore_token_operation_t;
 
 /**
- * @brief Token 统计数据结构
+  * @brief Token statistics data structure
  */
 typedef struct {
     uint64_t total_prompt_tokens;
@@ -61,7 +61,7 @@ typedef struct {
 } heapstore_token_stats_t;
 
 /**
- * @brief Token 预算配置
+  * @brief Token budget configuration
  */
 typedef struct {
     uint64_t max_tokens_per_task;
@@ -71,12 +71,12 @@ typedef struct {
 } heapstore_token_budget_t;
 
 /**
- * @brief 初始化 Token 计数器
+  * @brief Initialize the token counter
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_shutdown()
  * @since v0.1.0
@@ -84,12 +84,12 @@ typedef struct {
 heapstore_error_t heapstore_token_init(void);
 
 /**
- * @brief 关闭 Token 计数器
+  * @brief Shut down the token counter
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_init()
  * @since v0.1.0
@@ -97,15 +97,15 @@ heapstore_error_t heapstore_token_init(void);
 heapstore_error_t heapstore_token_shutdown(void);
 
 /**
- * @brief 记录 Token 使用
+  * @brief Record token usage
  *
- * @param type [in] Token 类型
- * @param count [in] Token 数量
- * @param operation [in] 操作类型
- * @return heapstore_error_t 错误码
+  * @param type [in] Token type
+  * @param count [in] Token count
+  * @param operation [in] Operation type
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_get_stats()
  * @since v0.1.0
@@ -114,13 +114,13 @@ heapstore_error_t heapstore_token_record(heapstore_token_type_t type, uint64_t c
                                          heapstore_token_operation_t operation);
 
 /**
- * @brief 获取 Token 统计信息
+  * @brief Get token statistics
  *
- * @param out_stats [out] 输出统计信息
- * @return heapstore_error_t 错误码
+  * @param out_stats [out] Output statistics
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_record()
  * @since v0.1.0
@@ -128,24 +128,24 @@ heapstore_error_t heapstore_token_record(heapstore_token_type_t type, uint64_t c
 heapstore_error_t heapstore_token_get_stats(heapstore_token_stats_t *out_stats);
 
 /**
- * @brief 重置 Token 统计
+  * @brief Reset token statistics
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 heapstore_error_t heapstore_token_reset_stats(void);
 
 /**
- * @brief 设置任务 Token 预算
+  * @brief Set a task token budget
  *
- * @param task_id [in] 任务 ID
- * @param budget [in] 预算配置
- * @return heapstore_error_t 错误码
+  * @param task_id [in] Task ID
+  * @param budget [in] Budget configuration
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_check_budget()
  * @since v0.1.0
@@ -154,15 +154,15 @@ heapstore_error_t heapstore_token_set_budget(const char *task_id,
                                              const heapstore_token_budget_t *budget);
 
 /**
- * @brief 检查任务 Token 预算
+  * @brief Check a task's token budget
  *
- * @param task_id [in] 任务 ID
- * @param requested_tokens [in] 请求的 Token 数
- * @param allowed [out] 是否允许
- * @return heapstore_error_t 错误码
+  * @param task_id [in] Task ID
+  * @param requested_tokens [in] Requested token count
+  * @param allowed [out] Whether allowed
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @see heapstore_token_set_budget()
  * @since v0.1.0
@@ -171,36 +171,36 @@ heapstore_error_t heapstore_token_check_budget(const char *task_id, uint64_t req
                                                bool *allowed);
 
 /**
- * @brief 获取任务已使用的 Token 数
+  * @brief Get a task's used token count
  *
- * @param task_id [in] 任务 ID
- * @param out_used [out] 已使用的 Token 数
- * @return heapstore_error_t 错误码
+  * @param task_id [in] Task ID
+  * @param out_used [out] Used token count
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 heapstore_error_t heapstore_token_get_task_usage(const char *task_id, uint64_t *out_used);
 
 /**
- * @brief 将 Token 类型转换为字符串
+  * @brief Convert a token type to a string
  *
- * @param type [in] Token 类型
- * @return const char* 类型字符串
+  * @param type [in] Token type
+  * @return const char* Type string
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 const char *heapstore_token_type_to_string(heapstore_token_type_t type);
 
 /**
- * @brief 将 Token 操作转换为字符串
+  * @brief Convert a token operation to a string
  *
- * @param operation [in] 操作类型
- * @return const char* 操作字符串
+  * @param operation [in] Operation type
+  * @return const char* Operation string
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 const char *heapstore_token_op_to_string(heapstore_token_operation_t operation);
 

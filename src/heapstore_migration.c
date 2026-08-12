@@ -3,14 +3,13 @@
 
 /**
  * @file heapstore_migration.c
- * @brief AgentRT heapstore Schema 版本化与数据迁移实现
+ * @brief AgentRT heapstore schema versioning and data migration implementation.
  *
- * 实现 heapstore 数据格式的版本管理，包括：
- * - SCHEMA_VERSION 持久化到 .schema_version 文件
- * - 启动时版本检测与自动迁移触发
- * - 前向兼容 (v1 → v2) 非破坏性迁移
- * - 后向兼容 (v2 → v1) 安全回滚
- *
+ * Implements version management of the heapstore data format:
+ * - SCHEMA_VERSION persisted to the .schema_version file
+ * - version detection and automatic migration trigger at startup
+ * - forward-compatible (v1 -> v2) non-destructive migration
+ * - backward-compatible (v2 -> v1) safe rollback
  */
 
 // @owner: team-C
@@ -37,7 +36,7 @@
 #define HEAPSTORE_MIGRATION_DB_REL_PATH "/registry/registry.db"
 
 /**
- * @brief 获取迁移版本文件的完整路径
+  * @brief Get the full path of the migration version file
  */
 static void get_version_file_path(char *buffer, size_t buffer_size)
 {
@@ -46,7 +45,7 @@ static void get_version_file_path(char *buffer, size_t buffer_size)
 }
 
 /**
- * @brief 获取当前时间戳（毫秒）
+  * @brief Get the current timestamp (ms)
  */
 static uint64_t get_time_ms(void)
 {
@@ -56,7 +55,7 @@ static uint64_t get_time_ms(void)
 }
 
 /**
- * @brief 备份数据文件
+  * @brief Back up data files
  */
 static heapstore_error_t backup_data_file(const char *file_path)
 {
@@ -91,7 +90,7 @@ static heapstore_error_t backup_data_file(const char *file_path)
 }
 
 /**
- * @brief 从备份恢复数据文件
+  * @brief Restore data files from backup
  */
 static heapstore_error_t restore_data_file(const char *file_path)
 {
@@ -106,7 +105,7 @@ static heapstore_error_t restore_data_file(const char *file_path)
 }
 
 /**
- * @brief 清理备份文件
+  * @brief Clean up backup files
  */
 static void cleanup_backup_file(const char *file_path)
 {
@@ -198,12 +197,12 @@ heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *cur
 }
 
 /**
- * @brief 迁移步骤函数类型
+  * @brief Migration step function type
  */
 typedef heapstore_error_t (*migration_step_fn)(uint64_t *records_affected);
 
 /**
- * @brief 迁移步骤定义
+  * @brief Migration step definition
  */
 typedef struct {
     const char *name;
@@ -213,7 +212,7 @@ typedef struct {
 } migration_step_def_t;
 
 /**
- * @brief 解析 registry 数据库路径：heapstore 根 + registry/registry.db
+  * @brief Resolve the registry DB path: heapstore root + registry/registry.db
  */
 static void mig_db_path(char *buffer, size_t buffer_size)
 {
@@ -224,7 +223,7 @@ static void mig_db_path(char *buffer, size_t buffer_size)
 #ifdef AIRY_HAS_SQLITE3
 
 /**
- * @brief 打开 registry 数据库（只读迁移视图，失败返回 NULL）
+  * @brief Open the registry DB (read-only migration view; NULL on failure)
  */
 static sqlite3 *mig_db_open(void)
 {
@@ -243,7 +242,7 @@ static sqlite3 *mig_db_open(void)
 }
 
 /**
- * @brief 检查表是否包含指定列
+  * @brief Check whether a table has a given column
  */
 static bool mig_table_has_column(sqlite3 *db, const char *table, const char *column)
 {
@@ -269,7 +268,7 @@ static bool mig_table_has_column(sqlite3 *db, const char *table, const char *col
 }
 
 /**
- * @brief 幂等添加列（已存在则跳过），返回变更行数
+  * @brief Idempotently add a column (skip if present); returns changed row count
  */
 static heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const char *column,
                                         const char *column_def, uint64_t *records_affected)
@@ -304,9 +303,9 @@ static heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const ch
 }
 
 /**
- * @brief 通过重建表方式移除列（兼容 SQLite < 3.35 无 DROP COLUMN）
+  * @brief Drop a column by rebuilding the table (SQLite < 3.35 lacks DROP COLUMN)
  *
- * 仅在目标列存在时执行；重建后恢复同名表与索引。
+  * Only runs if the column exists; restores the table and indexes afterwards.
  */
 static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
                                           const char *const *drop_columns, size_t drop_count,
@@ -415,10 +414,10 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
 
 #endif /* AIRY_HAS_SQLITE3 */
 /**
- * @brief v1.0.0 → v1.1.0: 为 agent_record 新增 priority 和 tags 字段
+  * @brief v1.0.0 -> v1.1.0: add priority and tags fields to agent_record
  *
- * 真实实现：在 registry 数据库的 agents 表中追加 priority/tags 列
- * （幂等：列已存在则跳过），并为存量记录应用默认值。
+  * Implementation: append priority/tags columns to the agents table
+  * (idempotent: skipped if present) and apply defaults to existing rows.
  */
 static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_affected)
 {
@@ -472,7 +471,7 @@ static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_aff
 }
 
 /**
- * @brief v1.1.0 → v2.0.0: 为 session_record 新增 metadata 字段
+  * @brief v1.1.0 -> v2.0.0: add a metadata field to session_record
  */
 static heapstore_error_t migrate_v1_1_to_v2_0_session_metadata(uint64_t *records_affected)
 {
@@ -626,9 +625,9 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 }
 
 /**
- * @brief v2.0.0 → v1.1.0: 移除 session metadata 字段
+  * @brief v2.0.0 -> v1.1.0: remove the session metadata field
  *
- * 真实实现：通过重建 sessions 表移除 metadata 列，保留核心字段。
+  * Implementation: rebuild the sessions table without metadata, keeping core fields.
  */
 static heapstore_error_t rollback_v2_0_to_v1_1_session_metadata(uint64_t *records_affected)
 {
@@ -672,9 +671,9 @@ static heapstore_error_t rollback_v2_0_to_v1_1_session_metadata(uint64_t *record
 }
 
 /**
- * @brief v1.1.0 → v1.0.0: 移除 agent priority 和 tags 字段
+  * @brief v1.1.0 -> v1.0.0: remove agent priority and tags fields
  *
- * 真实实现：通过重建 agents 表移除 priority/tags 列，保留核心字段。
+  * Implementation: rebuild the agents table without priority/tags, keeping core fields.
  */
 static heapstore_error_t rollback_v1_1_to_v1_0_agent_fields(uint64_t *records_affected)
 {

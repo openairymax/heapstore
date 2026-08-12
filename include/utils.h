@@ -3,8 +3,7 @@
 
 /**
  * @file utils.h
- * @brief AgentRT heapstore 公共工具函数接口
- *
+ * @brief AgentRT heapstore common utility functions interface.
  */
 
 /* @owner: team-B */
@@ -20,60 +19,60 @@ extern "C" {
 #endif
 
 /**
- * @brief 确保目录存在，必要时创建嵌套目录
+  * @brief Ensure the directory exists, creating nested dirs if needed
  *
- * @param path [in] 目录路径
- * @return bool 成功返回 true，失败返回 false
+ * @param path [in] directory path
+ * @return bool true on success, false on failure
  *
- * @ownership 调用者负责 path 的生命周期
- * @threadsafe 是
- * @reentrant 是
+ * @ownership caller owns the lifetime of path
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 支持创建多级嵌套目录
+  * @note Supports creating multi-level nested directories
  */
 bool heapstore_ensure_directory(const char *path);
 
 /**
- * @brief 计算目录的总大小和文件数量
+  * @brief Compute total size and file count of a directory
  *
- * @param path [in] 目录路径
- * @param out_size [out] 输出总大小（字节）
- * @param out_count [out] 输出文件数量
- * @return bool 成功返回 true，失败返回 false
+ * @param path [in] directory path
+  * @param out_size [out] Output total size (bytes)
+ * @param out_count [out] output file count
+ * @return bool true on success, false on failure
  *
- * @ownership 调用者负责 path 的生命周期
- * @threadsafe 是
- * @reentrant 是
+ * @ownership caller owns the lifetime of path
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 递归计算子目录大小
+  * @note Recursively account for subdirectory sizes
  * @since v1.0.0
  */
 bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, uint32_t *out_count);
 
 /**
- * @brief 净化路径组件，防止路径遍历和注入攻击
+  * @brief Sanitize a path component against traversal and injection attacks
  *
- * 此函数用于净化用户输入的服务名称、通道ID等标识符，
- * 防止路径遍历攻击（如 "../../../etc/passwd"）和其他注入攻击。
+  * Sanitizes user-supplied identifiers such as service names and channel IDs，
+  * Prevents path traversal (e.g. "../../../etc/passwd") and injection。
  *
- * @param output [out] 输出缓冲区，存储净化后的字符串
- * @param input [in] 待净化的输入字符串
- * @param size [in] 输出缓冲区大小（字节）
- * @return int 成功返回 0，输入非法返回 -1
+  * @param output [out] Output buffer for the sanitized string
+  * @param input [in] Input string to sanitize
+  * @param size [in] Output buffer size (bytes)
+  * @return int 0 on success, -1 on invalid input
  *
- * @ownership 调用者负责 output 和 input 的生命周期
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns the lifetime of output and input
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @note
- * - 拒绝包含 ".." 的输入（路径遍历）
- * - 拒绝包含 "/" 或 "\\" 的输入（目录分隔符）
- * - 拒绝包含空字节的输入（空字节注入）
- * - 只允许安全字符：字母数字、下划线(_)、连字符(-)、点号(.)
- * - 危险字符会被替换为下划线(_)
- * - 输入长度不能超过 size-1
+  * - Rejects input containing ".." (path traversal)
+  * - Rejects input containing "/" or "\\" (path separators)
+  * - Rejects input containing NUL bytes (NUL injection)
+  * - Only safe chars allowed: alphanumeric, underscore, hyphen, dot
+  * - Dangerous characters are replaced with underscore
+  * - Input length must not exceed size-1
  *
- * @warning 此函数应在所有文件路径构造前调用
+  * @warning Call before constructing any file path
  *
  * @see heapstore_ensure_directory()
  *
@@ -93,23 +92,23 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
 int heapstore_sanitize_path_component(char *output, const char *input, size_t size);
 
 /**
- * @brief 验证标识符是否安全（不包含路径遍历等危险模式）
+  * @brief Verify an identifier is safe (no path traversal or dangerous patterns)
  *
- * 此函数是 heapstore_sanitize_path_component 的轻量级版本，
- * 仅检查输入是否安全，不进行净化处理。
+  * Lightweight variant of heapstore_sanitize_path_component，
+  * Only checks safety; does not sanitize。
  *
- * @param input [in] 待验证的输入字符串
- * @return bool 安全返回 true，包含危险模式返回 false
+  * @param input [in] Input string to validate
+  * @return bool true if safe, false if dangerous patterns found
  *
- * @ownership 调用者负责 input 的生命周期
- * @threadsafe 是
- * @reentrant 是
+ * @ownership caller owns the lifetime of input
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @note
- * - 检查 ".." 路径遍历模式
- * - 检查 "/" 和 "\\" 目录分隔符
- * - 检查空字节注入
- * - 检查是否只包含安全字符
+  * - Checks for ".." path traversal patterns
+  * - Checks for "/" and "\\" path separators
+  * - Checks for NUL-byte injection
+  * - Checks that only safe characters are present
  *
  * @see heapstore_sanitize_path_component()
  *

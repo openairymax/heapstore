@@ -3,7 +3,7 @@
 
 /**
  * @file test_batch_performance.c
- * @brief heapstore 批量插入性能测试
+  * @brief heapstore 批量插入性能测试
  *
  */
 

@@ -3,10 +3,10 @@
 
 /**
  * @file heapstore_token.c
- * @brief AgentRT heapstore Token 计数实现
+ * @brief AgentRT heapstore token accounting implementation.
  *
- * @note 实现 Token 使用统计和监控功能，
- *       符合 ARCHITECTURAL_PRINCIPLES.md 中的 E-2 可观测性原则。
+ * @note Implements token usage statistics and monitoring per the E-2
+ *       observability principle in ARCHITECTURAL_PRINCIPLES.md.
  */
 
 // @owner: team-B

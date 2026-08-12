@@ -5,7 +5,7 @@
 #include "error.h"
 /**
  * @file log_store_service.c
- * @brief 内核日志存储服务实现
+  * @brief Kernel log storage service implementation
  *
  */
 
@@ -37,7 +37,7 @@ static void log_store_service_check_rotation(const char *current_file);
 #endif
 
 /**
- * @brief 日志存储服务上下文
+  * @brief Log storage service context
  */
 typedef struct {
     char storage_path[512];
@@ -49,11 +49,11 @@ typedef struct {
 static log_store_service_ctx_t g_ctx = {0};
 
 /**
- * @brief 初始化日志存储服务
+  * @brief Initialize the log storage service
  *
- * @param storage_path 存储路径
- * @param max_storage_bytes 最大存储字节数
- * @return int 0成功，非0错误码
+  * @param storage_path Storage path
+  * @param max_storage_bytes Maximum storage bytes
+  * @return int: 0 on success, non-zero error code
  */
 int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
 {
@@ -89,13 +89,13 @@ int log_store_service_init(const char *storage_path, uint64_t max_storage_bytes)
 }
 
 /**
- * @brief 存储日志条目
+  * @brief Store a log entry
  *
- * @param level 日志级别
- * @param component 组件名称
- * @param message 日志消息
- * @param timestamp 时间戳（NULL表示使用当前时间）
- * @return int 0成功，非0错误码
+  * @param level Log level
+  * @param component Component name
+  * @param message Log message
+  * @param timestamp Timestamp (NULL for the current time)
+  * @return int: 0 on success, non-zero error code
  */
 int log_store_service_store_entry(heapstore_log_level_t level, const char *component,
                                   const char *message, const time_t *timestamp)
@@ -157,9 +157,9 @@ int log_store_service_store_entry(heapstore_log_level_t level, const char *compo
 }
 
 /**
- * @brief 检查并执行日志轮转
+  * @brief Check and perform log rotation
  *
- * @param current_file 当前日志文件
+  * @param current_file Current log file
  */
 static void log_store_service_check_rotation(const char *current_file)
 {
@@ -182,15 +182,15 @@ static void log_store_service_check_rotation(const char *current_file)
 }
 
 /**
- * @brief 查询存储的日志
+  * @brief Query stored logs
  *
- * @param start_time 开始时间
- * @param end_time 结束时间
- * @param level 日志级别（可选的过滤条件）
- * @param component 组件名称（可选的过滤条件）
- * @param out_entries 输出日志条目数组
- * @param max_entries 最大条目数
- * @return int 返回的条目数，或错误码
+  * @param start_time Start time
+  * @param end_time End time
+  * @param level Log level (optional filter)
+  * @param component Component name (optional filter)
+  * @param out_entries Output log entry array
+  * @param max_entries Maximum entry count
+  * @return int: entry count returned, or an error code
  */
 int log_store_service_query_entries(const time_t *start_time, const time_t *end_time,
                                     heapstore_log_level_t level, const char *component,
@@ -368,10 +368,10 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
 }
 
 /**
- * @brief 释放查询结果
+  * @brief Free query results
  *
- * @param entries 日志条目数组
- * @param count 条目数
+  * @param entries Log entry array
+  * @param count Entry count
  */
 void log_store_service_free_entries(char **entries, int count)
 {
@@ -388,10 +388,10 @@ void log_store_service_free_entries(char **entries, int count)
 }
 
 /**
- * @brief 清理旧的日志文件
+  * @brief Clean up old log files
  *
- * @param days_to_keep 保留天数
- * @return int 删除的文件数
+  * @param days_to_keep Retention days
+  * @return int: number of files deleted
  */
 int log_store_service_cleanup_old_files(int days_to_keep)
 {
@@ -479,7 +479,7 @@ int log_store_service_get_status(uint64_t *out_total_bytes, uint32_t *out_file_c
 }
 
 /**
- * @brief 关闭日志存储服务
+  * @brief Shut down the log storage service
  */
 void log_store_service_shutdown(void)
 {

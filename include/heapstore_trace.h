@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_trace.h
- * @brief AgentRT 数据分区追踪数据存储接口
- *
+ * @brief AgentRT data partition trace storage interface.
  */
 
 /* @owner: team-B */
@@ -23,7 +22,7 @@ extern "C" {
 
 
 /**
- * @brief 追踪导出器配置
+  * @brief Trace exporter configuration
  */
 typedef struct heapstore_trace_exporter_config {
     bool enabled;
@@ -34,13 +33,13 @@ typedef struct heapstore_trace_exporter_config {
 } heapstore_trace_exporter_config_t;
 
 /**
- * @brief 初始化追踪存储系统
+  * @brief Initialize the trace storage subsystem
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @ownership 内部管理所有资源
- * @threadsafe 否，不可多线程同时调用
- * @reentrant 否
+  * @ownership Manages all resources internally
+ * @threadsafe no (not safe for concurrent calls)
+ * @reentrant no
  *
  * @see heapstore_trace_shutdown()
  * @since v1.0.0
@@ -48,11 +47,11 @@ typedef struct heapstore_trace_exporter_config {
 heapstore_error_t heapstore_trace_init(void);
 
 /**
- * @brief 关闭追踪存储系统
+  * @brief Shut down the trace storage subsystem
  *
- * @ownership 内部释放所有资源
- * @threadsafe 否
- * @reentrant 否
+  * @ownership Releases all resources internally
+ * @threadsafe no
+ * @reentrant no
  *
  * @see heapstore_trace_init()
  * @since v1.0.0
@@ -60,151 +59,151 @@ heapstore_error_t heapstore_trace_init(void);
 void heapstore_trace_shutdown(void);
 
 /**
- * @brief 写入 Span 记录
+  * @brief Write a span record
  *
- * @param span [in] Span 记录
- * @return heapstore_error_t 错误码
+  * @param span [in] Span record
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 span 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of span
+ * @threadsafe yes
+ * @reentrant no
  */
 heapstore_error_t heapstore_trace_write_span(const heapstore_span_t *span);
 
 /**
- * @brief 批量写入 Span 记录
+  * @brief Batch-write span records
  *
- * @param spans [in] Span 数组
- * @param count [in] Span 数量
- * @return heapstore_error_t 错误码
+  * @param spans [in] Span array
+  * @param count [in] Span count
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 spans 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of spans
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_write_spans_batch(const heapstore_span_t *spans, size_t count);
 
 /**
- * @brief 根据 trace_id 查询所有 span
+  * @brief Query all spans by trace_id
  *
- * @param trace_id [in] 追踪 ID
- * @param spans [out] 输出 span 数组（需调用者释放）
- * @param count [out] 输出 span 数量
- * @return heapstore_error_t 错误码
+  * @param trace_id [in] Trace ID
+  * @param spans [out] Output span array (caller frees)
+  * @param count [out] Output span count
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责调用 heapstore_trace_free_spans 释放 spans
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller must free spans via heapstore_trace_free_spans
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore_span_t **spans,
                                                  size_t *count);
 
 /**
- * @brief 根据时间范围查询 span
+  * @brief Query spans by time range
  *
- * @param start_time [in] 开始时间（纳秒）
- * @param end_time [in] 结束时间（纳秒）
- * @param spans [out] 输出 span 数组（需调用者释放）
- * @param count [out] 输出 span 数量
- * @return heapstore_error_t 错误码
+  * @param start_time [in] Start time (nanoseconds)
+  * @param end_time [in] End time (nanoseconds)
+  * @param spans [out] Output span array (caller frees)
+  * @param count [out] Output span count
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责调用 heapstore_trace_free_spans 释放 spans
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller must free spans via heapstore_trace_free_spans
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint64_t end_time,
                                                       heapstore_span_t **spans, size_t *count);
 
 /**
- * @brief 释放 span 数组内存
+  * @brief Free a span array
  *
- * @param spans [in] span 数组
+  * @param spans [in] Span array
  *
- * @ownership 调用者负责传入有效的 spans 指针
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller must pass a valid spans pointer
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 void heapstore_trace_free_spans(heapstore_span_t *spans);
 
 /**
- * @brief 配置追踪导出器
+  * @brief Configure the trace exporter
  *
- * @param manager [in] 导出器配置
- * @return heapstore_error_t 错误码
+  * @param manager [in] Exporter configuration
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 manager 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of manager
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_config_exporter(const heapstore_trace_exporter_config_t *manager);
 
 /**
- * @brief 强制导出待发送的追踪数据
+  * @brief Force-export pending trace data
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_flush(void);
 
 /**
- * @brief 获取追踪存储统计信息
+  * @brief Get trace storage statistics
  *
- * @param total_spans [out] 输出总 span 数
- * @param pending_spans [out] 输出待导出 span 数
- * @param total_size_bytes [out] 输出总存储大小
- * @return heapstore_error_t 错误码
+  * @param total_spans [out] Output total span count
+  * @param pending_spans [out] Output pending span count
+  * @param total_size_bytes [out] Output total storage size
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责所有输出参数的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of all output params
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_get_stats(uint64_t *total_spans, uint64_t *pending_spans,
                                             uint64_t *total_size_bytes);
 
 /**
- * @brief 清理过期追踪数据
+  * @brief Clean up expired trace data
  *
- * @param days_to_keep [in] 保留天数
- * @param freed_bytes [out] 释放的字节数
- * @return heapstore_error_t 错误码
+  * @param days_to_keep [in] Retention days
+  * @param freed_bytes [out] Bytes freed
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 freed_bytes 的分配和释放
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns allocation and freeing of freed_bytes
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_cleanup(int days_to_keep, uint64_t *freed_bytes);
 
 /**
- * @brief 检查追踪系统是否健康
+  * @brief Check whether the trace subsystem is healthy
  *
- * @return bool 健康返回 true
+  * @return bool true if healthy
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 bool heapstore_trace_is_healthy(void);
 
 /**
- * @brief 将所有追踪数据导出为 JSON 字符串
+  * @brief Export all trace data as a JSON string
  *
- * @param out_json [out] 输出的 JSON 字符串（需调用者释放）
- * @param include_events [in] 是否包含事件信息（预留参数）
- * @return heapstore_error_t 错误码
+  * @param out_json [out] Output JSON string (caller frees)
+  * @param include_events [in] Whether to include event info (reserved)
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责调用 free() 释放 out_json
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller must free out_json with free()
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_events);

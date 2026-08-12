@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_memory.h
- * @brief AgentRT 数据分区内存管理数据存储接口
- *
+ * @brief AgentRT data partition memory storage interface.
  */
 
 /* @owner: team-B */
@@ -21,13 +20,13 @@ extern "C" {
 
 
 /**
- * @brief 初始化内存数据存储
+  * @brief Initialize the memory data store
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @ownership 内部管理所有资源
- * @threadsafe 否，不可多线程同时调用
- * @reentrant 否
+  * @ownership Manages all resources internally
+ * @threadsafe no (not safe for concurrent calls)
+ * @reentrant no
  *
  * @see heapstore_memory_shutdown()
  * @since v1.0.0
@@ -35,11 +34,11 @@ extern "C" {
 heapstore_error_t heapstore_memory_init(void);
 
 /**
- * @brief 关闭内存数据存储
+  * @brief Shut down the memory data store
  *
- * @ownership 内部释放所有资源
- * @threadsafe 否
- * @reentrant 否
+  * @ownership Releases all resources internally
+ * @threadsafe no
+ * @reentrant no
  *
  * @see heapstore_memory_init()
  * @since v1.0.0
@@ -47,110 +46,110 @@ heapstore_error_t heapstore_memory_init(void);
 void heapstore_memory_shutdown(void);
 
 /**
- * @brief 记录内存池信息
+  * @brief Record memory pool information
  *
- * @param pool [in] 内存池信息
- * @return heapstore_error_t 错误码
+  * @param pool [in] Memory pool information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 pool 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of pool
+ * @threadsafe yes
+ * @reentrant no
  */
 heapstore_error_t heapstore_memory_record_pool(const heapstore_memory_pool_t *pool);
 
 /**
- * @brief 获取内存池信息
+  * @brief Get memory pool information
  *
- * @param pool_id [in] 内存池 ID
- * @param pool [out] 输出内存池信息
- * @return heapstore_error_t 错误码
+  * @param pool_id [in] Memory pool ID
+  * @param pool [out] Output memory pool information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 pool 的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of pool
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_get_pool(const char *pool_id, heapstore_memory_pool_t *pool);
 
 /**
- * @brief 更新内存池使用情况
+  * @brief Update memory pool usage
  *
- * @param pool_id [in] 内存池 ID
- * @param used_size [in] 当前使用大小
- * @param free_block_count [in] 空闲块数量
- * @return heapstore_error_t 错误码
+  * @param pool_id [in] Memory pool ID
+  * @param used_size [in] Current used size
+  * @param free_block_count [in] Free block count
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t used_size,
                                                      uint32_t free_block_count);
 
 /**
- * @brief 记录内存分配
+  * @brief Record a memory allocation
  *
- * @param allocation [in] 分配记录
- * @return heapstore_error_t 错误码
+  * @param allocation [in] Allocation record
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 allocation 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of allocation
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_record_allocation(
     const heapstore_memory_allocation_t *allocation);
 
 /**
- * @brief 获取内存分配记录
+  * @brief Get a memory allocation record
  *
- * @param allocation_id [in] 分配 ID
- * @param allocation [out] 输出分配记录
- * @return heapstore_error_t 错误码
+  * @param allocation_id [in] Allocation ID
+  * @param allocation [out] Output allocation record
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 allocation 的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of allocation
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_get_allocation(const char *allocation_id,
                                                   heapstore_memory_allocation_t *allocation);
 
 /**
- * @brief 更新分配状态（释放）
+  * @brief Update allocation state (free)
  *
- * @param allocation_id [in] 分配 ID
- * @return heapstore_error_t 错误码
+  * @param allocation_id [in] Allocation ID
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_free_allocation(const char *allocation_id);
 
 /**
- * @brief 获取内存存储统计信息
+  * @brief Get memory store statistics
  *
- * @param pool_count [out] 输出内存池数量
- * @param total_allocations [out] 输出总分配次数
- * @param total_size [out] 输出总大小
- * @return heapstore_error_t 错误码
+  * @param pool_count [out] Output memory pool count
+  * @param total_allocations [out] Output total allocation count
+  * @param total_size [out] Output total size
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责所有输出参数的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of all output params
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_memory_get_stats(uint32_t *pool_count, uint32_t *total_allocations,
                                              uint64_t *total_size);
 
 /**
- * @brief 检查内存系统是否健康
+  * @brief Check whether the memory subsystem is healthy
  *
- * @return bool 健康返回 true
+  * @return bool true if healthy
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 bool heapstore_memory_is_healthy(void);

@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_ipc.h
- * @brief AgentRT 数据分区 IPC 数据存储接口
- *
+ * @brief AgentRT data partition IPC storage interface.
  */
 
 /* @owner: team-B */
@@ -23,13 +22,13 @@ extern "C" {
 
 
 /**
- * @brief 初始化 IPC 数据存储
+  * @brief Initialize the IPC data store
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @ownership 内部管理所有资源
- * @threadsafe 否，不可多线程同时调用
- * @reentrant 否
+  * @ownership Manages all resources internally
+ * @threadsafe no (not safe for concurrent calls)
+ * @reentrant no
  *
  * @see heapstore_ipc_shutdown()
  * @since v1.0.0
@@ -37,11 +36,11 @@ extern "C" {
 heapstore_error_t heapstore_ipc_init(void);
 
 /**
- * @brief 关闭 IPC 数据存储
+  * @brief Shut down the IPC data store
  *
- * @ownership 内部释放所有资源
- * @threadsafe 否
- * @reentrant 否
+  * @ownership Releases all resources internally
+ * @threadsafe no
+ * @reentrant no
  *
  * @see heapstore_ipc_init()
  * @since v1.0.0
@@ -49,94 +48,94 @@ heapstore_error_t heapstore_ipc_init(void);
 void heapstore_ipc_shutdown(void);
 
 /**
- * @brief 记录通道信息
+  * @brief Record channel information
  *
- * @param channel [in] 通道信息
- * @return heapstore_error_t 错误码
+  * @param channel [in] Channel information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 channel 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of channel
+ * @threadsafe yes
+ * @reentrant no
  */
 heapstore_error_t heapstore_ipc_record_channel(const heapstore_ipc_channel_t *channel);
 
 /**
- * @brief 获取通道信息
+  * @brief Get channel information
  *
- * @param channel_id [in] 通道 ID
- * @param channel [out] 输出通道信息
- * @return heapstore_error_t 错误码
+  * @param channel_id [in] Channel ID
+  * @param channel [out] Output channel information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 channel 的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of channel
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_ipc_get_channel(const char *channel_id,
                                             heapstore_ipc_channel_t *channel);
 
 /**
- * @brief 更新通道活动
+  * @brief Update channel activity
  *
- * @param channel_id [in] 通道 ID
- * @return heapstore_error_t 错误码
+  * @param channel_id [in] Channel ID
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_ipc_update_channel_activity(const char *channel_id);
 
 /**
- * @brief 记录缓冲区信息
+  * @brief Record buffer information
  *
- * @param buffer [in] 缓冲区信息
- * @return heapstore_error_t 错误码
+  * @param buffer [in] Buffer information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 buffer 的生命周期
- * @threadsafe 是
- * @reentrant 否
+  * @ownership Caller owns the lifetime of buffer
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_ipc_record_buffer(const heapstore_ipc_buffer_t *buffer);
 
 /**
- * @brief 获取缓冲区信息
+  * @brief Get buffer information
  *
- * @param buffer_id [in] 缓冲区 ID
- * @param buffer [out] 输出缓冲区信息
- * @return heapstore_error_t 错误码
+  * @param buffer_id [in] Buffer ID
+  * @param buffer [out] Output buffer information
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责 buffer 的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of buffer
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_ipc_get_buffer(const char *buffer_id, heapstore_ipc_buffer_t *buffer);
 
 /**
- * @brief 获取 IPC 存储统计信息
+  * @brief Get IPC store statistics
  *
- * @param channel_count [out] 输出通道数量
- * @param buffer_count [out] 输出缓冲区数量
- * @param total_size [out] 输出总大小
- * @return heapstore_error_t 错误码
+  * @param channel_count [out] Output channel count
+  * @param buffer_count [out] Output buffer count
+  * @param total_size [out] Output total size
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责所有输出参数的分配和释放
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns allocation and freeing of all output params
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_ipc_get_stats(uint32_t *channel_count, uint32_t *buffer_count,
                                           uint64_t *total_size);
 
 /**
- * @brief 检查 IPC 系统是否健康
+  * @brief Check whether the IPC subsystem is healthy
  *
- * @return bool 健康返回 true
+  * @return bool true if healthy
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 bool heapstore_ipc_is_healthy(void);

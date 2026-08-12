@@ -5,7 +5,7 @@
  * @file quick_start.c
  * @brief heapstore 快速入门示例
  *
- * @note 本示例展示 heapstore 的基本使用方法，
+  * @note 本示例展示 heapstore 的基本使用方法，
  *       适合首次使用 heapstore 的开发者快速上手。
  */
 
@@ -20,7 +20,7 @@
 #include "airy_memory.h"
 
 /**
- * @brief 错误处理辅助函数
+  * @brief 错误处理辅助函数
  */
 static void check_error(heapstore_error_t err, const char *context)
 {

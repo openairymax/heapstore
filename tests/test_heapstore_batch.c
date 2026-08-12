@@ -3,7 +3,7 @@
 
 /**
  * @file test_heapstore_batch.c
- * @brief heapstore 批量写入模块单元测试
+  * @brief heapstore 批量写入模块单元测试
  *
  * @note 测试覆盖目标: 90%+
  */
@@ -43,7 +43,7 @@ static int test_passes = 0;
 static int test_failures = 0;
 
 /**
- * @brief 测试批量上下文初始化和销毁
+  * @brief Test batch context init and destroy
  */
 static void test_batch_init_destroy(void)
 {
@@ -62,7 +62,7 @@ static void test_batch_init_destroy(void)
 }
 
 /**
- * @brief 测试批量添加日志
+  * @brief Test batch log addition
  */
 static void test_batch_add_log(void)
 {
@@ -89,7 +89,7 @@ static void test_batch_add_log(void)
 }
 
 /**
- * @brief 测试参数验证（边界条件）
+  * @brief Test parameter validation (boundary conditions)
  */
 static void test_batch_parameter_validation(void)
 {
@@ -121,7 +121,7 @@ static void test_batch_parameter_validation(void)
 }
 
 /**
- * @brief 测试批量提交和回滚
+  * @brief Test batch commit and rollback
  */
 static void test_batch_commit_rollback(void)
 {
@@ -169,7 +169,7 @@ static void test_batch_commit_rollback(void)
 }
 
 /**
- * @brief 测试容量限制
+  * @brief Test capacity limits
  */
 static void test_batch_capacity_limit(void)
 {
@@ -201,7 +201,7 @@ static void test_batch_capacity_limit(void)
 }
 
 /**
- * @brief 测试重复销毁安全性
+  * @brief Test repeated-destroy safety
  */
 static void test_batch_double_destroy(void)
 {

@@ -3,10 +3,10 @@
 
 /**
  * @file batch_write.c
- * @brief heapstore 批量写入示例
+  * @brief heapstore 批量写入示例
  *
- * @note 本示例展示如何使用 heapstore 的批量写入功能，
- *       包括批量日志、追踪、注册表等操作。
+  * @note 本示例展示如何使用 heapstore 的批量写入功能，
+  *       包括批量日志、追踪、注册表等操作。
  */
 
 // @owner: team-B
@@ -20,7 +20,7 @@
 #include "airy_memory.h"
 
 /**
- * @brief 主函数：批量写入示例
+  * @brief 主函数：批量写入示例
  */
 int main(int argc, char **argv)
 {
