@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_trace.c
- * @brief AgentRT 数据分区追踪数据存储实现
- *
+ * @brief AgentRT data partition trace storage implementation.
  */
 
 // @owner: team-B
@@ -454,9 +453,9 @@ bool heapstore_trace_is_healthy(void)
 }
 
 /**
- * @brief 将所有追踪数据导出为 JSON 字符串
+  * @brief Export all trace data as a JSON string
  *
- * 生成符合 OpenTelemetry 兼容格式的 JSON 数组
+  * Generates an OpenTelemetry-compatible JSON array
  */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"

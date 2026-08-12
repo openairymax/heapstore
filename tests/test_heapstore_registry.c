@@ -3,7 +3,7 @@
 
 /**
  * @file test_heapstore_registry.c
- * @brief AgentRT 数据分区注册表单元测试
+  * @brief AgentRT 数据分区注册表单元测试
  *
  */
 // @owner: team-B

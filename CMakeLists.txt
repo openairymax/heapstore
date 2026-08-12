@@ -2,7 +2,13 @@ airy_print_info("[HEAPSTORE] Configuring heapstore module (SQLite3: ${AIRY_HAS_S
 
 set(heapstore_SOURCES
     src/heapstore_core.c
+    src/heapstore_core_batch.c
     src/heapstore_registry.c
+    src/heapstore_registry_sqlite.c
+    src/heapstore_registry_sqlite_agent.c
+    src/heapstore_registry_sqlite_skill.c
+    src/heapstore_registry_sqlite_session.c
+    src/heapstore_registry_sqlite_iter.c
     src/heapstore_trace.c
     src/heapstore_log.c
     src/heapstore_ipc.c
@@ -29,6 +35,8 @@ set(heapstore_HEADERS
     include/heapstore_integration.h
     include/utils.h
     src/private.h
+    src/heapstore_core_internal.h
+    src/heapstore_registry_internal.h
 )
 
 add_library(airy_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})

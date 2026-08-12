@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_ipc.c
- * @brief AgentRT 数据分区 IPC 数据存储实现
- *
+ * @brief AgentRT data partition IPC storage implementation.
  */
 
 // @owner: team-B

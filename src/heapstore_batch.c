@@ -3,10 +3,10 @@
 
 /**
  * @file heapstore_batch.c
- * @brief AgentRT heapstore 批量写入模块实现（优化版）
+ * @brief AgentRT heapstore batch-write module implementation (optimized).
  *
- * @note 本模块采用 DRY 原则重构，消除重复代码，
- *       将圈复杂度控制在7以下，提升可维护性。
+ * @note Refactored with the DRY principle to remove duplicated code and
+ *       keep cyclomatic complexity below 7 for maintainability.
  */
 
 // @owner: team-B
@@ -23,7 +23,7 @@
 #include "airy_memory.h"
 
 /**
- * @brief 处理日志类型的批量写入
+  * @brief Handle batch writes of log type
  */
 static heapstore_error_t batch_commit_log(const void *data)
 {
@@ -40,7 +40,7 @@ static heapstore_error_t batch_commit_log(const void *data)
 }
 
 /**
- * @brief 处理 Span 类型的批量写入（含单位转换）
+  * @brief Handle batch writes of span type (with unit conversion)
  */
 static heapstore_error_t batch_commit_span(const void *data)
 {
@@ -85,14 +85,14 @@ static heapstore_error_t batch_commit_span(const void *data)
 }
 
 /**
- * @brief 批量操作处理器函数指针类型
+  * @brief Batch operation handler function pointer type
  */
 typedef heapstore_error_t (*batch_handler_fn)(const void *data);
 
 /**
- * @brief 批量操作处理器注册表
+  * @brief Batch operation handler registry
  *
- * 使用策略模式替代 switch-case，降低圈复杂度
+  * Strategy pattern instead of switch-case to lower cyclomatic complexity
  */
 static const struct {
     heapstore_batch_item_type_t type;
@@ -107,7 +107,7 @@ static const struct {
 #define BATCH_HANDLER_COUNT (sizeof(batch_handlers) / sizeof(batch_handlers[0]))
 
 /**
- * @brief 默认批量处理函数（用于 registry/memory/ipc 操作）
+  * @brief Default batch handler (for registry/memory/ipc operations)
  */
 static heapstore_error_t batch_default_handler(const heapstore_batch_item_t *item)
 {
@@ -132,7 +132,7 @@ static heapstore_error_t batch_default_handler(const heapstore_batch_item_t *ite
 }
 
 /**
- * @brief 为批量写入项目分配内存并初始化
+  * @brief Allocate and initialize a batch write item
  */
 static heapstore_batch_item_t *batch_alloc_item(heapstore_batch_item_type_t type)
 {
@@ -150,11 +150,11 @@ static heapstore_batch_item_t *batch_alloc_item(heapstore_batch_item_type_t type
 }
 
 /**
- * @brief 将项目添加到链表尾部（通用实现，符合 DRY 原则）
+  * @brief Append an item to the list tail (generic; DRY)
  *
- * @param ctx [in/out] 批量上下文
- * @param item [in] 已分配的项目
- * @return heapstore_error_t 错误码
+ * @param ctx [in/out] batch context
+  * @param item [in] Allocated item
+  * @return heapstore_error_t Error code
  */
 static heapstore_error_t batch_append_item(heapstore_batch_context_t *ctx,
                                            heapstore_batch_item_t *item)
@@ -176,7 +176,7 @@ static heapstore_error_t batch_append_item(heapstore_batch_context_t *ctx,
 }
 
 /**
- * @brief 验证批量上下文状态
+  * @brief Validate the batch context state
  */
 static bool batch_validate_context(const heapstore_batch_context_t *ctx)
 {
@@ -184,9 +184,9 @@ static bool batch_validate_context(const heapstore_batch_context_t *ctx)
 }
 
 /**
- * @brief 通用批量添加接口（内部使用，减少代码重复）
+  * @brief Generic batch add interface (internal; reduces duplication)
  *
- * 符合 DRY 原则，所有 add_* 函数都调用此通用实现
+  * All add_* functions call this generic implementation (DRY)
  */
 static heapstore_error_t batch_add_generic(heapstore_batch_context_t *ctx,
                                            heapstore_batch_item_type_t type, const void *data,
@@ -332,9 +332,9 @@ heapstore_error_t heapstore_batch_add_ipc_buffer(heapstore_batch_context_t *ctx,
 }
 
 /**
- * @brief 处理单个批量写入项目（使用查表法降低复杂度）
+  * @brief Handle a single batch item (table lookup to lower complexity)
  *
- * 圈复杂度从 ~10 降低至 ~5
+  * Cyclomatic complexity reduced from ~10 to ~5
  */
 static heapstore_error_t batch_process_single_item(const heapstore_batch_item_t *item)
 {

@@ -3,15 +3,14 @@
 
 /**
  * @file heapstore_log.c
- * @brief AgentRT 数据分区日志管理实现
- *
+ * @brief AgentRT data partition logging implementation.
  */
 
 // @owner: team-B
 #include "heapstore_log.h"
 
-/* d6 清理：从 logging_compat.h 迁移到 logger.h（AIRY_LOG_* 宏和 airy_log_* 函数声明的权威提供者）。
- * logging_compat.h 是 IRON-8 兼容层，已删除；airy_log_* 实现迁移到 observability/src/logger.c。 */
+/* d6 cleanup: moved to logger.h (authoritative source of AIRY_LOG_* macros and airy_log_* decls).
+  * logging_compat.h (IRON-8 shim) is gone; airy_log_* now lives in observability/src/logger.c. */
 #include "logger.h"
 #include "platform.h"
 #include "private.h"
@@ -83,9 +82,9 @@ static const char *level_to_string(heapstore_log_level_t level)
 
 static const char *get_log_base_path(void)
 {
-    /* 与 heapstore_core 的 root 解析一致：AIRY_HEAPSTORE_ROOT → $TMPDIR/agentrt/heapstore。
-     * 原实现用相对路径 "agentrt/heapstore/logs"，依赖 CWD，导致 init 打开的
-     * 日志文件与实际运行日志路径错位，且写入源码树/CWD 违反运行时数据收敛约定。 */
+    /* Matches heapstore_core's root resolution: AIRY_HEAPSTORE_ROOT -> $TMPDIR/agentrt/heapstore.
+      * The old code used the relative path "agentrt/heapstore/logs" (CWD-dependent), so
+      * the init log file missed the runtime log path and wrote into the source tree/CWD. */
     static char base_path[512];
     const char *env = getenv("AIRY_HEAPSTORE_ROOT");
     if (env && env[0]) {
@@ -167,9 +166,9 @@ static FILE *get_service_log_file(const char *service)
 
         FILE *fp = fopen(filepath, "a");
         if (fp) {
-            /* 修复 sizeof(宏) 误用：原写法取 heapstore_LOG_MAX_SERVICE_LEN
-             * 的 int 大小（4/8 字节），服务名被截断，导致日志服务文件与
-             * 真实服务名错配。改为取目标数组实际大小。 */
+            /* Fix sizeof(macro) misuse: the old code took the int size of
+              * heapstore_LOG_MAX_SERVICE_LEN (4/8 bytes), truncating service names so
+              * log files mismatched real service names. Use the target array size instead. */
             AIRY_STRNCPY_TERM(s_service_logs[s_service_log_count].service_name, safe_service,
                               sizeof(s_service_logs[s_service_log_count].service_name));
             s_service_logs[s_service_log_count]
@@ -193,8 +192,8 @@ heapstore_error_t heapstore_log_init(void)
         return heapstore_ERR_ALREADY_INITIALIZED;
     }
 
-    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化；
-     * Linux 覆盖静态零值并升级为递归锁） */
+    /* Cross-platform mutex init (Windows CRITICAL_SECTION must be explicitly initialized;
+      * Linux overrides the static zero value and upgrades to a recursive lock) */
     airy_mtx_init(&s_log_lock);
     airy_mtx_init(&s_service_lock);
 

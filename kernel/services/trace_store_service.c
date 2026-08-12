@@ -6,7 +6,7 @@
 #include "logging_compat.h"
 /**
  * @file trace_store_service.c
- * @brief 内核追踪数据存储服务实现
+  * @brief Kernel trace data storage service implementation
  *
  */
 
@@ -68,7 +68,7 @@ typedef struct {
 #endif
 
 /**
- * @brief 追踪存储服务上下文
+  * @brief Trace storage service context
  */
 typedef struct {
     char storage_path[512];
@@ -82,12 +82,12 @@ typedef struct {
 static trace_store_service_ctx_t g_ctx = {0};
 
 /**
- * @brief 初始化追踪存储服务
+  * @brief Initialize the trace storage service
  *
- * @param storage_path 存储路径
- * @param max_storage_bytes 最大存储字节数
- * @param sampling_rate 采样率（1表示存储所有追踪点）
- * @return int 0成功，非0错误码
+  * @param storage_path Storage path
+  * @param max_storage_bytes Maximum storage bytes
+  * @param sampling_rate Sampling rate (1 stores every trace point)
+  * @return int: 0 on success, non-zero error code
  */
 int trace_store_service_init(const char *storage_path, uint64_t max_storage_bytes,
                              uint32_t sampling_rate)
@@ -126,10 +126,10 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
 }
 
 /**
- * @brief 存储追踪点
+  * @brief Store a trace point
  *
- * @param trace_point 追踪点数据
- * @return int 0成功，非0错误码
+  * @param trace_point Trace point data
+  * @return int: 0 on success, non-zero error code
  */
 int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
 {
@@ -175,11 +175,11 @@ int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
 }
 
 /**
- * @brief 批量存储追踪点
+  * @brief Batch-store trace points
  *
- * @param trace_points 追踪点数组
- * @param count 追踪点数量
- * @return int 成功存储的数量，或错误码
+  * @param trace_points Trace point array
+  * @param count Trace point count
+  * @return int: count stored, or an error code
  */
 int trace_store_service_store_batch(const heapstore_trace_point_t *trace_points, int count)
 {
@@ -199,9 +199,9 @@ int trace_store_service_store_batch(const heapstore_trace_point_t *trace_points,
 }
 
 /**
- * @brief 检查存储限制并执行清理
+  * @brief Check storage limits and clean up
  *
- * @param current_file 当前追踪文件
+  * @param current_file Current trace file
  */
 static void trace_store_service_check_storage_limit(const char *current_file)
 {
@@ -222,12 +222,12 @@ static void trace_store_service_check_storage_limit(const char *current_file)
 }
 
 /**
- * @brief 查询追踪数据
+  * @brief Query trace data
  *
- * @param query 查询条件
- * @param out_traces 输出追踪点数组
- * @param max_traces 最大追踪点数
- * @return int 返回的追踪点数，或错误码
+  * @param query Query conditions
+  * @param out_traces Output trace point array
+  * @param max_traces Maximum trace point count
+  * @return int: trace points returned, or an error code
  */
 int trace_store_service_query_traces(const heapstore_trace_query_t *query,
                                      heapstore_trace_point_t **out_traces, int max_traces)
@@ -322,10 +322,10 @@ int trace_store_service_query_traces(const heapstore_trace_query_t *query,
 }
 
 /**
- * @brief 释放查询结果
+  * @brief Free query results
  *
- * @param traces 追踪点数组
- * @param count 追踪点数
+  * @param traces Trace point array
+ * @param count number of trace points
  */
 void trace_store_service_free_traces(heapstore_trace_point_t *traces, int count)
 {
@@ -336,13 +336,13 @@ void trace_store_service_free_traces(heapstore_trace_point_t *traces, int count)
 }
 
 /**
- * @brief 导出追踪数据
+  * @brief Export trace data
  *
- * @param start_time 开始时间
- * @param end_time 结束时间
- * @param export_format 导出格式（"json", "csv", "binary"）
- * @param export_path 导出路径
- * @return int 导出的字节数，或错误码
+  * @param start_time Start time
+  * @param end_time End time
+  * @param export_format Export format ("json", "csv", "binary")
+  * @param export_path Export path
+  * @return int: bytes exported, or an error code
  */
 int trace_store_service_export_traces(const time_t *start_time, const time_t *end_time,
                                       const char *export_format, const char *export_path)
@@ -439,12 +439,12 @@ int trace_store_service_export_traces(const time_t *start_time, const time_t *en
 }
 
 /**
- * @brief 获取追踪存储统计信息
+  * @brief Get trace storage statistics
  *
- * @param out_total_traces 输出总追踪点数
- * @param out_total_bytes 输出总存储字节数
- * @param out_sampling_rate 输出采样率
- * @return int 0成功，非0错误码
+  * @param out_total_traces Output total trace point count
+  * @param out_total_bytes Output total stored bytes
+  * @param out_sampling_rate Output sampling rate
+  * @return int: 0 on success, non-zero error code
  */
 int trace_store_service_get_stats(uint64_t *out_total_traces, uint64_t *out_total_bytes,
                                   uint32_t *out_sampling_rate)
@@ -464,10 +464,10 @@ int trace_store_service_get_stats(uint64_t *out_total_traces, uint64_t *out_tota
 }
 
 /**
- * @brief 清理旧的追踪数据
+  * @brief Clean up old trace data
  *
- * @param days_to_keep 保留天数
- * @return int 删除的文件数
+  * @param days_to_keep Retention days
+  * @return int: number of files deleted
  */
 int trace_store_service_cleanup_old_files(int days_to_keep)
 {
@@ -511,7 +511,7 @@ int trace_store_service_cleanup_old_files(int days_to_keep)
 }
 
 /**
- * @brief 关闭追踪存储服务
+  * @brief Shut down the trace storage service
  */
 void trace_store_service_shutdown(void)
 {

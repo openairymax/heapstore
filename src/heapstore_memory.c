@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_memory.c
- * @brief AgentRT 数据分区内存管理数据存储实现
- *
+ * @brief AgentRT data partition memory storage implementation.
  */
 
 // @owner: team-B
@@ -51,8 +50,8 @@ heapstore_error_t heapstore_memory_init(void)
         return heapstore_SUCCESS;
     }
 
-    /* 跨平台互斥锁初始化（Windows CRITICAL_SECTION 必须显式初始化；
-     * Linux 覆盖静态零值并升级为递归锁） */
+    /* Cross-platform mutex init (Windows CRITICAL_SECTION must be explicitly initialized;
+      * Linux overrides the static zero value and upgrades to a recursive lock) */
     airy_mtx_init(&s_memory_lock);
 
     const char *root = heapstore_get_root();

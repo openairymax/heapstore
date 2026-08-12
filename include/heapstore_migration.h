@@ -3,14 +3,13 @@
 
 /**
  * @file heapstore_migration.h
- * @brief AgentRT heapstore Schema 版本化与数据迁移接口
+ * @brief AgentRT heapstore schema versioning and data migration interface.
  *
- * 提供 heapstore 数据格式的版本管理能力：
- * - SCHEMA_VERSION 持久化到 heapstore 数据目录
- * - 启动时自动检测版本差异
- * - 前向兼容 (v1 → v2) 非破坏性迁移
- * - 后向兼容 (v2 → v1) 回滚（保留核心数据）
- *
+ * Provides version management for the heapstore data format:
+ * - SCHEMA_VERSION persisted in the heapstore data directory
+ * - automatic version-difference detection at startup
+ * - forward-compatible (v1 -> v2) non-destructive migration
+ * - backward-compatible (v2 -> v1) rollback (core data preserved)
  */
 
 /* @owner: team-C */
@@ -28,15 +27,15 @@ extern "C" {
 #endif
 
 /**
- * @brief 当前 heapstore 数据格式 Schema 版本
+  * @brief Current heapstore data format schema version
  *
- * 版本号规则：MAJOR * 10000 + MINOR * 100 + PATCH
+  * Version scheme: MAJOR * 10000 + MINOR * 100 + PATCH
  * v1.0.0 = 10000, v1.1.0 = 10100, v2.0.0 = 20000
  */
 #define HEAPSTORE_SCHEMA_VERSION_CURRENT 10000 /* v1.0.0 */
 
 /**
- * @brief 迁移方向
+  * @brief Migration direction
  */
 typedef enum {
     HEAPSTORE_MIGRATE_FORWARD = 0,
@@ -44,7 +43,7 @@ typedef enum {
 } heapstore_migration_direction_t;
 
 /**
- * @brief 迁移步骤结果
+  * @brief Migration step result
  */
 typedef struct heapstore_migration_step {
     char name[128];
@@ -54,7 +53,7 @@ typedef struct heapstore_migration_step {
 } heapstore_migration_step_t;
 
 /**
- * @brief 迁移报告
+  * @brief Migration report
  */
 typedef struct heapstore_migration_report {
     uint32_t from_version;
@@ -68,120 +67,120 @@ typedef struct heapstore_migration_report {
 } heapstore_migration_report_t;
 
 /**
- * @brief 从 heapstore 数据目录读取当前 Schema 版本
+  * @brief Read the current schema version from the heapstore data directory
  *
- * 版本号存储在 heapstore 根目录下的 .schema_version 文件中。
- * 若文件不存在，视为版本 0（未初始化）。
+  * The version is stored in .schema_version at the heapstore root.
+  * A missing file is treated as version 0 (uninitialized).
  *
- * @param version [out] 输出当前 Schema 版本号
- * @return heapstore_error_t 错误码
+  * @param version [out] Output the current schema version
+  * @return heapstore_error_t Error code
  *
  * @ownership version: BORROW (caller-owned buffer, function writes to it)
- * @threadsafe 否（应在 heapstore_init 早期调用）
- * @reentrant 否
+  * @threadsafe no (call early in heapstore_init)
+ * @reentrant no
  *
- * @note 未初始化时返回 heapstore_ERR_NOT_INITIALIZED
+  * @note Returns heapstore_ERR_NOT_INITIALIZED when uninitialized
  * @since v1.0.0
  */
 heapstore_error_t heapstore_migration_get_version(uint32_t *version);
 
 /**
- * @brief 将当前 Schema 版本写入 heapstore 数据目录
+  * @brief Write the current schema version to the heapstore data directory
  *
- * @param version [in] 要写入的版本号
- * @return heapstore_error_t 错误码
+  * @param version [in] Version to write
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 否
- * @reentrant 否
+ * @threadsafe no
+ * @reentrant no
  *
- * @note 通常在迁移完成后调用
+  * @note Usually called after a migration completes
  * @since v1.0.0
  */
 heapstore_error_t heapstore_migration_set_version(uint32_t version);
 
 /**
- * @brief 检测是否需要迁移
+  * @brief Detect whether migration is needed
  *
- * 比较堆存储中的版本与编译期当前版本。
+  * Compares the on-disk version with the compile-time current version.
  *
- * @param needs_migration [out] 是否需要迁移
- * @param current_version [out] 存储中的当前版本（可为 NULL）
- * @return heapstore_error_t 错误码
+  * @param needs_migration [out] Whether migration is needed
+  * @param current_version [out] Current on-disk version (may be NULL)
+  * @return heapstore_error_t Error code
  *
  * @ownership needs_migration: BORROW, current_version: BORROW (may be NULL)
- * @threadsafe 否
- * @reentrant 否
+ * @threadsafe no
+ * @reentrant no
  *
  * @since v1.0.0
  */
 heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *current_version);
 
 /**
- * @brief 执行前向兼容迁移 (v_from → v_to)
+  * @brief Run a forward-compatible migration (v_from -> v_to)
  *
- * 非破坏性操作：新增字段、扩展数据结构。
- * 迁移过程中原始数据保留，仅在迁移成功后才更新版本号。
+  * Non-destructive: adds fields and extends data structures.
+  * Original data is preserved; the version is bumped only after success.
  *
- * @param target_version [in] 目标版本号（0 表示升级到最新版本）
- * @param report [out] 迁移报告（可为 NULL）
- * @return heapstore_error_t 错误码
+  * @param target_version [in] Target version (0 upgrades to the latest)
+  * @param report [out] Migration report (may be NULL)
+  * @return heapstore_error_t Error code
  *
  * @ownership report: BORROW (caller-owned buffer, function writes to it, may be NULL)
- * @threadsafe 否
- * @reentrant 否
+ * @threadsafe no
+ * @reentrant no
  *
- * @note 迁移失败时不会修改版本号，保证数据一致性
+  * @note The version is untouched on failure, keeping data consistent
  * @since v1.0.0
  */
 heapstore_error_t heapstore_migration_forward(uint32_t target_version,
                                               heapstore_migration_report_t *report);
 
 /**
- * @brief 执行后向兼容回滚 (v_to → v_from)
+  * @brief Run a backward-compatible rollback (v_to -> v_from)
  *
- * 丢弃新字段，保留核心数据。
- * 需要显式确认（本 API 不提供 --force，由调用方决定）。
+  * Drops new fields and keeps core data.
+  * Requires explicit confirmation (no --force here; the caller decides).
  *
- * @param target_version [in] 目标版本号
- * @param report [out] 回滚报告（可为 NULL）
- * @return heapstore_error_t 错误码
+ * @param target_version [in] target version number
+  * @param report [out] Rollback report (may be NULL)
+  * @return heapstore_error_t Error code
  *
  * @ownership report: BORROW (caller-owned buffer, function writes to it, may be NULL)
- * @threadsafe 否
- * @reentrant 否
+ * @threadsafe no
+ * @reentrant no
  *
- * @warning 回滚会丢弃新版本中新增的字段数据
+  * @warning Rollback discards data added in newer versions
  * @since v1.0.0
  */
 heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
                                                heapstore_migration_report_t *report);
 
 /**
- * @brief 释放迁移报告中的动态分配内存
+  * @brief Free dynamically allocated memory in a migration report
  *
- * @param report [in] 要释放的迁移报告
+  * @param report [in] Migration report to free
  *
  * @ownership report: TRANSFER (function takes ownership of internal allocations)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @since v1.0.0
  */
 void heapstore_migration_report_free(heapstore_migration_report_t *report);
 
 /**
- * @brief 列出现有数据格式中所有 record 类型的字段
+  * @brief List the fields of all record types in the current data format
  *
- * 用于迁移脚本了解当前 Schema 结构。
+  * Lets migration scripts inspect the current schema.
  *
- * @param record_type [in] 记录类型名称（如 "agent", "session", "skill" 等）
- * @param fields [out] 输出字段名数组（以 NULL 结尾），调用方需释放
- * @param field_count [out] 字段数量
- * @return heapstore_error_t 错误码
+  * @param record_type [in] Record type name (e.g. "agent", "session", "skill")
+  * @param fields [out] Output NULL-terminated field name array; caller frees
+  * @param field_count [out] Field count
+  * @return heapstore_error_t Error code
  *
  * @ownership fields: OWNER (caller must free each string and the array)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
  * @since v1.0.0
  */

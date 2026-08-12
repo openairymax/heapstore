@@ -3,11 +3,10 @@
 
 /**
  * @file heapstore_types.h
- * @brief AgentRT heapstore 共享类型定义（打破循环依赖）
+ * @brief AgentRT heapstore shared type definitions (breaks circular includes).
  *
- * 本文件集中定义所有子模块间共享的结构体类型，
- * 避免循环包含导致的类型可见性问题。
- *
+ * Centralizes struct types shared across submodules to avoid type
+ * visibility issues caused by circular includes.
  */
 
 /* @owner: team-B */

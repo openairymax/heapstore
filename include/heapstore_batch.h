@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore_batch.h
- * @brief AgentRT heapstore 批量写入接口
- *
+ * @brief AgentRT heapstore batch write interface.
  */
 
 /* @owner: team-B */
@@ -23,7 +22,7 @@ extern "C" {
 #endif
 
 /**
- * @brief 批量写入项目类型
+  * @brief Batch write item type
  */
 typedef enum {
     HEAPSTORE_BATCH_ITEM_LOG = 0,
@@ -39,7 +38,7 @@ typedef enum {
 } heapstore_batch_item_type_t;
 
 /**
- * @brief 批量写入项目联合数据
+  * @brief Batch write item union data
  */
 typedef struct {
     heapstore_log_entry_t log;
@@ -54,7 +53,7 @@ typedef struct {
 } heapstore_batch_item_data_t;
 
 /**
- * @brief 批量写入项目节点
+  * @brief Batch write item node
  */
 typedef struct heapstore_batch_item {
     heapstore_batch_item_type_t type;
@@ -63,7 +62,7 @@ typedef struct heapstore_batch_item {
 } heapstore_batch_item_t;
 
 /**
- * @brief 批量写入上下文
+  * @brief Batch write context
  */
 typedef struct heapstore_batch_context {
     heapstore_batch_item_t *head;
@@ -74,43 +73,43 @@ typedef struct heapstore_batch_context {
 } heapstore_batch_context_t;
 
 /**
- * @brief 创建批量写入上下文
+  * @brief Create a batch write context
  *
- * @param batch_size [in] 批量大小（默认 100）
- * @return heapstore_batch_context_t* 批量写入上下文指针
+  * @param batch_size [in] Batch size (default 100)
+  * @return heapstore_batch_context_t* Batch write context pointer
  *
- * @ownership 调用者负责释放返回的上下文
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns the returned context
+ * @threadsafe yes
+ * @reentrant yes
  */
 heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size);
 
 /**
- * @brief 添加日志到批量写入缓冲区
+  * @brief Add a log entry to the batch buffer
  *
- * @param ctx [in] 批量写入上下文
- * @param service [in] 服务名称
- * @param level [in] 日志级别
- * @param message [in] 日志消息
- * @return heapstore_error_t 错误码
+  * @param ctx [in] Batch write context
+  * @param service [in] Service name
+  * @param level [in] Log level
+  * @param message [in] Log message
+  * @return heapstore_error_t Error code
  *
- * @ownership 调用者负责所有参数的生命周期
- * @threadsafe 是
- * @reentrant 是
+  * @ownership Caller owns the lifetime of all parameters
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v0.1.0*/
 heapstore_error_t heapstore_batch_add_log(heapstore_batch_context_t *ctx, const char *service,
                                           int level, const char *message);
 
 /**
- * @brief 添加带追踪ID的日志到批量写入缓冲区
+  * @brief Add a log entry with a trace ID to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_log_with_trace(heapstore_batch_context_t *ctx,
                                                      const char *service, int level,
                                                      const char *trace_id, const char *message);
 
 /**
- * @brief 添加追踪Span到批量写入缓冲区
+  * @brief Add a trace span to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, const char *trace_id,
                                             const char *span_id, const char *parent_id,
@@ -119,100 +118,100 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
                                             const char *attributes);
 
 /**
- * @brief 添加会话记录到批量写入缓冲区
+  * @brief Add a session record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
                                               const heapstore_session_record_t *record);
 
 /**
- * @brief 添加Agent记录到批量写入缓冲区
+  * @brief Add an agent record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_agent(heapstore_batch_context_t *ctx,
                                             const heapstore_agent_record_t *record);
 
 /**
- * @brief 添加Skill记录到批量写入缓冲区
+  * @brief Add a skill record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_skill(heapstore_batch_context_t *ctx,
                                             const heapstore_skill_record_t *record);
 
 /**
- * @brief 添加内存池记录到批量写入缓冲区
+  * @brief Add a memory pool record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_memory_pool(heapstore_batch_context_t *ctx,
                                                   const heapstore_memory_pool_t *pool);
 
 /**
- * @brief 添加内存分配记录到批量写入缓冲区
+  * @brief Add a memory allocation record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_allocation(heapstore_batch_context_t *ctx,
                                                  const heapstore_memory_allocation_t *allocation);
 
 /**
- * @brief 添加IPC通道记录到批量写入缓冲区
+  * @brief Add an IPC channel record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_ipc_channel(heapstore_batch_context_t *ctx,
                                                   const heapstore_ipc_channel_t *channel);
 
 /**
- * @brief 添加IPC缓冲区记录到批量写入缓冲区
+  * @brief Add an IPC buffer record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_ipc_buffer(heapstore_batch_context_t *ctx,
                                                  const heapstore_ipc_buffer_t *buffer);
 
 /**
- * @brief 添加Span记录到批量写入缓冲区
+  * @brief Add a span record to the batch buffer
  */
 heapstore_error_t heapstore_batch_add_span(heapstore_batch_context_t *ctx,
                                            const heapstore_span_t *span);
 
 /**
- * @brief 提交批量写入
+  * @brief Commit the batch write
  *
- * @param ctx [in/out] 批量写入上下文
- * @return heapstore_error_t 错误码
+  * @param ctx [in/out] Batch write context
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v0.1.0*/
 heapstore_error_t heapstore_batch_commit(heapstore_batch_context_t *ctx);
 
 /**
- * @brief 回滚批量写入
+  * @brief Roll back the batch write
  *
- * @param ctx [in/out] 批量写入上下文
+  * @param ctx [in/out] Batch write context
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v0.1.0*/
 void heapstore_batch_rollback(heapstore_batch_context_t *ctx);
 
 /**
- * @brief 销毁批量写入上下文
+  * @brief Destroy a batch write context
  *
- * @param ctx [in] 批量写入上下文
+  * @param ctx [in] Batch write context
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v0.1.0*/
 void heapstore_batch_context_destroy(heapstore_batch_context_t *ctx);
 
 /**
- * @brief 获取当前批量项目数量
+  * @brief Get the current batch item count
  *
- * @param ctx [in] 批量写入上下文
- * @return size_t 项目数量
+  * @param ctx [in] Batch write context
+  * @return size_t Item count
  */
 size_t heapstore_batch_get_count(const heapstore_batch_context_t *ctx);
 
 /**
- * @brief 获取批量上下文容量
+  * @brief Get the batch context capacity
  *
- * @param ctx [in] 批量写入上下文
- * @return size_t 容量大小
+  * @param ctx [in] Batch write context
+  * @return size_t Capacity size
  */
 size_t heapstore_batch_get_capacity(const heapstore_batch_context_t *ctx);
 

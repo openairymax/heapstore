@@ -3,8 +3,7 @@
 
 /**
  * @file heapstore.h
- * @brief AgentRT 数据分区核心接口
- *
+ * @brief AgentRT data partition core interface.
  */
 
 /* @owner: team-B */
@@ -16,7 +15,7 @@
 #include <stdint.h>
 
 /**
- * @brief 错误码定义
+  * @brief Error code definitions
  */
 typedef enum {
     heapstore_SUCCESS = 0,
@@ -55,7 +54,7 @@ extern "C" {
 #endif
 
 /**
- * @brief 数据分区路径类型
+  * @brief Data partition path type
  */
 typedef enum {
     heapstore_PATH_KERNEL,
@@ -69,7 +68,7 @@ typedef enum {
 } heapstore_path_type_t;
 
 /**
- * @brief 熔断器状态
+  * @brief Circuit breaker state
  */
 typedef enum {
     heapstore_CIRCUIT_CLOSED = 0,
@@ -78,7 +77,7 @@ typedef enum {
 } heapstore_circuit_state_t;
 
 /**
- * @brief 配置项结构
+  * @brief Configuration item structure
  */
 typedef struct heapstore_config {
     const char *root_path;
@@ -94,7 +93,7 @@ typedef struct heapstore_config {
 } heapstore_config_t;
 
 /**
- * @brief 统计信息结构
+  * @brief Statistics structure
  */
 typedef struct heapstore_stats {
     uint64_t total_disk_usage_bytes;
@@ -108,7 +107,7 @@ typedef struct heapstore_stats {
 } heapstore_stats_t;
 
 /**
- * @brief 性能指标结构
+  * @brief Performance metrics structure
  */
 typedef struct heapstore_metrics {
     uint64_t total_operations;
@@ -121,7 +120,7 @@ typedef struct heapstore_metrics {
 } heapstore_metrics_t;
 
 /**
- * @brief 熔断器状态信息
+  * @brief Circuit breaker status information
  */
 typedef struct heapstore_circuit_info {
     heapstore_circuit_state_t state;
@@ -132,16 +131,16 @@ typedef struct heapstore_circuit_info {
 } heapstore_circuit_info_t;
 
 /**
- * @brief 初始化数据分区
+  * @brief Initialize the data partition
  *
- * @param manager [in] 配置参数（如果为 NULL，使用默认配置）
- * @return heapstore_error_t 错误码
+  * @param manager [in] Configuration parameters (NULL for defaults)
+  * @return heapstore_error_t Error code
  *
  * @ownership manager: BORROW
- * @threadsafe 否，不可多线程同时调用
- * @reentrant 否
+ * @threadsafe no (not safe for concurrent calls)
+ * @reentrant no
  *
- * @note 必须在使用其他 API 前调用此函数
+ * @note must be called before any other API
  *
  * @see heapstore_shutdown()
  * @since v1.0.0
@@ -149,13 +148,13 @@ typedef struct heapstore_circuit_info {
 heapstore_error_t heapstore_init(const heapstore_config_t *manager);
 
 /**
- * @brief 关闭数据分区并清理资源
+  * @brief Shut down the data partition and free resources
  *
  * @ownership N/A (no pointer parameters)
- * @threadsafe 否，不可多线程同时调用
- * @reentrant 否
+ * @threadsafe no (not safe for concurrent calls)
+ * @reentrant no
  *
- * @note 调用后所有 API 将返回 heapstore_ERR_NOT_INITIALIZED
+  * @note All APIs return heapstore_ERR_NOT_INITIALIZED afterwards
  *
  * @see heapstore_init()
  * @since v1.0.0
@@ -163,108 +162,108 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager);
 void heapstore_shutdown(void);
 
 /**
- * @brief 检查数据分区是否已初始化
+  * @brief Check whether the data partition is initialized
  *
- * @return bool 已初始化返回 true
+  * @return bool true if initialized
  *
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  * @since v1.0.0
  */
 bool heapstore_is_initialized(void);
 
 /**
- * @brief 获取数据分区根路径
+  * @brief Get the data partition root path
  *
- * @return const char* 根路径字符串
+  * @return const char* Root path string
  *
  * @ownership return: BORROW (internal string, do not free)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 未初始化时返回空字符串
+  * @note Returns an empty string when uninitialized
  * @since v1.0.0
  */
 const char *heapstore_get_root(void);
 
 /**
- * @brief 获取指定类型的路径
+  * @brief Get the path for a given type
  *
- * @param type [in] 路径类型
- * @return const char* 路径字符串（不包含根路径前缀）
+  * @param type [in] Path type
+  * @return const char* Path string (without the root path prefix)
  *
  * @ownership return: BORROW (internal string, do not free)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 无效类型返回 NULL
+  * @note NULL for an invalid type
  */
 const char *heapstore_get_path(heapstore_path_type_t type);
 
 /**
- * @brief 获取完整路径
+  * @brief Get the full path
  *
- * @param type [in] 路径类型
- * @param buffer [out] 输出缓冲区
- * @param buffer_size [in] 缓冲区大小
- * @return heapstore_error_t 错误码
+  * @param type [in] Path type
+  * @param buffer [out] Output buffer
+  * @param buffer_size [in] Buffer size
+  * @return heapstore_error_t Error code
  *
  * @ownership buffer: BORROW (caller-owned buffer, function writes to it)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 缓冲区不足时返回 heapstore_ERR_BUFFER_TOO_SMALL
+  * @note Returns heapstore_ERR_BUFFER_TOO_SMALL when the buffer is too small
  */
 heapstore_error_t heapstore_get_full_path(heapstore_path_type_t type, char *buffer,
                                           size_t buffer_size);
 
 /**
- * @brief 获取统计信息
+  * @brief Get statistics
  *
- * @param stats [out] 输出统计信息结构
- * @return heapstore_error_t 错误码
+  * @param stats [out] Output statistics structure
+  * @return heapstore_error_t Error code
  *
  * @ownership stats: BORROW (caller-owned buffer, function writes to it)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 heapstore_error_t heapstore_get_stats(heapstore_stats_t *stats);
 
 /**
- * @brief 快速路径：异步写入日志（无锁路径）
+  * @brief Fast path: asynchronous log write (lock-free)
  *
- * @param service [in] 服务名称
- * @param level [in] 日志级别
- * @param message [in] 日志消息
- * @return heapstore_error_t 错误码
+  * @param service [in] Service name
+  * @param level [in] Log level
+  * @param message [in] Log message
+  * @return heapstore_error_t Error code
  *
  * @ownership message: BORROW
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 此为快速路径，适用于高频日志写入场景
- * @note 如果熔断器打开，将返回 heapstore_ERR_CIRCUIT_OPEN
+  * @note Fast path for high-frequency log writes
+  * @note Returns heapstore_ERR_CIRCUIT_OPEN when the circuit breaker is open
  *
  * @see heapstore_log_write_slow()
  */
 heapstore_error_t heapstore_log_write_fast(const char *service, int level, const char *message);
 
 /**
- * @brief 慢速路径：同步写入日志（完整检查路径）
+  * @brief Slow path: synchronous log write (full validation)
  *
- * @param service [in] 服务名称
- * @param level [in] 日志级别
- * @param message [in] 日志消息
- * @param trace_id [in] 追踪 ID（可为空）
- * @param timeout_ms [in] 超时时间（毫秒）
- * @return heapstore_error_t 错误码
+  * @param service [in] Service name
+  * @param level [in] Log level
+  * @param message [in] Log message
+  * @param trace_id [in] Trace ID (may be NULL)
+  * @param timeout_ms [in] Timeout (milliseconds)
+  * @return heapstore_error_t Error code
  *
  * @ownership message: BORROW
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
  *
- * @note 此为慢速路径，适用于重要日志写入场景
- * @note 包含完整的参数验证和错误处理
+  * @note Slow path for important log writes
+  * @note Includes full parameter validation and error handling
  *
  * @see heapstore_log_write_fast()
  * @since v1.0.0
@@ -273,154 +272,154 @@ heapstore_error_t heapstore_log_write_slow(const char *service, int level, const
                                            const char *trace_id, uint32_t timeout_ms);
 
 /**
- * @brief 清理过期数据
+  * @brief Clean up expired data
  *
- * @param dry_run [in] 如果为 true，仅返回将清理的数据量，不实际清理
- * @param freed_bytes [out] 输出实际释放的字节数（可为 NULL）
- * @return heapstore_error_t 错误码
+  * @param dry_run [in] If true, only report what would be cleaned without deleting
+  * @param freed_bytes [out] Output: bytes actually freed (may be NULL)
+  * @return heapstore_error_t Error code
  *
  * @ownership freed_bytes: BORROW (caller-owned buffer, function writes to it, may be NULL)
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
  *
- * @note 清理规则基于配置中的 log_retention_days 和 trace_retention_days
+  * @note Cleanup follows log_retention_days and trace_retention_days in the config
  */
 heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes);
 
 /**
- * @brief 获取错误码对应的描述字符串
+  * @brief Get the description string for an error code
  *
- * @param err [in] 错误码
- * @return const char* 错误描述
+  * @param err [in] Error code
+  * @return const char* Error description
  *
  * @ownership return: BORROW (internal string, do not free)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 const char *heapstore_strerror(heapstore_error_t err);
 
 /**
- * @brief 重新加载配置
+  * @brief Reload the configuration
  *
- * @param manager [in] 新配置
- * @return heapstore_error_t 错误码
+  * @param manager [in] New configuration
+  * @return heapstore_error_t Error code
  *
  * @ownership manager: BORROW
- * @threadsafe 否
- * @reentrant 否
+ * @threadsafe no
+ * @reentrant no
  *
- * @note 仅更新配置，不影响已初始化的资源
+  * @note Only updates the config; does not touch initialized resources
  */
 heapstore_error_t heapstore_reload_config(const heapstore_config_t *manager);
 
 /**
- * @brief 强制刷新所有待写入的数据
+  * @brief Force-flush all pending data
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
  */
 heapstore_error_t heapstore_flush(void);
 
 /**
- * @brief 健康检查接口，用于检查各子系统状态
+  * @brief Health check for all subsystems
  *
- * @param registry_ok [out] 注册表系统是否健康，可为 NULL
- * @param trace_ok [out] 追踪系统是否健康，可为 NULL
- * @param log_ok [out] 日志系统是否健康，可为 NULL
- * @param ipc_ok [out] IPC 系统是否健康，可为 NULL
- * @param memory_ok [out] 内存系统是否健康，可为 NULL
- * @return heapstore_error_t 错误码，heapstore_SUCCESS 表示整体健康
+  * @param registry_ok [out] Whether the registry subsystem is healthy (may be NULL)
+  * @param trace_ok [out] Whether the trace subsystem is healthy (may be NULL)
+  * @param log_ok [out] Whether the log subsystem is healthy (may be NULL)
+  * @param ipc_ok [out] Whether the IPC subsystem is healthy (may be NULL)
+  * @param memory_ok [out] Whether the memory subsystem is healthy (may be NULL)
+  * @return heapstore_error_t Error code; heapstore_SUCCESS means overall health
  *
- * @ownership 所有输出参数: BORROW (caller-owned buffers, function writes to them)
- * @threadsafe 是
- * @reentrant 是
+  * @ownership All output params: BORROW (caller-owned buffers, function writes to them)
+ * @threadsafe yes
+ * @reentrant yes
  *
- * @note 所有输出参数均为可选，传入 NULL 表示不检查该子系统
+  * @note All output params are optional; NULL skips that subsystem
  */
 heapstore_error_t heapstore_health_check(bool *registry_ok, bool *trace_ok, bool *log_ok,
                                          bool *ipc_ok, bool *memory_ok);
 
 /**
- * @brief 获取性能指标
+  * @brief Get performance metrics
  *
- * @param metrics [out] 输出性能指标结构
- * @return heapstore_error_t 错误码
+  * @param metrics [out] Output metrics structure
+  * @return heapstore_error_t Error code
  *
  * @ownership metrics: BORROW (caller-owned buffer, function writes to it)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_get_metrics(heapstore_metrics_t *metrics);
 
 /**
- * @brief 重置性能指标
+  * @brief Reset performance metrics
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_reset_metrics(void);
 
 /**
- * @brief 获取熔断器状态
+  * @brief Get the circuit breaker status
  *
- * @param info [out] 输出熔断器状态信息
- * @return heapstore_error_t 错误码
+  * @param info [out] Output circuit breaker status
+  * @return heapstore_error_t Error code
  *
  * @ownership info: BORROW (caller-owned buffer, function writes to it)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_get_circuit_state(heapstore_circuit_info_t *info);
 
 /**
- * @brief 手动重置熔断器
+  * @brief Manually reset the circuit breaker
  *
- * @return heapstore_error_t 错误码
+  * @return heapstore_error_t Error code
  *
- * @threadsafe 是
- * @reentrant 否
+ * @threadsafe yes
+ * @reentrant no
  *
- * @note 通常在问题修复后手动调用
+  * @note Usually called manually after a problem is fixed
  */
 heapstore_error_t heapstore_reset_circuit(void);
 
 
 /**
- * @brief 批量写入上下文
+  * @brief Batch write context
  */
 typedef struct heapstore_batch_context heapstore_batch_context_t;
 
 /**
- * @brief 创建批量写入上下文
+  * @brief Create a batch write context
  *
- * @param batch_size [in] 批量大小（默认 100）
- * @return heapstore_batch_context_t* 批量写入上下文指针
+  * @param batch_size [in] Batch size (default 100)
+  * @return heapstore_batch_context_t* Batch write context pointer
  *
  * @ownership return: OWNER (caller must call heapstore_batch_context_destroy)
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
  */
 heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size);
 
 /**
- * @brief 添加日志到批量写入缓冲区
+  * @brief Add a log entry to the batch buffer
  *
- * @param ctx [in] 批量写入上下文
- * @param service [in] 服务名称
- * @param level [in] 日志级别
- * @param message [in] 日志消息
- * @return heapstore_error_t 错误码
+  * @param ctx [in] Batch write context
+  * @param service [in] Service name
+  * @param level [in] Log level
+  * @param message [in] Log message
+  * @return heapstore_error_t Error code
  *
  * @ownership ctx: BORROW, service: BORROW, message: BORROW
- * @threadsafe 是
- * @reentrant 是
+ * @threadsafe yes
+ * @reentrant yes
 
  * @since v1.0.0*/
 heapstore_error_t heapstore_batch_add_log(heapstore_batch_context_t *ctx, const char *service,

@@ -3,7 +3,7 @@
 
 /**
  * @file test_security_path_traversal.c
- * @brief heapstore 模块安全测试 - 路径遍历防护
+  * @brief heapstore 模块安全测试 - 路径遍历防护
  *
  */
 
