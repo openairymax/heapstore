@@ -87,8 +87,12 @@ static const char *_get_default_root(void)
         return s_default_root;
     }
     static char fallback[512];
-    snprintf(fallback, sizeof(fallback), "%s/agentrt/heapstore",
-             getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
+    const char *data_dir = airy_data_dir();
+    if (data_dir && data_dir[0]) {
+        snprintf(fallback, sizeof(fallback), "%s/agentrt/heapstore", data_dir);
+    } else {
+        snprintf(fallback, sizeof(fallback), "/tmp/agentrt/heapstore");
+    }
     s_default_root = fallback;
     return s_default_root;
 }

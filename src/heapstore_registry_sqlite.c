@@ -95,8 +95,12 @@ heapstore_error_t heapstore_registry_init(void)
     if (configured_root && configured_root[0] != '\0') {
         AIRY_STRNCPY_TERM(root_path, configured_root, sizeof(root_path));
     } else {
-        const char *tmpdir = getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp";
-        snprintf(root_path, sizeof(root_path), "%s/agentrt/heapstore", tmpdir);
+        const char *data_dir = airy_data_dir();
+        if (data_dir && data_dir[0]) {
+            snprintf(root_path, sizeof(root_path), "%s/agentrt/heapstore", data_dir);
+        } else {
+            snprintf(root_path, sizeof(root_path), "/tmp/agentrt/heapstore");
+        }
     }
 
     char full_path[512];

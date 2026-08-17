@@ -280,7 +280,8 @@ heapstore_error_t heapstore_ipc_init(void)
 
     airy_mtx_init(&s_ipc_lock);
 
-    const char *base_path = "agentrt/heapstore/kernel/ipc";
+    char base_path[heapstore_IPC_MAX_PATH];
+    snprintf(base_path, sizeof(base_path), "%s/kernel/ipc", heapstore_get_root());
     AIRY_STRNCPY_TERM(s_ipc_path, base_path, sizeof(s_ipc_path));
 
     heapstore_ensure_directory(s_ipc_path);

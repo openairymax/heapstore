@@ -95,8 +95,12 @@ airy_err_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             effective_root = env;
         } else {
-            snprintf(auto_root, sizeof(auto_root), "%s/agentrt/heapstore",
-                     getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
+            const char *data_dir = airy_data_dir();
+            if (data_dir && data_dir[0]) {
+                snprintf(auto_root, sizeof(auto_root), "%s/agentrt/heapstore", data_dir);
+            } else {
+                snprintf(auto_root, sizeof(auto_root), "/tmp/agentrt/heapstore");
+            }
             effective_root = auto_root;
         }
     }
