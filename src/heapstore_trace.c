@@ -53,7 +53,8 @@ heapstore_error_t heapstore_trace_init(void)
 
     airy_mtx_init(&s_trace_lock);
 
-    const char *base_path = "agentrt/heapstore/traces";
+    char base_path[heapstore_TRACE_MAX_PATH];
+    snprintf(base_path, sizeof(base_path), "%s/traces", heapstore_get_root());
     AIRY_STRNCPY_TERM(s_trace_path, base_path, sizeof(s_trace_path));
 
     heapstore_ensure_directory(s_trace_path);
