@@ -129,8 +129,13 @@ airy_err_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             AIRY_STRNCPY_TERM(g_root_path, env, sizeof(g_root_path));
         } else {
-            snprintf(g_root_path, sizeof(g_root_path), "%s/agentrt/heapstore",
-                     getenv("TMPDIR") ? getenv("TMPDIR") : AIRY_TMP_DIR);
+            const char *data_dir = airy_data_dir();
+            if (data_dir && data_dir[0]) {
+                snprintf(g_root_path, sizeof(g_root_path), "%s/agentrt/heapstore",
+                         data_dir);
+            } else {
+                snprintf(g_root_path, sizeof(g_root_path), "/tmp/agentrt/heapstore");
+            }
         }
         g_root_path[sizeof(g_root_path) - 1] = '\0';
     }

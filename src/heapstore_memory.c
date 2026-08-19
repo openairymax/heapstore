@@ -60,7 +60,7 @@ heapstore_error_t heapstore_memory_init(void)
         snprintf(base_path, sizeof(base_path), "%s/kernel/memory", root);
     } else {
         snprintf(base_path, sizeof(base_path), "%s/agentrt/heapstore/kernel/memory",
-                 getenv("TMPDIR") ? getenv("TMPDIR") : AIRY_TMP_DIR);
+                 airy_data_dir());
     }
     AIRY_STRNCPY_TERM(s_memory_path, base_path, sizeof(s_memory_path));
 
