@@ -82,16 +82,17 @@ static const char *level_to_string(heapstore_log_level_t level)
 
 static const char *get_log_base_path(void)
 {
-    /* Matches heapstore_core's root resolution: AIRY_HEAPSTORE_ROOT -> $TMPDIR/agentrt/heapstore.
-      * The old code used the relative path "agentrt/heapstore/logs" (CWD-dependent), so
-      * the init log file missed the runtime log path and wrote into the source tree/CWD. */
+    /* Matches heapstore_core's root resolution: AIRY_HEAPSTORE_ROOT ->
+     * $AIRY_HOME/data/agentrt/heapstore (platform path system). The old
+     * code used $TMPDIR/agentrt/heapstore/logs (outside AIRY_HOME), so
+     * runtime logs escaped the consolidated runtime root. */
     static char base_path[512];
     const char *env = getenv("AIRY_HEAPSTORE_ROOT");
     if (env && env[0]) {
         snprintf(base_path, sizeof(base_path), "%s/logs", env);
     } else {
         snprintf(base_path, sizeof(base_path), "%s/agentrt/heapstore/logs",
-                 getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
+                 airy_data_dir());
     }
     return base_path;
 }
