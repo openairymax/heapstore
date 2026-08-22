@@ -476,6 +476,14 @@ bool heapstore_is_initialized(void)
 
 const char *heapstore_get_root(void)
 {
+    if (s_root_path[0] == '\0') {
+        /* 未显式 heapstore_init 时（如 trace/ipc 子模块独立初始化），
+         * 惰性解析默认 root（AIRY_HEAPSTORE_ROOT 或 $AIRY_HOME/data），
+         * 避免落到空串导致的 "/" 根目录写入。 */
+        const char *root = _get_default_root();
+        if (root && root[0])
+            AIRY_STRNCPY_TERM(s_root_path, root, sizeof(s_root_path));
+    }
     return s_root_path;
 }
 

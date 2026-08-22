@@ -178,6 +178,11 @@ int main(void)
 {
     printf("=== AgentRT heapstore Trace Unit Tests ===\n\n");
 
+    /* 隔离测试数据：root 解析依赖 AIRY_HOME 体系，独立 home 避免
+     * 触碰真实生产数据分区（~/.airymaxrt/data/agentrt/heapstore） */
+    setenv("AIRY_HOME", "/tmp/agentrt_hs_test_home", 1);
+    setenv("AIRY_RUNTIME_DIR", "/tmp/agentrt_hs_test_run", 1);
+
     test_trace_init_shutdown();
     test_trace_write_span();
     test_trace_write_batch();
