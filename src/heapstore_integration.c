@@ -8,6 +8,7 @@
 
 // @owner: team-B
 #include "heapstore_integration.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -366,8 +367,19 @@ airy_err_t heapstore_syscall_trace_export(char **out_traces)
     return (err == heapstore_SUCCESS) ? AIRY_SUCCESS : AIRY_EIO;
 }
 
-airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *metadata,
-                                      char **out_record_id)
+/* ─── memoryrovol 原始数据持久化 ────────────────────────────────────────
+ * 数据文件布局（<root> = heapstore 根）：
+ *   <root>/memory/memoryrovol/<record_id>.bin   — 原始数据（真正落盘）
+ *   <root>/memory/memoryrovol/<record_id>.meta  — 元数据（JSON 字符串，可为空）
+ * pool/allocation 记录作为内存索引保留（含大小/时间/状态）。 */
+
+static void memoryrovol_build_path(const char *record_id, const char *ext, char *out, size_t out_size)
+{
+    snprintf(out, out_size, "%s/memory/memoryrovol/%s%s", heapstore_get_root(), record_id, ext);
+}
+
+airy_err_t heapstore_memory_raw_save(const void *data, size_t len, const char *metadata,
+                                     char **out_record_id)
 {
 
     if (!g_integration_initialized) {
@@ -376,6 +388,10 @@ airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *
     if (!data || len == 0 || !out_record_id) {
         return AIRY_EINVAL;
     }
+
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s/memory/memoryrovol", heapstore_get_root());
+    heapstore_ensure_directory(dir);
 
     heapstore_memory_pool_t pool;
     __builtin_memset(&pool, 0, sizeof(pool));
@@ -400,7 +416,7 @@ airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *
     AIRY_STRNCPY_TERM(alloc.allocation_id, pool.pool_id, sizeof(alloc.allocation_id));
     AIRY_STRNCPY_TERM(alloc.pool_id, pool.pool_id, sizeof(alloc.pool_id));
     alloc.size = len;
-    alloc.address = (uint64_t)(uintptr_t)data;
+    alloc.address = 0; /* 不存进程指针：跨进程/重启后无效，真实数据落盘 */
     alloc.allocated_at = (uint64_t)time(NULL);
     alloc.freed_at = 0;
     AIRY_STRNCPY_TERM(alloc.status, "allocated", sizeof(alloc.status));
@@ -408,6 +424,40 @@ airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *
     heapstore_error_t alloc_err = heapstore_memory_record_allocation(&alloc);
     if (alloc_err != heapstore_SUCCESS) {
         return AIRY_EIO;
+    }
+
+    /* 真实数据写入 <record_id>.bin */
+    char data_path[512];
+    memoryrovol_build_path(pool.pool_id, ".bin", data_path, sizeof(data_path));
+    FILE *fp = fopen(data_path, "wb");
+    if (!fp) {
+        return AIRY_EIO;
+    }
+    size_t written = fwrite(data, 1, len, fp);
+    int ferr = ferror(fp);
+    fclose(fp);
+    if (written != len || ferr) {
+        remove(data_path);
+        return AIRY_EIO;
+    }
+
+    /* 元数据写入 <record_id>.meta（可为空，不写文件即无元数据） */
+    if (metadata && metadata[0]) {
+        char meta_path[512];
+        memoryrovol_build_path(pool.pool_id, ".meta", meta_path, sizeof(meta_path));
+        fp = fopen(meta_path, "wb");
+        if (!fp) {
+            remove(data_path);
+            return AIRY_EIO;
+        }
+        size_t mw = fwrite(metadata, 1, strlen(metadata), fp);
+        int merr = ferror(fp);
+        fclose(fp);
+        if (mw != strlen(metadata) || merr) {
+            remove(data_path);
+            remove(meta_path);
+            return AIRY_EIO;
+        }
     }
 
     *out_record_id = AIRY_STRDUP(pool.pool_id);
@@ -418,8 +468,8 @@ airy_err_t heapstore_memoryrovol_save(const void *data, size_t len, const char *
     return AIRY_SUCCESS;
 }
 
-airy_err_t heapstore_memoryrovol_load(const char *record_id, void **out_data, size_t *out_len,
-                                      char **out_metadata)
+airy_err_t heapstore_memory_raw_load(const char *record_id, void **out_data, size_t *out_len,
+                                     char **out_metadata)
 {
 
     if (!g_integration_initialized) {
@@ -429,53 +479,74 @@ airy_err_t heapstore_memoryrovol_load(const char *record_id, void **out_data, si
         return AIRY_EINVAL;
     }
 
-    heapstore_memory_pool_t pool;
-    __builtin_memset(&pool, 0, sizeof(pool));
-
-    heapstore_error_t err = heapstore_memory_get_pool(record_id, &pool);
-    if (err != heapstore_SUCCESS) {
-        return (err == heapstore_ERR_NOT_FOUND) ? AIRY_ENOENT : AIRY_EIO;
-    }
-
-    if (pool.total_size == 0) {
+    /* 从磁盘真实读取数据 */
+    char data_path[512];
+    memoryrovol_build_path(record_id, ".bin", data_path, sizeof(data_path));
+    FILE *fp = fopen(data_path, "rb");
+    if (!fp) {
         *out_data = NULL;
         *out_len = 0;
         if (out_metadata)
             *out_metadata = NULL;
-        return AIRY_SUCCESS;
+        return AIRY_ENOENT;
+    }
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp);
+        return AIRY_EIO;
+    }
+    long fsize = ftell(fp);
+    if (fsize < 0 || fseek(fp, 0, SEEK_SET) != 0) {
+        fclose(fp);
+        return AIRY_EIO;
+    }
+    size_t copy_len = (size_t)fsize;
+    void *buf = AIRY_MALLOC(copy_len > 0 ? copy_len : 1);
+    if (!buf) {
+        fclose(fp);
+        return AIRY_ENOMEM;
+    }
+    size_t got = copy_len > 0 ? fread(buf, 1, copy_len, fp) : 0;
+    int rerr = ferror(fp);
+    fclose(fp);
+    if (got != copy_len || rerr) {
+        AIRY_FREE(buf);
+        return AIRY_EIO;
     }
 
-    heapstore_memory_allocation_t alloc;
-    __builtin_memset(&alloc, 0, sizeof(alloc));
-    heapstore_error_t alloc_err = heapstore_memory_get_allocation(record_id, &alloc);
-    if (alloc_err != heapstore_SUCCESS) {
-        *out_data = AIRY_MALLOC(pool.total_size);
-        if (!*out_data)
-            return AIRY_ENOMEM;
-        __builtin_memset(*out_data, 0, pool.total_size);
-        *out_len = pool.total_size;
-    } else {
-        size_t copy_len = alloc.size > 0 ? alloc.size : pool.total_size;
-        *out_data = AIRY_MALLOC(copy_len);
-        if (!*out_data)
-            return AIRY_ENOMEM;
-        __builtin_memset(*out_data, 0, copy_len);
-        *out_len = copy_len;
-    }
+    *out_data = buf;
+    *out_len = copy_len;
 
-    if (out_metadata && pool.name[0] != '\0') {
-        *out_metadata = AIRY_STRDUP(pool.name);
-        if (!*out_metadata) {
-            AIRY_FREE(*out_data);
-            *out_data = NULL;
-            return AIRY_ENOMEM;
+    if (out_metadata) {
+        *out_metadata = NULL;
+        char meta_path[512];
+        memoryrovol_build_path(record_id, ".meta", meta_path, sizeof(meta_path));
+        fp = fopen(meta_path, "rb");
+        if (fp) {
+            if (fseek(fp, 0, SEEK_END) != 0) {
+                fclose(fp);
+            } else {
+                long msize = ftell(fp);
+                if (msize >= 0 && fseek(fp, 0, SEEK_SET) == 0) {
+                    char *m = AIRY_MALLOC((size_t)msize + 1);
+                    if (m) {
+                        size_t mg = fread(m, 1, (size_t)msize, fp);
+                        if (mg == (size_t)msize) {
+                            m[msize] = '\0';
+                            *out_metadata = m;
+                        } else {
+                            AIRY_FREE(m);
+                        }
+                    }
+                }
+                fclose(fp);
+            }
         }
     }
 
     return AIRY_SUCCESS;
 }
 
-airy_err_t heapstore_memoryrovol_delete(const char *record_id)
+airy_err_t heapstore_memory_raw_delete(const char *record_id)
 {
     if (!g_integration_initialized) {
         return AIRY_ENOTINIT;
@@ -483,6 +554,13 @@ airy_err_t heapstore_memoryrovol_delete(const char *record_id)
     if (!record_id) {
         return AIRY_EINVAL;
     }
+
+    char data_path[512];
+    memoryrovol_build_path(record_id, ".bin", data_path, sizeof(data_path));
+    remove(data_path);
+    char meta_path[512];
+    memoryrovol_build_path(record_id, ".meta", meta_path, sizeof(meta_path));
+    remove(meta_path);
 
     heapstore_error_t err = heapstore_memory_free_allocation(record_id);
     if (err == heapstore_ERR_NOT_FOUND) {

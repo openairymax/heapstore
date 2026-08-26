@@ -21,6 +21,9 @@
 extern "C" {
 #endif
 
+/** Batch 上下文最大容纳条目数。 */
+#define HEAPSTORE_BATCH_MAX_ITEMS 1024
+
 /**
   * @brief Batch write item type
  */
@@ -33,31 +36,39 @@ typedef enum {
     HEAPSTORE_BATCH_ITEM_MEMORY_POOL,
     HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC,
     HEAPSTORE_BATCH_ITEM_IPC_CHANNEL,
-    HEAPSTORE_BATCH_ITEM_IPC_BUFFER,
-    HEAPSTORE_BATCH_ITEM_TYPE_COUNT
+    HEAPSTORE_BATCH_ITEM_IPC_BUFFER
 } heapstore_batch_item_type_t;
 
 /**
-  * @brief Batch write item union data
- */
-typedef struct {
-    heapstore_log_entry_t log;
-    heapstore_trace_entry_t trace;
-    heapstore_session_record_t session;
-    heapstore_agent_record_t agent;
-    heapstore_skill_record_t skill;
-    heapstore_memory_pool_t memory_pool;
-    heapstore_memory_allocation_t memory_alloc;
-    heapstore_ipc_channel_t ipc_channel;
-    heapstore_ipc_buffer_t ipc_buffer;
-} heapstore_batch_item_data_t;
-
-/**
-  * @brief Batch write item node
+  * @brief Batch write item node（数据载荷为匿名联合，与实现保持一致）
  */
 typedef struct heapstore_batch_item {
     heapstore_batch_item_type_t type;
-    heapstore_batch_item_data_t data;
+    union {
+        struct {
+            char service[128];
+            int level;
+            char trace_id[64];
+            char message[1024];
+        } log;
+        struct {
+            char trace_id[64];
+            char span_id[64];
+            char parent_span_id[64];
+            char name[256];
+            int64_t start_time_us;
+            int64_t end_time_us;
+            int status;
+            char attributes[2048];
+        } span;
+        heapstore_session_record_t session;
+        heapstore_agent_record_t agent;
+        heapstore_skill_record_t skill;
+        heapstore_memory_pool_t memory_pool;
+        heapstore_memory_allocation_t memory_alloc;
+        heapstore_ipc_channel_t ipc_channel;
+        heapstore_ipc_buffer_t ipc_buffer;
+    } data;
     struct heapstore_batch_item *next;
 } heapstore_batch_item_t;
 
@@ -65,10 +76,10 @@ typedef struct heapstore_batch_item {
   * @brief Batch write context
  */
 typedef struct heapstore_batch_context {
+    size_t capacity;
+    size_t count;
     heapstore_batch_item_t *head;
     heapstore_batch_item_t *tail;
-    size_t count;
-    size_t capacity;
     airy_mtx_t lock;
 } heapstore_batch_context_t;
 
