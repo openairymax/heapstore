@@ -92,6 +92,10 @@ void heapstore_trace_shutdown(void)
     airy_mtx_lock(&s_trace_lock);
 
     if (s_span_buffer) {
+        for (size_t i = 0; i < s_span_count; i++) {
+            AIRY_FREE(s_span_buffer[i].attributes);
+            s_span_buffer[i].attributes = NULL;
+        }
         AIRY_FREE(s_span_buffer);
         s_span_buffer = NULL;
     }
@@ -123,6 +127,15 @@ heapstore_error_t heapstore_trace_write_span(const heapstore_span_t *span)
     }
 
     __builtin_memcpy(&s_span_buffer[s_span_count], span, sizeof(heapstore_span_t));
+    /* 深拷贝 attributes，避免调用方在 write 返回后释放其自有副本造成 UAF
+     * （batch 提交路径在 heapstore_trace_write_span 之后 AIRY_FREE 临时副本）。 */
+    if (span->attributes) {
+        s_span_buffer[s_span_count].attributes = AIRY_STRDUP((const char *)span->attributes);
+        if (!s_span_buffer[s_span_count].attributes) {
+            airy_mtx_unlock(&s_trace_lock);
+            return heapstore_ERR_OUT_OF_MEMORY;
+        }
+    }
     s_span_count++;
 
     airy_mtx_unlock(&s_trace_lock);
@@ -190,6 +203,18 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
     for (size_t i = 0; i < s_span_count; i++) {
         if (strcmp(s_span_buffer[i].trace_id, trace_id) == 0) {
             __builtin_memcpy(&result[idx], &s_span_buffer[i], sizeof(heapstore_span_t));
+            /* 深拷贝 attributes：结果归调用方所有，free_spans 对称释放。 */
+            if (s_span_buffer[i].attributes) {
+                result[idx].attributes = AIRY_STRDUP((const char *)s_span_buffer[i].attributes);
+                if (!result[idx].attributes) {
+                    for (size_t j = 0; j < idx; j++)
+                        AIRY_FREE(result[j].attributes);
+                    AIRY_FREE(result);
+                    *spans = NULL;
+                    *count = 0;
+                    return heapstore_ERR_OUT_OF_MEMORY;
+                }
+            }
             idx++;
         }
     }
@@ -242,6 +267,18 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
         if (s_span_buffer[i].start_time_ns >= start_time &&
             s_span_buffer[i].end_time_ns <= end_time) {
             __builtin_memcpy(&result[idx], &s_span_buffer[i], sizeof(heapstore_span_t));
+            /* 深拷贝 attributes：结果归调用方所有，free_spans 对称释放。 */
+            if (s_span_buffer[i].attributes) {
+                result[idx].attributes = AIRY_STRDUP((const char *)s_span_buffer[i].attributes);
+                if (!result[idx].attributes) {
+                    for (size_t j = 0; j < idx; j++)
+                        AIRY_FREE(result[j].attributes);
+                    AIRY_FREE(result);
+                    *spans = NULL;
+                    *count = 0;
+                    return heapstore_ERR_OUT_OF_MEMORY;
+                }
+            }
             idx++;
         }
     }
@@ -254,9 +291,13 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
     return heapstore_SUCCESS;
 }
 
-void heapstore_trace_free_spans(heapstore_span_t *spans)
+void heapstore_trace_free_spans(heapstore_span_t *spans, size_t count)
 {
     if (spans) {
+        for (size_t i = 0; i < count; i++) {
+            AIRY_FREE(spans[i].attributes);
+            spans[i].attributes = NULL;
+        }
         AIRY_FREE(spans);
     }
 }

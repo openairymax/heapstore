@@ -233,13 +233,15 @@ typedef struct {
 } ipc_shm_region_t;
 
 #define IPC_SHM_MAX_REGIONS 32
+#define IPC_SHM_PREFIX "/airy_ipc_"
+#define IPC_SHM_PREFIX_LEN ((sizeof(IPC_SHM_PREFIX)) - 1) /* 10 字符，不含 NUL */
 static ipc_shm_region_t s_shm_regions[IPC_SHM_MAX_REGIONS];
 static size_t s_shm_region_count = 0;
 
 static ipc_shm_region_t *find_or_create_shm(const char *name, size_t size)
 {
     for (size_t i = 0; i < s_shm_region_count; i++) {
-        if (strcmp(s_shm_regions[i].shm_name, name) == 0) {
+        if (strcmp(s_shm_regions[i].shm_name + IPC_SHM_PREFIX_LEN, name) == 0) {
             return &s_shm_regions[i];
         }
     }
@@ -247,7 +249,7 @@ static ipc_shm_region_t *find_or_create_shm(const char *name, size_t size)
         return NULL;
 
     ipc_shm_region_t *r = &s_shm_regions[s_shm_region_count];
-    snprintf(r->shm_name, sizeof(r->shm_name), "/airy_ipc_%s", name);
+    snprintf(r->shm_name, sizeof(r->shm_name), IPC_SHM_PREFIX "%s", name);
 
     r->shm_fd = shm_open(r->shm_name, O_CREAT | O_RDWR, 0666);
     if (r->shm_fd < 0)
@@ -648,7 +650,7 @@ heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id)
             (void)&s_active_channels[i];
 
             for (size_t j = 0; j < s_shm_region_count; j++) {
-                if (strcmp(s_shm_regions[j].shm_name + 12, channel_id) == 0) {
+                if (strcmp(s_shm_regions[j].shm_name + IPC_SHM_PREFIX_LEN, channel_id) == 0) {
                     if (s_shm_regions[j].mapped && s_shm_regions[j].mapped != MAP_FAILED)
                         munmap(s_shm_regions[j].mapped, s_shm_regions[j].mapped_size);
                     if (s_shm_regions[j].shm_fd >= 0)

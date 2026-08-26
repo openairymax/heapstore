@@ -119,15 +119,16 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
 
 /**
   * @brief Free a span array
- *
+  *
   * @param spans [in] Span array
- *
+  * @param count [in] Number of spans in the array
+  *
   * @ownership Caller must pass a valid spans pointer
  * @threadsafe yes
  * @reentrant yes
 
  * @since v1.0.0*/
-void heapstore_trace_free_spans(heapstore_span_t *spans);
+void heapstore_trace_free_spans(heapstore_span_t *spans, size_t count);
 
 /**
   * @brief Configure the trace exporter

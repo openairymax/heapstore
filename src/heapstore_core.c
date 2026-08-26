@@ -56,6 +56,7 @@
 static bool s_initialized = false;
 static char s_root_path[heapstore_MAX_PATH_LEN];
 static heapstore_config_t s_config;
+static airy_mtx_t s_config_lock;
 
 static heapstore_path_type_t s_path_order[] = {
     heapstore_PATH_KERNEL,       heapstore_PATH_LOGS,   heapstore_PATH_REGISTRY,
@@ -357,6 +358,7 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     AIRY_LOG_INFO("heapstore_init: initializing (root=%s)",
                   manager && manager->root_path ? manager->root_path : "default");
 
+    airy_mtx_init(&s_config_lock);
     set_default_config();
     apply_user_config(manager);
 
@@ -663,7 +665,13 @@ heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes)
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    if (!s_config.enable_auto_cleanup) {
+    airy_mtx_lock(&s_config_lock);
+    bool enable_auto_cleanup = s_config.enable_auto_cleanup;
+    uint32_t log_retention_days = s_config.log_retention_days;
+    uint32_t trace_retention_days = s_config.trace_retention_days;
+    airy_mtx_unlock(&s_config_lock);
+
+    if (!enable_auto_cleanup) {
         if (freed_bytes) {
             *freed_bytes = 0;
         }
@@ -674,7 +682,7 @@ heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes)
     heapstore_error_t result = heapstore_SUCCESS;
 
     uint64_t log_freed = 0;
-    heapstore_error_t log_err = heapstore_log_cleanup(s_config.log_retention_days, &log_freed);
+    heapstore_error_t log_err = heapstore_log_cleanup(log_retention_days, &log_freed);
     if (log_err == heapstore_SUCCESS) {
         total_freed += log_freed;
     } else {
@@ -682,8 +690,7 @@ heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes)
     }
 
     uint64_t trace_freed = 0;
-    heapstore_error_t trace_err =
-        heapstore_trace_cleanup(s_config.trace_retention_days, &trace_freed);
+    heapstore_error_t trace_err = heapstore_trace_cleanup(trace_retention_days, &trace_freed);
     if (trace_err == heapstore_SUCCESS) {
         total_freed += trace_freed;
     } else {
@@ -802,6 +809,7 @@ const char *heapstore_strerror(heapstore_error_t err)
  */
 static void apply_config_update(const heapstore_config_t *manager)
 {
+    airy_mtx_lock(&s_config_lock);
     if (manager->max_log_size_mb > 0)
         s_config.max_log_size_mb = manager->max_log_size_mb;
     if (manager->log_retention_days > 0)
@@ -823,6 +831,7 @@ static void apply_config_update(const heapstore_config_t *manager)
         s_config.circuit_breaker_timeout_sec = manager->circuit_breaker_timeout_sec;
         s_circuit_breaker.timeout_sec = manager->circuit_breaker_timeout_sec;
     }
+    airy_mtx_unlock(&s_config_lock);
 }
 
 heapstore_error_t heapstore_reload_config(const heapstore_config_t *manager)

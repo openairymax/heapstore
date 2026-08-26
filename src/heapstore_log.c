@@ -386,7 +386,12 @@ heapstore_error_t heapstore_log_get_service_path(const char *service, char *buff
 
     const char *base = get_log_base_path();
     if (service && service[0]) {
-        snprintf(buffer, buffer_size, "%s/services/%s.log", base, service);
+        char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
+        if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
+            AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
+            return heapstore_ERR_INVALID_PARAM;
+        }
+        snprintf(buffer, buffer_size, "%s/services/%s.log", base, safe_service);
     } else {
         snprintf(buffer, buffer_size, "%s/kernel/agentrt.log", base);
     }
@@ -440,6 +445,36 @@ heapstore_error_t heapstore_log_rotate(void)
     return heapstore_SUCCESS;
 }
 
+#ifndef _WIN32
+/* Remove files older than the cutoff in a directory (non-recursive).
+ * Returns bytes freed. */
+static uint64_t clean_dir_by_mtime(const char *dir_path, time_t cutoff, uint64_t *freed)
+{
+    uint64_t local_freed = 0;
+    DIR *dir = opendir(dir_path);
+    if (!dir)
+        return 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_REG)
+            continue;
+        char filepath[heapstore_LOG_MAX_PATH];
+        snprintf(filepath, sizeof(filepath), "%s/%s", dir_path, entry->d_name);
+        struct stat st;
+        if (stat(filepath, &st) == 0 && st.st_mtime < cutoff) {
+            uint64_t file_size = (uint64_t)st.st_size;
+            if (unlink(filepath) == 0) {
+                local_freed += file_size;
+                if (freed)
+                    *freed += file_size;
+            }
+        }
+    }
+    closedir(dir);
+    return local_freed;
+}
+#endif
+
 heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 {
     if (!s_initialized) {
@@ -456,7 +491,15 @@ heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 
     time_t cutoff_time = time(NULL) - (days_to_keep * 86400);
 
-#ifdef _WIN32
+#ifndef _WIN32
+    clean_dir_by_mtime(get_log_base_path(), cutoff_time, freed_bytes);
+    const char *subdirs[] = {"kernel", "services", "apps"};
+    for (size_t i = 0; i < sizeof(subdirs) / sizeof(subdirs[0]); i++) {
+        char sub[heapstore_LOG_MAX_PATH];
+        snprintf(sub, sizeof(sub), "%s/%s", get_log_base_path(), subdirs[i]);
+        clean_dir_by_mtime(sub, cutoff_time, freed_bytes);
+    }
+#else
     WIN32_FIND_DATAA find_data;
     char search_path[heapstore_LOG_MAX_PATH];
 
@@ -490,34 +533,37 @@ heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
     } while (FindNextFileA(h_find, &find_data));
 
     FindClose(h_find);
-#else
-    DIR *dir = opendir(get_log_base_path());
-    if (!dir) {
-        return heapstore_SUCCESS;
-    }
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type != DT_REG) {
+    /* Also clean rotated kernel/service log files on Windows. */
+    const char *subdirs[] = {"kernel", "services", "apps"};
+    for (size_t i = 0; i < sizeof(subdirs) / sizeof(subdirs[0]); i++) {
+        char sub[heapstore_LOG_MAX_PATH];
+        snprintf(sub, sizeof(sub), "%s/%s", get_log_base_path(), subdirs[i]);
+        snprintf(search_path, sizeof(search_path), "%s/*", sub);
+        HANDLE h_sub = FindFirstFileA(search_path, &find_data);
+        if (h_sub == INVALID_HANDLE_VALUE)
             continue;
-        }
-
-        char filepath[heapstore_LOG_MAX_PATH];
-        snprintf(filepath, sizeof(filepath), "%s/%s", get_log_base_path(), entry->d_name);
-
-        struct stat st;
-        if (stat(filepath, &st) == 0) {
-            if (st.st_mtime < cutoff_time) {
-                uint64_t file_size = (uint64_t)st.st_size;
-                if (unlink(filepath) == 0) {
-                    if (freed_bytes)
-                        *freed_bytes += file_size;
+        do {
+            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                char filepath[heapstore_LOG_MAX_PATH];
+                snprintf(filepath, sizeof(filepath), "%s/%s", sub, find_data.cFileName);
+                FILETIME ft_write = find_data.ftLastWriteTime;
+                ULARGE_INTEGER uli;
+                uli.LowPart = ft_write.dwLowDateTime;
+                uli.HighPart = ft_write.dwHighDateTime;
+                time_t file_time = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000);
+                if (file_time < cutoff_time) {
+                    uint64_t file_size =
+                        ((uint64_t)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
+                    if (DeleteFileA(filepath)) {
+                        if (freed_bytes)
+                            *freed_bytes += file_size;
+                    }
                 }
             }
-        }
+        } while (FindNextFileA(h_sub, &find_data));
+        FindClose(h_sub);
     }
-
-    closedir(dir);
 #endif
 
     return heapstore_SUCCESS;
@@ -536,7 +582,12 @@ heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log
     const char *base = get_log_base_path();
 
     if (service && service[0]) {
-        snprintf(filepath, sizeof(filepath), "%s/services/%s.log", base, service);
+        char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
+        if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
+            AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
+            return heapstore_ERR_INVALID_PARAM;
+        }
+        snprintf(filepath, sizeof(filepath), "%s/services/%s.log", base, safe_service);
     } else {
         snprintf(filepath, sizeof(filepath), "%s/kernel/agentrt.log", base);
     }
