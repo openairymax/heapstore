@@ -3,18 +3,18 @@
 
 /**
  * @file heapstore_migration.c
- * @brief AgentRT heapstore schema versioning and data migration implementation.
+ * @brief AgentRT heapstore schema versioning and data migration: version
+ *        detection, shared helpers and step execution engine.
  *
- * Implements version management of the heapstore data format:
- * - SCHEMA_VERSION persisted to the .schema_version file
- * - version detection and automatic migration trigger at startup
- * - forward-compatible (v1 -> v2) non-destructive migration
- * - backward-compatible (v2 -> v1) safe rollback
+ * Functional domain after heapstore_migration.c split:
+ * - version management of the heapstore data format (.schema_version)
+ * - forward steps live in heapstore_migration_forward.c
+ * - rollback steps live in heapstore_migration_rollback.c
  */
 
 // @owner: team-C
-#include "heapstore_migration.h"
-#include "private.h"
+#include "heapstore_migration_internal.h"
+
 #include "utils.h"
 
 #include <errno.h>
@@ -26,38 +26,20 @@
 
 #include "airy_memory.h"
 
-#ifdef AIRY_HAS_SQLITE3
-#include <sqlite3.h>
-#endif
-
-#define HEAPSTORE_MIGRATION_VERSION_FILE ".schema_version"
-#define HEAPSTORE_MIGRATION_BACKUP_SUFFIX ".pre_migration_bak"
-#define HEAPSTORE_MIGRATION_MAX_STEPS 64
-#define HEAPSTORE_MIGRATION_DB_REL_PATH "/registry/registry.db"
-
-/**
-  * @brief Get the full path of the migration version file
- */
-static void get_version_file_path(char *buffer, size_t buffer_size)
+void mig_get_version_file_path(char *buffer, size_t buffer_size)
 {
     const char *root = heapstore_get_root();
     snprintf(buffer, buffer_size, "%s/%s", root, HEAPSTORE_MIGRATION_VERSION_FILE);
 }
 
-/**
-  * @brief Get the current timestamp (ms)
- */
-static uint64_t get_time_ms(void)
+uint64_t mig_get_time_ms(void)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
-/**
-  * @brief Back up data files
- */
-static heapstore_error_t backup_data_file(const char *file_path)
+heapstore_error_t mig_backup_data_file(const char *file_path)
 {
     char backup_path[heapstore_MAX_PATH_LEN];
     snprintf(backup_path, sizeof(backup_path), "%s%s", file_path,
@@ -89,10 +71,7 @@ static heapstore_error_t backup_data_file(const char *file_path)
     return heapstore_SUCCESS;
 }
 
-/**
-  * @brief Restore data files from backup
- */
-static heapstore_error_t restore_data_file(const char *file_path)
+heapstore_error_t mig_restore_data_file(const char *file_path)
 {
     char backup_path[heapstore_MAX_PATH_LEN];
     snprintf(backup_path, sizeof(backup_path), "%s%s", file_path,
@@ -104,10 +83,7 @@ static heapstore_error_t restore_data_file(const char *file_path)
     return heapstore_SUCCESS;
 }
 
-/**
-  * @brief Clean up backup files
- */
-static void cleanup_backup_file(const char *file_path)
+void mig_cleanup_backup_file(const char *file_path)
 {
     char backup_path[heapstore_MAX_PATH_LEN];
     snprintf(backup_path, sizeof(backup_path), "%s%s", file_path,
@@ -115,106 +91,7 @@ static void cleanup_backup_file(const char *file_path)
     remove(backup_path);
 }
 
-heapstore_error_t heapstore_migration_get_version(uint32_t *version)
-{
-    if (!version) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-
-    if (!heapstore_is_initialized()) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    char version_path[heapstore_MAX_PATH_LEN];
-    get_version_file_path(version_path, sizeof(version_path));
-
-    FILE *f = fopen(version_path, "r");
-    if (!f) {
-
-        *version = 0;
-        return heapstore_SUCCESS;
-    }
-
-    uint32_t ver = 0;
-
-    char ver_buf[32];
-    if (fgets(ver_buf, sizeof(ver_buf), f) != NULL) {
-        ver = (uint32_t)strtoul(ver_buf, NULL, 10);
-    } else {
-        fclose(f);
-        *version = 0;
-        return heapstore_SUCCESS;
-    }
-
-    fclose(f);
-    *version = ver;
-    return heapstore_SUCCESS;
-}
-
-heapstore_error_t heapstore_migration_set_version(uint32_t version)
-{
-    if (!heapstore_is_initialized()) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    char version_path[heapstore_MAX_PATH_LEN];
-    get_version_file_path(version_path, sizeof(version_path));
-
-    FILE *f = fopen(version_path, "w");
-    if (!f) {
-        return heapstore_ERR_FILE_OPEN_FAILED;
-    }
-
-    fprintf(f, "%u\n", version);
-    fclose(f);
-    return heapstore_SUCCESS;
-}
-
-heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *current_version)
-{
-    if (!needs_migration) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-
-    uint32_t disk_version = 0;
-    heapstore_error_t err = heapstore_migration_get_version(&disk_version);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
-
-    if (current_version) {
-        *current_version = disk_version;
-    }
-
-    if (disk_version == 0) {
-
-        *needs_migration = false;
-        return heapstore_migration_set_version(HEAPSTORE_SCHEMA_VERSION_CURRENT);
-    }
-
-    *needs_migration = (disk_version < HEAPSTORE_SCHEMA_VERSION_CURRENT);
-    return heapstore_SUCCESS;
-}
-
-/**
-  * @brief Migration step function type
- */
-typedef heapstore_error_t (*migration_step_fn)(uint64_t *records_affected);
-
-/**
-  * @brief Migration step definition
- */
-typedef struct {
-    const char *name;
-    migration_step_fn execute;
-    uint32_t from_version;
-    uint32_t to_version;
-} migration_step_def_t;
-
-/**
-  * @brief Resolve the registry DB path: heapstore root + registry/registry.db
- */
-static void mig_db_path(char *buffer, size_t buffer_size)
+void mig_db_path(char *buffer, size_t buffer_size)
 {
     const char *root = heapstore_get_root();
     snprintf(buffer, buffer_size, "%s%s", root, HEAPSTORE_MIGRATION_DB_REL_PATH);
@@ -222,10 +99,7 @@ static void mig_db_path(char *buffer, size_t buffer_size)
 
 #ifdef AIRY_HAS_SQLITE3
 
-/**
-  * @brief Open the registry DB (read-only migration view; NULL on failure)
- */
-static sqlite3 *mig_db_open(void)
+sqlite3 *mig_db_open(void)
 {
     char db_path[heapstore_MAX_PATH_LEN];
     mig_db_path(db_path, sizeof(db_path));
@@ -241,10 +115,7 @@ static sqlite3 *mig_db_open(void)
     return db;
 }
 
-/**
-  * @brief Check whether a table has a given column
- */
-static bool mig_table_has_column(sqlite3 *db, const char *table, const char *column)
+bool mig_table_has_column(sqlite3 *db, const char *table, const char *column)
 {
     char sql[192];
     snprintf(sql, sizeof(sql), "PRAGMA table_info(%s);", table);
@@ -267,11 +138,8 @@ static bool mig_table_has_column(sqlite3 *db, const char *table, const char *col
     return found;
 }
 
-/**
-  * @brief Idempotently add a column (skip if present); returns changed row count
- */
-static heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const char *column,
-                                        const char *column_def, uint64_t *records_affected)
+heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const char *column,
+                                 const char *column_def, uint64_t *records_affected)
 {
     if (mig_table_has_column(db, table, column)) {
         *records_affected = 0;
@@ -303,13 +171,11 @@ static heapstore_error_t mig_add_column(sqlite3 *db, const char *table, const ch
 }
 
 /**
-  * @brief Drop a column by rebuilding the table (SQLite < 3.35 lacks DROP COLUMN)
- *
-  * Only runs if the column exists; restores the table and indexes afterwards.
+ * Only runs if the column exists; restores the table and indexes afterwards.
  */
-static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
-                                          const char *const *drop_columns, size_t drop_count,
-                                          uint64_t *records_affected)
+heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
+                                   const char *const *drop_columns, size_t drop_count,
+                                   uint64_t *records_affected)
 {
     *records_affected = 0;
 
@@ -413,185 +279,142 @@ static heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
 }
 
 #endif /* AIRY_HAS_SQLITE3 */
-/**
-  * @brief v1.0.0 -> v1.1.0: add priority and tags fields to agent_record
- *
-  * Implementation: append priority/tags columns to the agents table
-  * (idempotent: skipped if present) and apply defaults to existing rows.
- */
-static heapstore_error_t migrate_v1_0_to_v1_1_agent_fields(uint64_t *records_affected)
+
+heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 {
-    *records_affected = 0;
+    if (!version) {
+        return heapstore_ERR_INVALID_PARAM;
+    }
 
-#ifdef AIRY_HAS_SQLITE3
+    if (!heapstore_is_initialized()) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
 
-    char db_path[heapstore_MAX_PATH_LEN];
-    mig_db_path(db_path, sizeof(db_path));
-    struct stat st;
-    if (stat(db_path, &st) != 0) {
+    char version_path[heapstore_MAX_PATH_LEN];
+    mig_get_version_file_path(version_path, sizeof(version_path));
+
+    FILE *f = fopen(version_path, "r");
+    if (!f) {
+
+        *version = 0;
         return heapstore_SUCCESS;
     }
 
-    heapstore_error_t err = backup_data_file(db_path);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
+    uint32_t ver = 0;
 
-    sqlite3 *db = mig_db_open();
-    if (!db) {
-        restore_data_file(db_path);
-        return heapstore_ERR_DB_INIT_FAILED;
-    }
-
-    uint64_t affected = 0;
-    uint64_t step_affected = 0;
-    err = mig_add_column(db, "agents", "priority", "priority INTEGER DEFAULT 0", &step_affected);
-    if (err != heapstore_SUCCESS) {
-        sqlite3_close(db);
-        restore_data_file(db_path);
-        return err;
-    }
-    affected += step_affected;
-    err = mig_add_column(db, "agents", "tags", "tags TEXT DEFAULT ''", &step_affected);
-    if (err != heapstore_SUCCESS) {
-        sqlite3_close(db);
-        restore_data_file(db_path);
-        return err;
-    }
-    affected += step_affected;
-
-    sqlite3_close(db);
-    cleanup_backup_file(db_path);
-    *records_affected = affected;
-    return heapstore_SUCCESS;
-#else
-
-    return heapstore_SUCCESS;
-#endif
-}
-
-/**
-  * @brief v1.1.0 -> v2.0.0: add a metadata field to session_record
- */
-static heapstore_error_t migrate_v1_1_to_v2_0_session_metadata(uint64_t *records_affected)
-{
-    *records_affected = 0;
-
-#ifdef AIRY_HAS_SQLITE3
-    char db_path[heapstore_MAX_PATH_LEN];
-    mig_db_path(db_path, sizeof(db_path));
-    struct stat st;
-    if (stat(db_path, &st) != 0) {
+    char ver_buf[32];
+    if (fgets(ver_buf, sizeof(ver_buf), f) != NULL) {
+        ver = (uint32_t)strtoul(ver_buf, NULL, 10);
+    } else {
+        fclose(f);
+        *version = 0;
         return heapstore_SUCCESS;
     }
 
-    heapstore_error_t err = backup_data_file(db_path);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
-
-    sqlite3 *db = mig_db_open();
-    if (!db) {
-        restore_data_file(db_path);
-        return heapstore_ERR_DB_INIT_FAILED;
-    }
-
-    uint64_t affected = 0;
-    err = mig_add_column(db, "sessions", "metadata", "metadata TEXT DEFAULT ''", &affected);
-    if (err != heapstore_SUCCESS) {
-        sqlite3_close(db);
-        restore_data_file(db_path);
-        return err;
-    }
-
-    sqlite3_close(db);
-    cleanup_backup_file(db_path);
-    *records_affected = affected;
+    fclose(f);
+    *version = ver;
     return heapstore_SUCCESS;
-#else
-    return heapstore_SUCCESS;
-#endif
 }
 
-static const migration_step_def_t g_forward_steps[] = {
-    {
-        .name = "v1.0→v1.1: Agent priority/tags fields",
-        .execute = migrate_v1_0_to_v1_1_agent_fields,
-        .from_version = 10000,
-        .to_version = 10100,
-    },
-    {
-        .name = "v1.1→v2.0: Session metadata field",
-        .execute = migrate_v1_1_to_v2_0_session_metadata,
-        .from_version = 10100,
-        .to_version = 20000,
-    },
-};
-
-static const size_t g_forward_step_count = sizeof(g_forward_steps) / sizeof(g_forward_steps[0]);
-
-heapstore_error_t heapstore_migration_forward(uint32_t target_version,
-                                              heapstore_migration_report_t *report)
+heapstore_error_t heapstore_migration_set_version(uint32_t version)
 {
     if (!heapstore_is_initialized()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    uint32_t current_ver = 0;
-    heapstore_error_t err = heapstore_migration_get_version(&current_ver);
+    char version_path[heapstore_MAX_PATH_LEN];
+    mig_get_version_file_path(version_path, sizeof(version_path));
+
+    FILE *f = fopen(version_path, "w");
+    if (!f) {
+        return heapstore_ERR_FILE_OPEN_FAILED;
+    }
+
+    fprintf(f, "%u\n", version);
+    fclose(f);
+    return heapstore_SUCCESS;
+}
+
+heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *current_version)
+{
+    if (!needs_migration) {
+        return heapstore_ERR_INVALID_PARAM;
+    }
+
+    uint32_t disk_version = 0;
+    heapstore_error_t err = heapstore_migration_get_version(&disk_version);
     if (err != heapstore_SUCCESS) {
         return err;
     }
 
-    if (target_version == 0) {
-        target_version = HEAPSTORE_SCHEMA_VERSION_CURRENT;
+    if (current_version) {
+        *current_version = disk_version;
     }
 
-    if (current_ver >= target_version) {
+    if (disk_version == 0) {
 
-        if (report) {
-            __builtin_memset(report, 0, sizeof(*report));
-            report->from_version = current_ver;
-            report->to_version = current_ver;
-            report->direction = HEAPSTORE_MIGRATE_FORWARD;
-            report->success = true;
+        *needs_migration = false;
+        return heapstore_migration_set_version(HEAPSTORE_SCHEMA_VERSION_CURRENT);
+    }
+
+    *needs_migration = (disk_version < HEAPSTORE_SCHEMA_VERSION_CURRENT);
+    return heapstore_SUCCESS;
+}
+
+/**
+  * @brief Fill the report header and allocate the per-step array.
+ */
+static void mig_report_prepare(heapstore_migration_report_t *report, uint32_t from_version,
+                               uint32_t to_version, heapstore_migration_direction_t direction,
+                               size_t step_count)
+{
+    if (!report) {
+        return;
+    }
+
+    AIRY_MEMSET(report, 0, sizeof(*report));
+    report->from_version = from_version;
+    report->to_version = to_version;
+    report->direction = direction;
+    report->step_count = step_count;
+    report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
+        step_count * sizeof(heapstore_migration_step_t));
+    if (report->steps) {
+        AIRY_MEMSET(report->steps, 0, step_count * sizeof(heapstore_migration_step_t));
+    }
+}
+
+heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_count,
+                                uint32_t current_version, uint32_t target_version,
+                                heapstore_migration_report_t *report, bool forward)
+{
+    heapstore_migration_direction_t direction =
+        forward ? HEAPSTORE_MIGRATE_FORWARD : HEAPSTORE_MIGRATE_BACKWARD;
+
+    const migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
+    size_t applicable_count = 0;
+
+    for (size_t i = 0; i < step_count && applicable_count < HEAPSTORE_MIGRATION_MAX_STEPS; i++) {
+        bool applicable = forward ? (steps[i].from_version >= current_version &&
+                                     steps[i].to_version <= target_version)
+                                  : (steps[i].from_version <= current_version &&
+                                     steps[i].to_version >= target_version);
+        if (applicable) {
+            applicable_steps[applicable_count++] = &steps[i];
         }
-        return heapstore_SUCCESS;
     }
 
-    migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
-    size_t step_count = 0;
+    mig_report_prepare(report, current_version, target_version, direction, applicable_count);
 
-    for (size_t i = 0; i < g_forward_step_count && step_count < HEAPSTORE_MIGRATION_MAX_STEPS;
-         i++) {
-        if (g_forward_steps[i].from_version >= current_ver &&
-            g_forward_steps[i].to_version <= target_version) {
-            applicable_steps[step_count++] = (migration_step_def_t *)&g_forward_steps[i];
-        }
-    }
-
-    if (report) {
-        __builtin_memset(report, 0, sizeof(*report));
-        report->from_version = current_ver;
-        report->to_version = target_version;
-        report->direction = HEAPSTORE_MIGRATE_FORWARD;
-        report->step_count = step_count;
-        report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
-            step_count * sizeof(heapstore_migration_step_t));
-        if (report->steps) {
-            __builtin_memset(report->steps, 0, step_count * sizeof(heapstore_migration_step_t));
-        }
-    }
-
-    uint64_t total_start = get_time_ms();
+    uint64_t total_start = mig_get_time_ms();
     bool all_success = true;
 
-    for (size_t i = 0; i < step_count; i++) {
-        uint64_t step_start = get_time_ms();
+    for (size_t i = 0; i < applicable_count; i++) {
+        uint64_t step_start = mig_get_time_ms();
         uint64_t records = 0;
 
         heapstore_error_t step_err = applicable_steps[i]->execute(&records);
-        uint64_t step_duration = get_time_ms() - step_start;
+        uint64_t step_duration = mig_get_time_ms() - step_start;
 
         if (report && report->steps) {
             AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
@@ -610,7 +433,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
     if (all_success) {
 
-        err = heapstore_migration_set_version(target_version);
+        heapstore_error_t err = heapstore_migration_set_version(target_version);
         if (err != heapstore_SUCCESS) {
             all_success = false;
         }
@@ -618,203 +441,7 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
 
     if (report) {
         report->success = all_success;
-        report->total_duration_ms = get_time_ms() - total_start;
-    }
-
-    return all_success ? heapstore_SUCCESS : heapstore_ERR_INTERNAL;
-}
-
-/**
-  * @brief v2.0.0 -> v1.1.0: remove the session metadata field
- *
-  * Implementation: rebuild the sessions table without metadata, keeping core fields.
- */
-static heapstore_error_t rollback_v2_0_to_v1_1_session_metadata(uint64_t *records_affected)
-{
-    *records_affected = 0;
-
-#ifdef AIRY_HAS_SQLITE3
-    char db_path[heapstore_MAX_PATH_LEN];
-    mig_db_path(db_path, sizeof(db_path));
-    struct stat st;
-    if (stat(db_path, &st) != 0) {
-        return heapstore_SUCCESS;
-    }
-
-    heapstore_error_t err = backup_data_file(db_path);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
-
-    sqlite3 *db = mig_db_open();
-    if (!db) {
-        restore_data_file(db_path);
-        return heapstore_ERR_DB_INIT_FAILED;
-    }
-
-    static const char *drop_cols[] = {"metadata"};
-    uint64_t affected = 0;
-    err = mig_drop_columns(db, "sessions", drop_cols, 1, &affected);
-    if (err != heapstore_SUCCESS) {
-        sqlite3_close(db);
-        restore_data_file(db_path);
-        return err;
-    }
-
-    sqlite3_close(db);
-    cleanup_backup_file(db_path);
-    *records_affected = affected;
-    return heapstore_SUCCESS;
-#else
-    return heapstore_SUCCESS;
-#endif
-}
-
-/**
-  * @brief v1.1.0 -> v1.0.0: remove agent priority and tags fields
- *
-  * Implementation: rebuild the agents table without priority/tags, keeping core fields.
- */
-static heapstore_error_t rollback_v1_1_to_v1_0_agent_fields(uint64_t *records_affected)
-{
-    *records_affected = 0;
-
-#ifdef AIRY_HAS_SQLITE3
-    char db_path[heapstore_MAX_PATH_LEN];
-    mig_db_path(db_path, sizeof(db_path));
-    struct stat st;
-    if (stat(db_path, &st) != 0) {
-        return heapstore_SUCCESS;
-    }
-
-    heapstore_error_t err = backup_data_file(db_path);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
-
-    sqlite3 *db = mig_db_open();
-    if (!db) {
-        restore_data_file(db_path);
-        return heapstore_ERR_DB_INIT_FAILED;
-    }
-
-    static const char *drop_cols[] = {"priority", "tags"};
-    uint64_t affected = 0;
-    err = mig_drop_columns(db, "agents", drop_cols, 2, &affected);
-    if (err != heapstore_SUCCESS) {
-        sqlite3_close(db);
-        restore_data_file(db_path);
-        return err;
-    }
-
-    sqlite3_close(db);
-    cleanup_backup_file(db_path);
-    *records_affected = affected;
-    return heapstore_SUCCESS;
-#else
-    return heapstore_SUCCESS;
-#endif
-}
-
-static const migration_step_def_t g_rollback_steps[] = {
-    {
-        .name = "v2.0→v1.1: Remove session metadata",
-        .execute = rollback_v2_0_to_v1_1_session_metadata,
-        .from_version = 20000,
-        .to_version = 10100,
-    },
-    {
-        .name = "v1.1→v1.0: Remove agent priority/tags",
-        .execute = rollback_v1_1_to_v1_0_agent_fields,
-        .from_version = 10100,
-        .to_version = 10000,
-    },
-};
-
-static const size_t g_rollback_step_count = sizeof(g_rollback_steps) / sizeof(g_rollback_steps[0]);
-
-heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
-                                               heapstore_migration_report_t *report)
-{
-    if (!heapstore_is_initialized()) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    uint32_t current_ver = 0;
-    heapstore_error_t err = heapstore_migration_get_version(&current_ver);
-    if (err != heapstore_SUCCESS) {
-        return err;
-    }
-
-    if (current_ver <= target_version) {
-        if (report) {
-            __builtin_memset(report, 0, sizeof(*report));
-            report->from_version = current_ver;
-            report->to_version = current_ver;
-            report->direction = HEAPSTORE_MIGRATE_BACKWARD;
-            report->success = true;
-        }
-        return heapstore_SUCCESS;
-    }
-
-    migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
-    size_t step_count = 0;
-
-    for (size_t i = 0; i < g_rollback_step_count && step_count < HEAPSTORE_MIGRATION_MAX_STEPS;
-         i++) {
-        if (g_rollback_steps[i].from_version <= current_ver &&
-            g_rollback_steps[i].to_version >= target_version) {
-            applicable_steps[step_count++] = (migration_step_def_t *)&g_rollback_steps[i];
-        }
-    }
-
-    if (report) {
-        __builtin_memset(report, 0, sizeof(*report));
-        report->from_version = current_ver;
-        report->to_version = target_version;
-        report->direction = HEAPSTORE_MIGRATE_BACKWARD;
-        report->step_count = step_count;
-        report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
-            step_count * sizeof(heapstore_migration_step_t));
-        if (report->steps) {
-            __builtin_memset(report->steps, 0, step_count * sizeof(heapstore_migration_step_t));
-        }
-    }
-
-    uint64_t total_start = get_time_ms();
-    bool all_success = true;
-
-    for (size_t i = 0; i < step_count; i++) {
-        uint64_t step_start = get_time_ms();
-        uint64_t records = 0;
-
-        heapstore_error_t step_err = applicable_steps[i]->execute(&records);
-        uint64_t step_duration = get_time_ms() - step_start;
-
-        if (report && report->steps) {
-            AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
-                              sizeof(report->steps[i].name));
-            report->steps[i].result = step_err;
-            report->steps[i].records_affected = records;
-            report->steps[i].duration_ms = step_duration;
-        }
-
-        if (step_err != heapstore_SUCCESS) {
-            all_success = false;
-            break;
-        }
-    }
-
-    if (all_success) {
-        err = heapstore_migration_set_version(target_version);
-        if (err != heapstore_SUCCESS) {
-            all_success = false;
-        }
-    }
-
-    if (report) {
-        report->success = all_success;
-        report->total_duration_ms = get_time_ms() - total_start;
+        report->total_duration_ms = mig_get_time_ms() - total_start;
     }
 
     return all_success ? heapstore_SUCCESS : heapstore_ERR_INTERNAL;

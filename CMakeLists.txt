@@ -3,6 +3,11 @@ airy_print_info("[HEAPSTORE] Configuring heapstore module (SQLite3: ${AIRY_HAS_S
 set(heapstore_SOURCES
     src/heapstore_core.c
     src/heapstore_core_batch.c
+    # 域拆分（2026-08-27）：core 按职责切出熔断/错误/指标/写入四域
+    src/heapstore_core_circuit.c
+    src/heapstore_core_error.c
+    src/heapstore_core_metrics.c
+    src/heapstore_core_write.c
     src/heapstore_registry.c
     src/heapstore_registry_sqlite.c
     src/heapstore_registry_sqlite_agent.c
@@ -16,6 +21,9 @@ set(heapstore_SOURCES
     src/heapstore_token.c
     src/heapstore_integration.c
     src/heapstore_migration.c
+    # 域拆分（2026-08-27）：migration 切出前向/回滚两域
+    src/heapstore_migration_forward.c
+    src/heapstore_migration_rollback.c
     src/utils.c
     kernel/services/trace_store_service.c
     kernel/services/log_store_service.c
@@ -34,7 +42,9 @@ set(heapstore_HEADERS
     include/heapstore_integration.h
     include/utils.h
     src/private.h
+    src/heapstore_core_internal.h
     src/heapstore_registry_internal.h
+    src/heapstore_migration_internal.h
 )
 
 add_library(airy_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})

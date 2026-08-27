@@ -129,7 +129,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
         ▲              ▲
         │              │
      daemons        gateway
-   (12 daemons,    (access logs,
+   (18 daemons,   (access logs,
     registries,     request traces)
     token budgets)
 
@@ -157,7 +157,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 
 | Consumer | What they use |
 |----------|---------------|
-| **daemons** | All 12 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories under `services/`; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage (`heapstore_token_check_budget`) |
+| **daemons** | All 18 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories under `services/`; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage (`heapstore_token_check_budget`) |
 | **gateway** | Gateway writes access logs and request traces through `heapstore_log` and `heapstore_trace`; the circuit breaker protects gateway writes under load |
 | SDK layer | SDK consumers read runtime state (registries, traces, token budgets) via the heapstore query APIs for observability and budgeting |
 

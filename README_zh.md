@@ -129,7 +129,7 @@ heapstore/
         ▲              ▲
         │              │
      daemons        gateway
-   (12 个守护进程,  （访问日志,
+   (18 个守护进程,  （访问日志,
     注册表,          请求追踪)
     令牌预算)
 
@@ -157,7 +157,7 @@ heapstore/
 
 | 消费者 | 用途 |
 |--------|------|
-| **daemons** | 全部 12 个守护进程通过 heapstore 持久化状态——`market_d`/`tool_d`/`llm_d` 在 `services/` 下有专用数据目录；注册表跟踪 Agent/Skill/Session；令牌引擎预算 LLM 使用（`heapstore_token_check_budget`） |
+| **daemons** | 全部 18 个守护进程通过 heapstore 持久化状态——`market_d`/`tool_d`/`llm_d` 在 `services/` 下有专用数据目录；注册表跟踪 Agent/Skill/Session；令牌引擎预算 LLM 使用（`heapstore_token_check_budget`） |
 | **gateway** | 网关通过 `heapstore_log` 和 `heapstore_trace` 写入访问日志和请求追踪；熔断器在负载下保护网关写入 |
 | SDK 层 | SDK 消费者通过 heapstore 查询 API 读取运行时状态（注册表、追踪、令牌预算），用于可观测性和预算控制 |
 
