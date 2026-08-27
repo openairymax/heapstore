@@ -17,6 +17,10 @@ set(heapstore_SOURCES
     src/heapstore_trace.c
     src/heapstore_log.c
     src/heapstore_ipc.c
+    # 域拆分（2026-08-27）：ipc 按职责切出持久化/共享内存/消息传输三域
+    src/heapstore_ipc_persist.c
+    src/heapstore_ipc_shm.c
+    src/heapstore_ipc_msg.c
     src/heapstore_memory.c
     src/heapstore_token.c
     src/heapstore_integration.c
@@ -45,6 +49,7 @@ set(heapstore_HEADERS
     src/heapstore_core_internal.h
     src/heapstore_registry_internal.h
     src/heapstore_migration_internal.h
+    src/heapstore_ipc_internal.h
 )
 
 add_library(airy_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})
