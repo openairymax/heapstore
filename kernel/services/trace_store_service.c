@@ -131,7 +131,7 @@ int trace_store_service_init(const char *storage_path, uint64_t max_storage_byte
   * @param trace_point Trace point data
   * @return int: 0 on success, non-zero error code
  */
-int trace_store_service_store_point(const heapstore_trace_point_t *trace_point)
+int trace_store_point(const heapstore_trace_point_t *trace_point)
 {
     if (!atomic_load_explicit(&g_ctx.is_initialized, memory_order_acquire) || !trace_point) {
         return AIRY_EINVAL;
@@ -190,7 +190,7 @@ int trace_store_service_store_batch(const heapstore_trace_point_t *trace_points,
 
     int stored = 0;
     for (int i = 0; i < count; i++) {
-        if (trace_store_service_store_point(&trace_points[i]) == 0) {
+        if (trace_store_point(&trace_points[i]) == 0) {
             stored++;
         }
     }
