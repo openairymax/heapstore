@@ -106,7 +106,7 @@ heapstore_error_t heapstore_registry_init(void)
     char full_path[512];
     snprintf(full_path, sizeof(full_path), "%s/registry", root_path);
 
-    heapstore_ensure_directory(full_path);
+    heapstore_dir_ensure(full_path);
 
     snprintf(s_registry.db_path, sizeof(s_registry.db_path), "%s/registry.db", full_path);
 

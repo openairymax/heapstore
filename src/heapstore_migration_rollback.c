@@ -126,7 +126,7 @@ static const size_t g_rollback_step_count = sizeof(g_rollback_steps) / sizeof(g_
 heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
                                                heapstore_migration_report_t *report)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 

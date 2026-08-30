@@ -23,7 +23,7 @@ static int test_sanitize_path_component_valid(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(output, "valid_service", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "valid_service", sizeof(output)) != 0) {
         TEST_FAIL("sanitize_valid", "Should accept valid service name");
         return -1;
     }
@@ -32,12 +32,12 @@ static int test_sanitize_path_component_valid(void)
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service-123", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service-123", sizeof(output)) != 0) {
         TEST_FAIL("sanitize_valid_hyphen", "Should accept hyphen");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service.name", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service.name", sizeof(output)) != 0) {
         TEST_FAIL("sanitize_valid_dot", "Should accept dot");
         return -1;
     }
@@ -50,17 +50,17 @@ static int test_sanitize_path_component_traversal(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(output, "../etc/passwd", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "../etc/passwd", sizeof(output)) != -1) {
         TEST_FAIL("block_parent_dir", "Should block parent directory traversal");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "..\\windows\\system32", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "..\\windows\\system32", sizeof(output)) != -1) {
         TEST_FAIL("block_windows_traversal", "Should block Windows-style traversal");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "....//....//etc/passwd", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "....//....//etc/passwd", sizeof(output)) != -1) {
         TEST_FAIL("block_double_traversal", "Should block double traversal");
         return -1;
     }
@@ -73,17 +73,17 @@ static int test_sanitize_path_component_slashes(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(output, "service/name", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "service/name", sizeof(output)) != -1) {
         TEST_FAIL("block_forward_slash", "Should block forward slash");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service\\name", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "service\\name", sizeof(output)) != -1) {
         TEST_FAIL("block_backslash", "Should block backslash");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "/absolute/path", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "/absolute/path", sizeof(output)) != -1) {
         TEST_FAIL("block_absolute_path", "Should block absolute path");
         return -1;
     }
@@ -96,7 +96,7 @@ static int test_sanitize_path_component_special_chars(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(output, "service; rm -rf /", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service; rm -rf /", sizeof(output)) != 0) {
         TEST_FAIL("replace_semicolon", "Should replace semicolon");
         return -1;
     }
@@ -105,7 +105,7 @@ static int test_sanitize_path_component_special_chars(void)
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service$(whoami)", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service$(whoami)", sizeof(output)) != 0) {
         TEST_FAIL("replace_command_subst", "Should replace command substitution");
         return -1;
     }
@@ -114,7 +114,7 @@ static int test_sanitize_path_component_special_chars(void)
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service`id`", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service`id`", sizeof(output)) != 0) {
         TEST_FAIL("replace_backticks", "Should replace backticks");
         return -1;
     }
@@ -131,17 +131,17 @@ static int test_sanitize_path_component_null_checks(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(NULL, "test", sizeof(output)) != -1) {
+    if (heapstore_path_clean(NULL, "test", sizeof(output)) != -1) {
         TEST_FAIL("null_output", "Should reject NULL output");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, NULL, sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, NULL, sizeof(output)) != -1) {
         TEST_FAIL("null_input", "Should reject NULL input");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "test", 0) != -1) {
+    if (heapstore_path_clean(output, "test", 0) != -1) {
         TEST_FAIL("zero_size", "Should reject zero size");
         return -1;
     }
@@ -152,32 +152,32 @@ static int test_sanitize_path_component_null_checks(void)
 
 static int test_is_safe_identifier(void)
 {
-    if (!heapstore_is_safe_identifier("valid_service")) {
+    if (!heapstore_ident_safe("valid_service")) {
         TEST_FAIL("safe_valid", "Should accept valid identifier");
         return -1;
     }
 
-    if (heapstore_is_safe_identifier("../etc/passwd")) {
+    if (heapstore_ident_safe("../etc/passwd")) {
         TEST_FAIL("unsafe_traversal", "Should reject traversal");
         return -1;
     }
 
-    if (heapstore_is_safe_identifier("service/name")) {
+    if (heapstore_ident_safe("service/name")) {
         TEST_FAIL("unsafe_slash", "Should reject slash");
         return -1;
     }
 
-    if (heapstore_is_safe_identifier("service;cmd")) {
+    if (heapstore_ident_safe("service;cmd")) {
         TEST_FAIL("unsafe_semicolon", "Should reject semicolon");
         return -1;
     }
 
-    if (heapstore_is_safe_identifier(NULL)) {
+    if (heapstore_ident_safe(NULL)) {
         TEST_FAIL("unsafe_null", "Should reject NULL");
         return -1;
     }
 
-    if (heapstore_is_safe_identifier("")) {
+    if (heapstore_ident_safe("")) {
         TEST_FAIL("unsafe_empty", "Should reject empty string");
         return -1;
     }

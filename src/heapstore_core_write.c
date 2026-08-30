@@ -35,7 +35,7 @@ const char *heapstore_get_path(heapstore_path_type_t type)
 heapstore_error_t heapstore_get_full_path(heapstore_path_type_t type, char *buffer,
                                           size_t buffer_size)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -104,7 +104,7 @@ static void update_stats_for_path(heapstore_stats_t *stats, heapstore_path_type_
 
 heapstore_error_t heapstore_get_stats(heapstore_stats_t *stats)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -127,7 +127,7 @@ heapstore_error_t heapstore_get_stats(heapstore_stats_t *stats)
         char full_path[512];
         snprintf(full_path, sizeof(full_path), "%s/%s", heapstore_get_root(), path_name);
 
-        heapstore_calculate_directory_size(full_path, &dir_size, &file_count);
+        heapstore_dir_size(full_path, &dir_size, &file_count);
 
         update_stats_for_path(stats, path_type, dir_size, file_count);
         stats->total_disk_usage_bytes += dir_size;
@@ -138,7 +138,7 @@ heapstore_error_t heapstore_get_stats(heapstore_stats_t *stats)
 
 heapstore_error_t heapstore_log_write_fast(const char *service, int level, const char *message)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -146,13 +146,13 @@ heapstore_error_t heapstore_log_write_fast(const char *service, int level, const
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (heapstore_core_circuit_is_open()) {
+    if (heapstore_circuit_open()) {
         return heapstore_ERR_CIRCUIT_OPEN;
     }
 
     bool is_failed = false;
 
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         is_failed = true;
         heapstore_core_circuit_record_failure();
     } else {
@@ -168,7 +168,7 @@ heapstore_error_t heapstore_log_write_fast(const char *service, int level, const
 heapstore_error_t heapstore_log_write_slow(const char *service, int level, const char *message,
                                            const char *trace_id, uint32_t timeout_ms)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -176,13 +176,13 @@ heapstore_error_t heapstore_log_write_slow(const char *service, int level, const
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (heapstore_core_circuit_is_open()) {
+    if (heapstore_circuit_open()) {
         return heapstore_ERR_CIRCUIT_OPEN;
     }
 
     bool is_failed = false;
 
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         is_failed = true;
         heapstore_core_circuit_record_failure();
     } else {
@@ -197,7 +197,7 @@ heapstore_error_t heapstore_log_write_slow(const char *service, int level, const
 
 heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 

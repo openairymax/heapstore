@@ -44,7 +44,7 @@ void heapstore_core_get_cleanup_config(bool *enable_auto_cleanup, uint32_t *log_
 void heapstore_core_circuit_init(void);
 void heapstore_core_circuit_record_success(void);
 void heapstore_core_circuit_record_failure(void);
-bool heapstore_core_circuit_is_open(void);
+bool heapstore_circuit_open(void);
 void heapstore_core_circuit_apply_config(uint32_t threshold, uint32_t timeout_sec);
 
 /* ---- Operation metrics (heapstore_core_metrics.c) ---- */

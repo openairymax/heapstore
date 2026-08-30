@@ -134,7 +134,7 @@ static const size_t g_forward_step_count = sizeof(g_forward_steps) / sizeof(g_fo
 heapstore_error_t heapstore_migration_forward(uint32_t target_version,
                                               heapstore_migration_report_t *report)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 

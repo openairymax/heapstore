@@ -20,7 +20,7 @@ static void test_init_shutdown(void)
 {
     printf("Test: init_shutdown...");
 
-    assert(!heapstore_is_initialized());
+    assert(!heapstore_ready());
 
     heapstore_config_t manager = {0};
     manager.root_path = "test_heapstore";
@@ -33,10 +33,10 @@ static void test_init_shutdown(void)
            err == heapstore_ERR_DIR_CREATE_FAILED);
 
     if (err == heapstore_SUCCESS) {
-        assert(heapstore_is_initialized());
+        assert(heapstore_ready());
         assert(strcmp(heapstore_get_root(), "test_heapstore") == 0);
         heapstore_shutdown();
-        assert(!heapstore_is_initialized());
+        assert(!heapstore_ready());
     }
 
     printf("PASS\n");

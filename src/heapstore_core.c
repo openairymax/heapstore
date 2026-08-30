@@ -156,7 +156,7 @@ static void apply_user_config(const heapstore_config_t *manager)
  */
 static heapstore_error_t create_directory_structure(void)
 {
-    if (!heapstore_ensure_directory(s_root_path)) {
+    if (!heapstore_dir_ensure(s_root_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
     }
 
@@ -165,7 +165,7 @@ static heapstore_error_t create_directory_structure(void)
         snprintf(full_path, sizeof(full_path), "%s/%s", s_root_path,
                  heapstore_core_path_names[i]);
 
-        if (!heapstore_ensure_directory(full_path)) {
+        if (!heapstore_dir_ensure(full_path)) {
             return heapstore_ERR_DIR_CREATE_FAILED;
         }
 
@@ -175,7 +175,7 @@ static heapstore_error_t create_directory_structure(void)
                 char sub_path[heapstore_MAX_PATH_LEN];
                 snprintf(sub_path, sizeof(sub_path), "%s/%s", full_path,
                          heapstore_core_subpath_map[subpath_idx][j]);
-                if (!heapstore_ensure_directory(sub_path)) {
+                if (!heapstore_dir_ensure(sub_path)) {
                     return heapstore_ERR_DIR_CREATE_FAILED;
                 }
             }
@@ -357,7 +357,7 @@ void heapstore_shutdown(void)
     }
 }
 
-bool heapstore_is_initialized(void)
+bool heapstore_ready(void)
 {
     return s_initialized;
 }
@@ -508,7 +508,7 @@ heapstore_error_t heapstore_health_check(bool *registry_ok, bool *trace_ok, bool
     update_health_status(memory_ok, check_subsystem_health("memory", heapstore_memory_is_healthy),
                          &all_healthy);
 
-    if (heapstore_core_circuit_is_open()) {
+    if (heapstore_circuit_open()) {
         all_healthy = false;
     }
 

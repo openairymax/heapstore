@@ -170,7 +170,7 @@ void heapstore_shutdown(void);
  * @reentrant yes
  * @since v1.0.0
  */
-bool heapstore_is_initialized(void);
+bool heapstore_ready(void);
 
 /**
   * @brief Get the data partition root path

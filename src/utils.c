@@ -27,7 +27,7 @@
 #include <unistd.h>
 #endif
 
-bool heapstore_ensure_directory(const char *path)
+bool heapstore_dir_ensure(const char *path)
 {
     if (!path || !path[0]) {
         return false;
@@ -102,7 +102,7 @@ bool heapstore_ensure_directory(const char *path)
 #endif
 }
 
-bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, uint32_t *out_count)
+bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_count)
 {
     if (!path || !path[0] || !out_size || !out_count) {
         return false;
@@ -135,7 +135,7 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
 
             uint64_t sub_size = 0;
             uint32_t sub_count = 0;
-            if (heapstore_calculate_directory_size(sub_path, &sub_size, &sub_count)) {
+            if (heapstore_dir_size(sub_path, &sub_size, &sub_count)) {
                 *out_size += sub_size;
                 *out_count += sub_count;
             }
@@ -173,7 +173,7 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
 
             uint64_t sub_size = 0;
             uint32_t sub_count = 0;
-            if (heapstore_calculate_directory_size(full_path, &sub_size, &sub_count)) {
+            if (heapstore_dir_size(full_path, &sub_size, &sub_count)) {
                 *out_size += sub_size;
                 *out_count += sub_count;
             }
@@ -189,7 +189,7 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
     return true;
 }
 
-int heapstore_sanitize_path_component(char *output, const char *input, size_t size)
+int heapstore_path_clean(char *output, const char *input, size_t size)
 {
     if (!output || !input || size == 0) {
         return AIRY_EINVAL;
@@ -231,7 +231,7 @@ int heapstore_sanitize_path_component(char *output, const char *input, size_t si
     return 0;
 }
 
-bool heapstore_is_safe_identifier(const char *input)
+bool heapstore_ident_safe(const char *input)
 {
     if (!input || !input[0]) {
         return false;

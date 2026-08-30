@@ -30,7 +30,7 @@ extern "C" {
  *
   * @note Supports creating multi-level nested directories
  */
-bool heapstore_ensure_directory(const char *path);
+bool heapstore_dir_ensure(const char *path);
 
 /**
   * @brief Compute total size and file count of a directory
@@ -47,7 +47,7 @@ bool heapstore_ensure_directory(const char *path);
   * @note Recursively account for subdirectory sizes
  * @since v1.0.0
  */
-bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, uint32_t *out_count);
+bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_count);
 
 /**
   * @brief Sanitize a path component against traversal and injection attacks
@@ -74,14 +74,14 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
  *
   * @warning Call before constructing any file path
  *
- * @see heapstore_ensure_directory()
+ * @see heapstore_dir_ensure()
  *
  * @since v0.1.0
  *
  * @example
  * @code
  * char safe_name[256];
- * if (heapstore_sanitize_path_component(safe_name, "../../../etc/passwd", sizeof(safe_name)) != 0)
+ * if (heapstore_path_clean(safe_name, "../../../etc/passwd", sizeof(safe_name)) != 0)
  * {
  *
  *     return ERROR_INVALID_PARAM;
@@ -89,12 +89,12 @@ bool heapstore_calculate_directory_size(const char *path, uint64_t *out_size, ui
  *
  * @endcode
  */
-int heapstore_sanitize_path_component(char *output, const char *input, size_t size);
+int heapstore_path_clean(char *output, const char *input, size_t size);
 
 /**
   * @brief Verify an identifier is safe (no path traversal or dangerous patterns)
  *
-  * Lightweight variant of heapstore_sanitize_path_component，
+  * Lightweight variant of heapstore_path_clean，
   * Only checks safety; does not sanitize。
  *
   * @param input [in] Input string to validate
@@ -110,11 +110,11 @@ int heapstore_sanitize_path_component(char *output, const char *input, size_t si
   * - Checks for NUL-byte injection
   * - Checks that only safe characters are present
  *
- * @see heapstore_sanitize_path_component()
+ * @see heapstore_path_clean()
  *
  * @since v0.1.0
  */
-bool heapstore_is_safe_identifier(const char *input);
+bool heapstore_ident_safe(const char *input);
 
 #ifdef __cplusplus
 }

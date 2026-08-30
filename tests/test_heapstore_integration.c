@@ -39,7 +39,7 @@ static void test_full_lifecycle(void)
     heapstore_error_t err __attribute__((unused)) = heapstore_init(&manager);
     assert(err == heapstore_SUCCESS);
 
-    assert(heapstore_is_initialized() == true);
+    assert(heapstore_ready() == true);
     assert(strcmp(heapstore_get_root(), "hs_integ_lifecycle") == 0);
 
     char path[512];
@@ -52,7 +52,7 @@ static void test_full_lifecycle(void)
     assert(err == heapstore_SUCCESS);
 
     heapstore_shutdown();
-    assert(heapstore_is_initialized() == false);
+    assert(heapstore_ready() == false);
 
     printf("PASS\n");
 }

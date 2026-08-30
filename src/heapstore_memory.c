@@ -64,25 +64,25 @@ heapstore_error_t heapstore_memory_init(void)
     }
     AIRY_STRNCPY_TERM(s_memory_path, base_path, sizeof(s_memory_path));
 
-    if (!heapstore_ensure_directory(s_memory_path)) {
+    if (!heapstore_dir_ensure(s_memory_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
     }
 
     char pools_path[heapstore_MEMORY_MAX_PATH];
     snprintf(pools_path, sizeof(pools_path), "%s/pools", s_memory_path);
-    if (!heapstore_ensure_directory(pools_path)) {
+    if (!heapstore_dir_ensure(pools_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
     }
 
     char allocations_path[heapstore_MEMORY_MAX_PATH];
     snprintf(allocations_path, sizeof(allocations_path), "%s/allocations", s_memory_path);
-    if (!heapstore_ensure_directory(allocations_path)) {
+    if (!heapstore_dir_ensure(allocations_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
     }
 
     char stats_path[heapstore_MEMORY_MAX_PATH];
     snprintf(stats_path, sizeof(stats_path), "%s/stats", s_memory_path);
-    if (!heapstore_ensure_directory(stats_path)) {
+    if (!heapstore_dir_ensure(stats_path)) {
         return heapstore_ERR_DIR_CREATE_FAILED;
     }
 
