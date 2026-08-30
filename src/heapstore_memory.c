@@ -199,7 +199,7 @@ heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t
 
 // clang-format off
 heapstore_error_t
-heapstore_memory_record_allocation(const heapstore_memory_allocation_t *allocation)
+heapstore_mem_record(const heapstore_memory_allocation_t *allocation)
 // clang-format on
 {
     if (!s_initialized) {

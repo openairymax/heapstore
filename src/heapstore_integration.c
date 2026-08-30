@@ -421,7 +421,7 @@ airy_err_t heapstore_memory_raw_save(const void *data, size_t len, const char *m
     alloc.freed_at = 0;
     AIRY_STRNCPY_TERM(alloc.status, "allocated", sizeof(alloc.status));
 
-    heapstore_error_t alloc_err = heapstore_memory_record_allocation(&alloc);
+    heapstore_error_t alloc_err = heapstore_mem_record(&alloc);
     if (alloc_err != heapstore_SUCCESS) {
         return AIRY_EIO;
     }

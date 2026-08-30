@@ -92,7 +92,7 @@ static void test_memory_allocation_crud(void)
     snprintf(allocation.status, sizeof(allocation.status), "allocated");
 
     if (err == heapstore_SUCCESS) {
-        err = heapstore_memory_record_allocation(&allocation);
+        err = heapstore_mem_record(&allocation);
         if (err == heapstore_SUCCESS) {
             heapstore_memory_allocation_t get_alloc;
             AIRY_MEMSET(&get_alloc, 0, sizeof(get_alloc));
@@ -144,12 +144,12 @@ static void test_memory_invalid_params(void)
     err = heapstore_memory_record_pool(&invalid_pool);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
-    err = heapstore_memory_record_allocation(NULL);
+    err = heapstore_mem_record(NULL);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
     heapstore_memory_allocation_t invalid_alloc;
     AIRY_MEMSET(&invalid_alloc, 0, sizeof(invalid_alloc));
-    err = heapstore_memory_record_allocation(&invalid_alloc);
+    err = heapstore_mem_record(&invalid_alloc);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
     err = heapstore_memory_get_pool(NULL, NULL);
