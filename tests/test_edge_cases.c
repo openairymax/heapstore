@@ -185,32 +185,32 @@ static int test_sanitize_function_edge_cases(void)
 {
     char output[256];
 
-    if (heapstore_sanitize_path_component(output, "valid_service", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "valid_service", sizeof(output)) != 0) {
         TEST_FAIL("valid_service", "Should accept valid service name");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service-with-dash", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service-with-dash", sizeof(output)) != 0) {
         TEST_FAIL("service_with_dash", "Should accept dash");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service.with.dot", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service.with.dot", sizeof(output)) != 0) {
         TEST_FAIL("service_with_dot", "Should accept dot");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "service_123", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "service_123", sizeof(output)) != 0) {
         TEST_FAIL("service_with_numbers", "Should accept numbers");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "", sizeof(output)) != -1) {
         TEST_FAIL("empty_input", "Should reject empty input");
         return -1;
     }
 
-    if (heapstore_sanitize_path_component(output, "a", sizeof(output)) != 0) {
+    if (heapstore_path_clean(output, "a", sizeof(output)) != 0) {
         TEST_FAIL("single_char", "Should accept single character");
         return -1;
     }
@@ -219,7 +219,7 @@ static int test_sanitize_function_edge_cases(void)
     AIRY_MEMSET(very_long, 'A', sizeof(very_long) - 1);
     very_long[sizeof(very_long) - 1] = '\0';
 
-    if (heapstore_sanitize_path_component(output, very_long, sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, very_long, sizeof(output)) != -1) {
         TEST_FAIL("buffer_overflow", "Should reject input larger than buffer");
         return -1;
     }
@@ -248,7 +248,7 @@ static int test_initialization_edge_cases(void)
 
     heapstore_shutdown();
 
-    bool initialized = heapstore_is_initialized();
+    bool initialized = heapstore_ready();
     if (initialized) {
         TEST_FAIL("after_shutdown", "Should not be initialized after shutdown");
         return -1;

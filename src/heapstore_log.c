@@ -122,7 +122,7 @@ static FILE *get_main_log_file(void)
 
     char kernel_path[heapstore_LOG_MAX_PATH];
     snprintf(kernel_path, sizeof(kernel_path), "%s/kernel", base);
-    heapstore_ensure_directory(kernel_path);
+    heapstore_dir_ensure(kernel_path);
 
     char filepath[heapstore_LOG_MAX_PATH];
     snprintf(filepath, sizeof(filepath), "%s/kernel/agentrt.log", base);
@@ -141,7 +141,7 @@ static FILE *get_service_log_file(const char *service)
     }
 
     char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
-    if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
+    if (heapstore_path_clean(safe_service, service, sizeof(safe_service)) != 0) {
         AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
         return NULL;
     }
@@ -160,7 +160,7 @@ static FILE *get_service_log_file(const char *service)
         const char *base = get_log_base_path();
         char service_path[heapstore_LOG_MAX_PATH];
         snprintf(service_path, sizeof(service_path), "%s/services", base);
-        heapstore_ensure_directory(service_path);
+        heapstore_dir_ensure(service_path);
 
         char filepath[heapstore_LOG_MAX_PATH];
         snprintf(filepath, sizeof(filepath), "%s/services/%s.log", base, safe_service);
@@ -210,10 +210,10 @@ heapstore_error_t heapstore_log_init(void)
     snprintf(apps_dir, sizeof(apps_dir), "%s/apps", base);
     snprintf(main_log_path, sizeof(main_log_path), "%s/kernel/agentrt.log", base);
 
-    heapstore_ensure_directory(base);
-    heapstore_ensure_directory(kernel_dir);
-    heapstore_ensure_directory(services_dir);
-    heapstore_ensure_directory(apps_dir);
+    heapstore_dir_ensure(base);
+    heapstore_dir_ensure(kernel_dir);
+    heapstore_dir_ensure(services_dir);
+    heapstore_dir_ensure(apps_dir);
 
     update_current_date();
     s_main_log_file = fopen(main_log_path, "a");
@@ -387,7 +387,7 @@ heapstore_error_t heapstore_log_get_service_path(const char *service, char *buff
     const char *base = get_log_base_path();
     if (service && service[0]) {
         char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
-        if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
+        if (heapstore_path_clean(safe_service, service, sizeof(safe_service)) != 0) {
             AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
             return heapstore_ERR_INVALID_PARAM;
         }
@@ -583,7 +583,7 @@ heapstore_error_t heapstore_log_get_file_info(const char *service, heapstore_log
 
     if (service && service[0]) {
         char safe_service[heapstore_LOG_MAX_SERVICE_LEN];
-        if (heapstore_sanitize_path_component(safe_service, service, sizeof(safe_service)) != 0) {
+        if (heapstore_path_clean(safe_service, service, sizeof(safe_service)) != 0) {
             AIRY_LOG_WARN("heapstore_log: rejected unsafe service name: %s", service);
             return heapstore_ERR_INVALID_PARAM;
         }

@@ -85,7 +85,7 @@ static void generate_random_string(char *buffer, size_t length, bool include_spe
 /**
   * @brief Test 1: path component sanitization fuzzing
  *
-  * Fuzz heapstore_sanitize_path_component() with random input
+  * Fuzz heapstore_path_clean() with random input
  */
 static void test_fuzz_sanitize_path(void)
 {
@@ -99,7 +99,7 @@ static void test_fuzz_sanitize_path(void)
         size_t len = (rand() % (MAX_INPUT_LENGTH - 1)) + 1;
         generate_random_string(input, len, true);
 
-        int result = heapstore_sanitize_path_component(output, input, sizeof(output));
+        int result = heapstore_path_clean(output, input, sizeof(output));
 
         if (result == 0) {
             ASSERT_TRUE(strstr(output, "..") == NULL, "Output should not contain '..'");
@@ -117,7 +117,7 @@ static void test_fuzz_sanitize_path(void)
 /**
   * @brief Test 2: safe-identifier validation fuzzing
  *
-  * Fuzz heapstore_is_safe_identifier() with random input
+  * Fuzz heapstore_ident_safe() with random input
  */
 static void test_fuzz_safe_identifier(void)
 {
@@ -129,7 +129,7 @@ static void test_fuzz_safe_identifier(void)
         size_t len = (rand() % (MAX_INPUT_LENGTH - 1)) + 1;
         generate_random_string(input, len, true);
 
-        bool result = heapstore_is_safe_identifier(input);
+        bool result = heapstore_ident_safe(input);
 
         if (result) {
             for (size_t j = 0; j < strlen(input); j++) {

@@ -57,11 +57,11 @@ heapstore_error_t heapstore_trace_init(void)
     snprintf(base_path, sizeof(base_path), "%s/traces", heapstore_get_root());
     AIRY_STRNCPY_TERM(s_trace_path, base_path, sizeof(s_trace_path));
 
-    heapstore_ensure_directory(s_trace_path);
+    heapstore_dir_ensure(s_trace_path);
 
     char spans_path[heapstore_TRACE_MAX_PATH];
     snprintf(spans_path, sizeof(spans_path), "%s/spans", s_trace_path);
-    heapstore_ensure_directory(spans_path);
+    heapstore_dir_ensure(spans_path);
 
     s_span_buffer =
         (heapstore_span_t *)AIRY_CALLOC(heapstore_TRACE_MAX_SPANS, sizeof(heapstore_span_t));

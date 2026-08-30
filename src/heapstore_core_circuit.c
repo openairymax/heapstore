@@ -66,7 +66,7 @@ void heapstore_core_circuit_record_failure(void)
     }
 }
 
-bool heapstore_core_circuit_is_open(void)
+bool heapstore_circuit_open(void)
 {
     uint32_t state = atomic_load(&s_circuit_breaker.state);
     if (state == 0) {
@@ -99,7 +99,7 @@ void heapstore_core_circuit_apply_config(uint32_t threshold, uint32_t timeout_se
 
 heapstore_error_t heapstore_get_circuit_state(heapstore_circuit_info_t *info)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -119,7 +119,7 @@ heapstore_error_t heapstore_get_circuit_state(heapstore_circuit_info_t *info)
 
 heapstore_error_t heapstore_reset_circuit(void)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 

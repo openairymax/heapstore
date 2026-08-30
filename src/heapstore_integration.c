@@ -391,7 +391,7 @@ airy_err_t heapstore_memory_raw_save(const void *data, size_t len, const char *m
 
     char dir[512];
     snprintf(dir, sizeof(dir), "%s/memory/memoryrovol", heapstore_get_root());
-    heapstore_ensure_directory(dir);
+    heapstore_dir_ensure(dir);
 
     heapstore_memory_pool_t pool;
     __builtin_memset(&pool, 0, sizeof(pool));

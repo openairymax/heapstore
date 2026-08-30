@@ -286,7 +286,7 @@ heapstore_error_t heapstore_migration_get_version(uint32_t *version)
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -318,7 +318,7 @@ heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 
 heapstore_error_t heapstore_migration_set_version(uint32_t version)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 

@@ -44,15 +44,15 @@ heapstore_error_t heapstore_ipc_init(void)
     snprintf(base_path, sizeof(base_path), "%s/kernel/ipc", heapstore_get_root());
     AIRY_STRNCPY_TERM(s_ipc_path, base_path, sizeof(s_ipc_path));
 
-    heapstore_ensure_directory(s_ipc_path);
+    heapstore_dir_ensure(s_ipc_path);
 
     char channels_path[heapstore_IPC_MAX_PATH];
     snprintf(channels_path, sizeof(channels_path), "%s/channels", s_ipc_path);
-    heapstore_ensure_directory(channels_path);
+    heapstore_dir_ensure(channels_path);
 
     char buffers_path[heapstore_IPC_MAX_PATH];
     snprintf(buffers_path, sizeof(buffers_path), "%s/buffers", s_ipc_path);
-    heapstore_ensure_directory(buffers_path);
+    heapstore_dir_ensure(buffers_path);
 
     __builtin_memset(s_channels, 0, sizeof(s_channels));
     __builtin_memset(s_buffers, 0, sizeof(s_buffers));

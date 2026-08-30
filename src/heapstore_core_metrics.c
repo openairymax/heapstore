@@ -79,7 +79,7 @@ void heapstore_core_metrics_note_circuit_trip(void)
 
 heapstore_error_t heapstore_get_metrics(heapstore_metrics_t *metrics)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
@@ -103,7 +103,7 @@ heapstore_error_t heapstore_get_metrics(heapstore_metrics_t *metrics)
 
 heapstore_error_t heapstore_reset_metrics(void)
 {
-    if (!heapstore_is_initialized()) {
+    if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
