@@ -97,7 +97,7 @@ heapstore_error_t heapstore_memory_update_pool_usage(const char *pool_id, size_t
  * @reentrant no
 
  * @since v1.0.0*/
-heapstore_error_t heapstore_memory_record_allocation(
+heapstore_error_t heapstore_mem_record(
     const heapstore_memory_allocation_t *allocation);
 
 /**

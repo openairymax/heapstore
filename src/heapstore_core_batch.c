@@ -443,7 +443,7 @@ static heapstore_error_t batch_commit_single_item(const heapstore_batch_item_t *
     case HEAPSTORE_BATCH_ITEM_MEMORY_POOL:
         return heapstore_memory_record_pool(&item->data.memory_pool);
     case HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC:
-        return heapstore_memory_record_allocation(&item->data.memory_alloc);
+        return heapstore_mem_record(&item->data.memory_alloc);
     case HEAPSTORE_BATCH_ITEM_IPC_CHANNEL:
         return heapstore_ipc_record_channel(&item->data.ipc_channel);
     case HEAPSTORE_BATCH_ITEM_IPC_BUFFER:
