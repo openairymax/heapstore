@@ -16,7 +16,7 @@ foreach(test ${TEST_FILES})
         add_executable(${test} ${test}.c)
         target_include_directories(${test} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory
         )
         target_link_libraries(${test}
             PRIVATE airy_heapstore
@@ -39,7 +39,7 @@ if(BUILD_BENCHMARK)
     add_executable(heapstore_benchmark benchmark_heapstore.c)
     target_include_directories(heapstore_benchmark PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../..
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory
     )
     target_link_libraries(heapstore_benchmark
         PRIVATE airy_heapstore
