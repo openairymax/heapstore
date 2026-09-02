@@ -151,7 +151,7 @@ void heapstore_registry_shutdown(void)
     airy_mtx_destroy(&s_registry.lock);
 }
 
-heapstore_error_t execute_sql_with_lock(
+heapstore_error_t sql_exec_locked(
     const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data)
 {
     if (!s_registry.initialized || !s_registry.db) {

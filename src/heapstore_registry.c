@@ -399,7 +399,7 @@ heapstore_error_t heapstore_registry_batch_insert_agents(const heapstore_agent_r
     return heapstore_SUCCESS;
 }
 
-heapstore_error_t heapstore_registry_batch_insert_sessions(
+heapstore_error_t hs_batch_insert_sessions(
     const heapstore_session_record_t *records, size_t count)
 {
     if (!records || count == 0)

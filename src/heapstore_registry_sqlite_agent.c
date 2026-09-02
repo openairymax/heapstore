@@ -42,7 +42,7 @@ heapstore_error_t heapstore_registry_add_agent(const heapstore_agent_record_t *r
                       " priority, tags) "
                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
-    return execute_sql_with_lock(sql, bind_agent_record, (void *)record);
+    return sql_exec_locked(sql, bind_agent_record, (void *)record);
 }
 
 heapstore_error_t heapstore_registry_get_agent(const char *id, heapstore_agent_record_t *record)

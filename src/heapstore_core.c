@@ -200,7 +200,7 @@ static void initialize_atomic_vars(void)
 typedef heapstore_error_t (*subsystem_init_func)(void);
 typedef void (*subsystem_shutdown_func)(void);
 
-static heapstore_error_t __attribute__((unused)) init_subsystem_with_rollback(
+static heapstore_error_t __attribute__((unused)) init_subsys_rollback(
     subsystem_init_func init, subsystem_shutdown_func shutdown, const char *name)
 {
 
@@ -215,7 +215,7 @@ static heapstore_error_t __attribute__((unused)) init_subsystem_with_rollback(
 #define INIT_SUBSYSTEM(init_func, shutdown_func, name)                                    \
     do {                                                                                  \
         heapstore_error_t err =                                                           \
-            init_subsystem_with_rollback((subsystem_init_func)(init_func),                \
+            init_subsys_rollback((subsystem_init_func)(init_func),                \
                                          (subsystem_shutdown_func)(shutdown_func), name); \
         if (err != heapstore_SUCCESS) {                                                   \
             return err;                                                                   \
@@ -225,7 +225,7 @@ static heapstore_error_t __attribute__((unused)) init_subsystem_with_rollback(
 #define ROLLBACK_AND_RETURN(init_func, shutdown_func, name)                               \
     do {                                                                                  \
         heapstore_error_t err =                                                           \
-            init_subsystem_with_rollback((subsystem_init_func)(init_func),                \
+            init_subsys_rollback((subsystem_init_func)(init_func),                \
                                          (subsystem_shutdown_func)(shutdown_func), name); \
         if (err != heapstore_SUCCESS) {                                                   \
             shutdown_func();                                                              \
