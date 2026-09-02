@@ -38,7 +38,7 @@ struct heapstore_registry_iter {
 
 extern registry_db_t s_registry;
 
-heapstore_error_t execute_sql_with_lock(
+heapstore_error_t sql_exec_locked(
     const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data);
 
 heapstore_error_t bind_agent_record(sqlite3_stmt *stmt, void *data);
