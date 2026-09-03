@@ -23,9 +23,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#ifndef _WIN32
+/* airy_dirent.h 内置 Windows DIR/opendir/readdir shim（FindFirstFileA），
+ * 必须全平台包含：此前 #ifndef _WIN32 守卫把 shim 排除在 MSVC 之外，
+ * 导致 opendir/readdir 未声明（C2065，heapstore_log.c L454/L627）。 */
 #include "airy_dirent.h"
-#endif
 
 #ifdef _WIN32
 #include <direct.h>
@@ -633,9 +634,16 @@ heapstore_error_t heapstore_log_get_stats(uint32_t *total_files, uint64_t *total
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
+#if defined(_WIN32)
+        /* airy_dirent.h 的 Windows shim dirent 无 d_type：仅跳过
+         * "." / ".."（日志目录下均为普通文件）。 */
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+#else
         if (entry->d_type != DT_REG) {
             continue;
         }
+#endif
 
         char filepath[heapstore_LOG_MAX_PATH];
         snprintf(filepath, sizeof(filepath), "%s/%s", get_log_base_path(), entry->d_name);
