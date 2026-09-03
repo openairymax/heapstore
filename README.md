@@ -5,13 +5,13 @@
 
 **Language:** English | [简体中文](README_zh.md)
 
-[![Version](https://img.shields.io/badge/version-0.1.1-5a6b7e)](https://atomgit.com/openairymax/heapstore)
+[![Version](https://img.shields.io/badge/version-0.1.9-5a6b7e)](https://atomgit.com/openairymax/heapstore)
 [![License](https://img.shields.io/badge/license-AGPL--3.0+Apache--2.0-4a90d9)](LICENSE)
 [![C11](https://img.shields.io/badge/C-11-00599C?logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 
 - **Repository:** `git@atomgit.com:openairymax/heapstore.git`
-- **Branch:** `feature/official-hubs-01`
-- **Version:** 0.1.1 (Airymax foundational release)
+- **Branch:** `develop/hubs-01`
+- **Version:** 0.1.9 (aligned with agentrt management repo)
 
 ---
 
@@ -21,7 +21,7 @@
 
 heapstore is designed around a **fast / slow dual-path** write model: the fast path is lock-free and asynchronous for high-frequency writes, while the slow path is synchronous with full parameter validation, timeout and trace-id propagation. A built-in **circuit breaker** trips after consecutive failures to prevent cascading faults, and **transactional batch writes** amortize I/O under load. It exposes seven storage engines (`core`, `log`, `registry`, `trace`, `memory`, `token`, `batch`) plus an IPC data store, all behind a unified init/shutdown/stats/circuit/batch API.
 
-Within the Airymax 0.1.1 release, the workspace is partitioned into **38 repositories** (1 umbrella + 5 management + 29 leaf + 3 top-level); `heapstore` is one of the 7 leaf repositories aggregated by the [agentrt](../) management repo, forming the **Storage Layer** in the cyclic architecture (above the Security Layer `cupolas` and Kernel Layer `atoms`, below the Gateway and Service layers).
+`heapstore` is one of the 7 leaf repositories aggregated by the [agentrt](../) management repo, forming the **Storage Layer** in the cyclic architecture (above the Security Layer `cupolas` and Kernel Layer `atoms`, below the Gateway and Service layers).
 
 ## Module Classification
 
@@ -129,7 +129,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
         ▲              ▲
         │              │
      daemons        gateway
-   (18 daemons,   (access logs,
+   (15 daemons,   (access logs,
     registries,     request traces)
     token budgets)
 
@@ -157,7 +157,7 @@ Plus an **IPC data store** (`heapstore_ipc.c`) that mirrors the CoreKern IPC buf
 
 | Consumer | What they use |
 |----------|---------------|
-| **daemons** | All 18 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories under `services/`; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage (`heapstore_token_check_budget`) |
+| **daemons** | All 15 daemons persist their state through heapstore — `market_d`/`tool_d`/`llm_d` have dedicated data directories under `services/`; the registry tracks Agent/Skill/Session; the token engine budgets LLM usage (`heapstore_token_check_budget`) |
 | **gateway** | Gateway writes access logs and request traces through `heapstore_log` and `heapstore_trace`; the circuit breaker protects gateway writes under load |
 | SDK layer | SDK consumers read runtime state (registries, traces, token budgets) via the heapstore query APIs for observability and budgeting |
 

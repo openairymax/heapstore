@@ -5,13 +5,13 @@
 
 **语言:** [English](README.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-0.1.1-5a6b7e)](https://atomgit.com/openairymax/heapstore)
+[![Version](https://img.shields.io/badge/version-0.1.9-5a6b7e)](https://atomgit.com/openairymax/heapstore)
 [![License](https://img.shields.io/badge/license-AGPL--3.0+Apache--2.0-4a90d9)](LICENSE)
 [![C11](https://img.shields.io/badge/C-11-00599C?logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 
 - **仓库地址：** `git@atomgit.com:openairymax/heapstore.git`
-- **分支：** `feature/official-hubs-01`
-- **版本：** 0.1.1（Airymax 奠基版本）
+- **分支：** `develop/hubs-01`
+- **版本：** 0.1.9（与 agentrt 管理仓对齐）
 
 ---
 
@@ -21,7 +21,7 @@
 
 heapstore 围绕**快/慢双路径**写入模型设计：快路径无锁异步，用于高频写入；慢路径同步，带完整参数校验、超时与 trace_id 传播。内置**熔断器**在连续失败后跳闸以防止级联故障，**事务性批量写入**在负载下摊销 I/O。它暴露 7 个存储引擎（`core`、`log`、`registry`、`trace`、`memory`、`token`、`batch`）加一个 IPC 数据存储，全部在统一的 init/shutdown/stats/circuit/batch API 之后。
 
-在 Airymax 0.1.1 发行版中，工作区被拆分为 **38 个仓库**（1 umbrella + 5 management + 29 leaf + 3 top-level）；`heapstore` 是 [agentrt](../) 管理仓聚合的 7 个叶子仓之一，构成循环架构中的**存储层**（位于安全层 `cupolas` 和内核层 `atoms` 之上，网关层与服务层之下）。
+`heapstore` 是 [agentrt](../) 管理仓聚合的 7 个叶子仓之一，构成循环架构中的**存储层**（位于安全层 `cupolas` 和内核层 `atoms` 之上，网关层与服务层之下）。
 
 ## 模块分类
 
@@ -129,7 +129,7 @@ heapstore/
         ▲              ▲
         │              │
      daemons        gateway
-   (18 个守护进程,  （访问日志,
+   (15 个守护进程,  （访问日志,
     注册表,          请求追踪)
     令牌预算)
 
@@ -157,7 +157,7 @@ heapstore/
 
 | 消费者 | 用途 |
 |--------|------|
-| **daemons** | 全部 18 个守护进程通过 heapstore 持久化状态——`market_d`/`tool_d`/`llm_d` 在 `services/` 下有专用数据目录；注册表跟踪 Agent/Skill/Session；令牌引擎预算 LLM 使用（`heapstore_token_check_budget`） |
+| **daemons** | 全部 15 个守护进程通过 heapstore 持久化状态——`market_d`/`tool_d`/`llm_d` 在 `services/` 下有专用数据目录；注册表跟踪 Agent/Skill/Session；令牌引擎预算 LLM 使用（`heapstore_token_check_budget`） |
 | **gateway** | 网关通过 `heapstore_log` 和 `heapstore_trace` 写入访问日志和请求追踪；熔断器在负载下保护网关写入 |
 | SDK 层 | SDK 消费者通过 heapstore 查询 API 读取运行时状态（注册表、追踪、令牌预算），用于可观测性和预算控制 |
 
