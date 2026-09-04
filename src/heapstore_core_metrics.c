@@ -55,7 +55,11 @@ void heapstore_core_metrics_update(uint64_t elapsed_ns, bool is_fast_path, bool 
     uint32_t current_ops = atomic_fetch_add(&s_metrics.current_concurrent_ops, 1) + 1;
     uint64_t peak = atomic_load(&s_metrics.peak_concurrent_ops);
     while (current_ops > peak) {
-        if (atomic_compare_exchange_weak(&s_metrics.peak_concurrent_ops, &peak, current_ops)) {
+        /* 兼容层未提供 weak 变体（Windows Interlocked 侧仅 strong），weak 的
+         * 伪失败在此重试语义下无影响，统一用 strong_explicit。 */
+        if (atomic_compare_exchange_strong_explicit(&s_metrics.peak_concurrent_ops, &peak,
+                                                    current_ops, memory_order_seq_cst,
+                                                    memory_order_seq_cst)) {
             break;
         }
     }
