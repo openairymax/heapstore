@@ -28,6 +28,7 @@ static void log_store_service_check_rotation(const char *current_file);
 
 #ifdef _WIN32
 #include <direct.h>
+#include <io.h>
 #include <windows.h>
 #define mkdir(path, mode) _mkdir(path)
 #else
@@ -267,7 +268,7 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
             if (level_len >= sizeof(level_str)) {
                 level_len = sizeof(level_str) - 1;
             }
-            __builtin_memcpy(level_str, bracket2 + 1, level_len);
+            AIRY_MEMCPY(level_str, bracket2 + 1, level_len);
             level_str[level_len] = '\0';
             const char *bracket3 = strchr(close2, '[');
             int parsed = 1;
@@ -278,7 +279,7 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
                     if (comp_len >= sizeof(comp_str)) {
                         comp_len = sizeof(comp_str) - 1;
                     }
-                    __builtin_memcpy(comp_str, bracket3 + 1, comp_len);
+                    AIRY_MEMCPY(comp_str, bracket3 + 1, comp_len);
                     comp_str[comp_len] = '\0';
                     parsed = 2;
                 }
@@ -370,7 +371,7 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
         return AIRY_ERR_OUT_OF_MEMORY;
     }
 
-    __builtin_memcpy(final_results, results, found_count * sizeof(char *));
+    AIRY_MEMCPY(final_results, results, found_count * sizeof(char *));
     AIRY_FREE(results);
 
     *out_entries = final_results;
@@ -426,14 +427,26 @@ int log_store_service_cleanup_old_files(int days_to_keep)
         char filepath[1024];
         snprintf(filepath, sizeof(filepath), "%s/%s", g_ctx.storage_path, entry->d_name);
 
+#if defined(_WIN32)
+        struct _stat file_stat;
+        if (_stat(filepath, &file_stat) != 0)
+            continue;
+        if (file_stat.st_mode & _S_IFDIR)
+            continue;
+#else
         struct stat file_stat;
         if (stat(filepath, &file_stat) != 0)
             continue;
         if (S_ISDIR(file_stat.st_mode))
             continue;
+#endif
 
         if (file_stat.st_mtime < cutoff) {
+#if defined(_WIN32)
+            if (_unlink(filepath) == 0) {
+#else
             if (unlink(filepath) == 0) {
+#endif
                 deleted_count++;
             }
         }
