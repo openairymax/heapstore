@@ -299,7 +299,17 @@ int log_store_service_query_entries(const time_t *start_time, const time_t *end_
                 }
                 __builtin_memcpy(time_buf, ts_start, ts_len);
                 time_buf[ts_len] = '\0';
+#ifdef _WIN32
+                /* strptime() is POSIX-only; parse "%Y-%m-%d %H:%M:%S" here */
+                if (sscanf(time_buf, "%d-%d-%d %d:%d:%d", &tm_info.tm_year, &tm_info.tm_mon,
+                           &tm_info.tm_mday, &tm_info.tm_hour, &tm_info.tm_min,
+                           &tm_info.tm_sec) == 6) {
+                    tm_info.tm_year -= 1900;
+                    tm_info.tm_mon -= 1;
+                }
+#else
                 strptime(time_buf, "%Y-%m-%d %H:%M:%S", &tm_info);
+#endif
                 log_time = mktime(&tm_info);
             }
 
