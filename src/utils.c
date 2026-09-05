@@ -20,6 +20,9 @@
 #include <direct.h>
 #include <io.h>
 #include <windows.h>
+/* UCRT <io.h> is shadowed by commons/utils/io/io.h (PUBLIC -I leakage);
+ * declare the needed CRT prototype locally until the shadow is removed. */
+int _access(const char *pathname, int mode);
 #else
 #include "airy_dirent.h"
 

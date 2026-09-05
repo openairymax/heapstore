@@ -28,6 +28,7 @@
 #ifdef _WIN32
 #include <direct.h>
 #include <windows.h>
+#define S_ISDIR(m) (((m) & _S_IFMT) == _S_IFDIR)
 #define mkdir(path, mode) _mkdir(path)
 #else
 #include <sys/stat.h>
