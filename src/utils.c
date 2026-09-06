@@ -56,14 +56,19 @@ bool heapstore_dir_ensure(const char *path)
     for (p = tmp + 1; *p; p++) {
         if (*p == '/' || *p == '\\') {
             *p = '\0';
-            if (_mkdir(tmp) != 0 && errno != EEXIST) {
+            /* 盘符根（如 C:）与已是目录的前缀不能当作普通路径 mkdir：
+             * _mkdir("C:") 返回 EINVAL/EACCES（非 EEXIST）会提前 return
+             * false，导致更深的目录全部未建（windows ctest heapstore_log
+             * init -10 FILE_OPEN_FAILED、core -4 DIR_CREATE_FAILED 实证）。 */
+            if (!(p - tmp == 2 && tmp[1] == ':' && _access(tmp, 0) == 0) &&
+                _mkdir(tmp) != 0 && errno != EEXIST && _access(tmp, 0) != 0) {
                 return false;
             }
             *p = '/';
         }
     }
 
-    if (_mkdir(tmp) != 0 && errno != EEXIST) {
+    if (_mkdir(tmp) != 0 && errno != EEXIST && _access(tmp, 0) != 0) {
         return false;
     }
 
