@@ -23,6 +23,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 #include "airy_memory.h"
 
@@ -37,6 +42,18 @@ uint64_t mig_get_time_ms(void)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+static int mig_fsync_file(FILE *f)
+{
+    if (fflush(f) != 0) {
+        return -1;
+    }
+#ifndef _WIN32
+    return fsync(fileno(f));
+#else
+    return _commit(_fileno(f));
+#endif
 }
 
 heapstore_error_t mig_backup_data_file(const char *file_path)
@@ -64,6 +81,19 @@ heapstore_error_t mig_backup_data_file(const char *file_path)
             fclose(dst);
             return heapstore_ERR_FILE_OPERATION_FAILED;
         }
+    }
+
+    if (ferror(src)) {
+        /* Read error mid-copy: the backup would be silently truncated. */
+        fclose(src);
+        fclose(dst);
+        return heapstore_ERR_FILE_OPERATION_FAILED;
+    }
+
+    if (mig_fsync_file(dst) != 0) {
+        fclose(src);
+        fclose(dst);
+        return heapstore_ERR_FILE_OPERATION_FAILED;
     }
 
     fclose(src);
@@ -295,24 +325,49 @@ heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 
     FILE *f = fopen(version_path, "r");
     if (!f) {
-
-        *version = 0;
-        return heapstore_SUCCESS;
+        if (errno == ENOENT) {
+            /* Fresh install: no version file means schema version 0. */
+            *version = 0;
+            return heapstore_SUCCESS;
+        }
+        /* Any other open failure must not be mistaken for "version 0". */
+        return heapstore_ERR_FILE_OPEN_FAILED;
     }
-
-    uint32_t ver = 0;
 
     char ver_buf[32];
-    if (fgets(ver_buf, sizeof(ver_buf), f) != NULL) {
-        ver = (uint32_t)strtoul(ver_buf, NULL, 10);
-    } else {
+    if (fgets(ver_buf, sizeof(ver_buf), f) == NULL) {
+        /* Empty or unreadable file: corrupted, not "version 0". */
         fclose(f);
-        *version = 0;
-        return heapstore_SUCCESS;
+        return heapstore_ERR_FILE_CORRUPT;
+    }
+    fclose(f);
+
+    errno = 0;
+    char *end = NULL;
+    unsigned long val = strtoul(ver_buf, &end, 10);
+    if (end == ver_buf || errno == ERANGE) {
+        return heapstore_ERR_FILE_CORRUPT;
     }
 
-    fclose(f);
-    *version = ver;
+    /* Reject sign prefixes: strtoul would silently negate "-5" into a huge
+     * value that could mask a schema mismatch. */
+    const char *scan = ver_buf;
+    while (*scan == ' ' || *scan == '\t' || *scan == '\r' || *scan == '\n') {
+        scan++;
+    }
+    if (*scan < '0' || *scan > '9') {
+        return heapstore_ERR_FILE_CORRUPT;
+    }
+
+    /* Only whitespace may follow the number; anything else is corruption. */
+    while (*end != '\0') {
+        if (*end != ' ' && *end != '\t' && *end != '\r' && *end != '\n') {
+            return heapstore_ERR_FILE_CORRUPT;
+        }
+        end++;
+    }
+
+    *version = (uint32_t)val;
     return heapstore_SUCCESS;
 }
 
@@ -325,13 +380,36 @@ heapstore_error_t heapstore_migration_set_version(uint32_t version)
     char version_path[heapstore_MAX_PATH_LEN];
     mig_get_version_file_path(version_path, sizeof(version_path));
 
-    FILE *f = fopen(version_path, "w");
+    char tmp_path[heapstore_MAX_PATH_LEN];
+    int printed = snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", version_path);
+    if (printed < 0 || (size_t)printed >= sizeof(tmp_path)) {
+        return heapstore_ERR_CONFIG_INVALID;
+    }
+
+    /* Atomic replace: a crash mid-update must never leave an empty or
+     * partially written version file behind (it would look like corruption,
+     * or worse, force a wrong schema version on the next start). */
+    FILE *f = fopen(tmp_path, "w");
     if (!f) {
         return heapstore_ERR_FILE_OPEN_FAILED;
     }
 
-    fprintf(f, "%u\n", version);
-    fclose(f);
+    if (fprintf(f, "%u\n", version) < 0 || mig_fsync_file(f) != 0) {
+        fclose(f);
+        remove(tmp_path);
+        return heapstore_ERR_FILE_OPERATION_FAILED;
+    }
+
+    if (fclose(f) != 0) {
+        remove(tmp_path);
+        return heapstore_ERR_FILE_OPERATION_FAILED;
+    }
+
+    if (rename(tmp_path, version_path) != 0) {
+        remove(tmp_path);
+        return heapstore_ERR_FILE_OPERATION_FAILED;
+    }
+
     return heapstore_SUCCESS;
 }
 

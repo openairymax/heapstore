@@ -264,7 +264,15 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     bool needs_migration = false;
     uint32_t disk_version = 0;
     heapstore_error_t mig_err = heapstore_migration_check(&needs_migration, &disk_version);
-    if (mig_err == heapstore_SUCCESS && needs_migration) {
+    if (mig_err != heapstore_SUCCESS) {
+        /* Fail closed: a corrupt or unreadable version file must never let
+         * the store run with the wrong schema interpretation. */
+        AIRY_LOG_ERROR("heapstore_init: schema version check FAILED: %s",
+                       heapstore_strerror(mig_err));
+        s_initialized = false;
+        return mig_err;
+    }
+    if (needs_migration) {
         AIRY_LOG_INFO(
             "heapstore_init: schema migration: disk=v%u, code=v%u, running forward migration",
             disk_version, HEAPSTORE_SCHEMA_VERSION_CURRENT);
