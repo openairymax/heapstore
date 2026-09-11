@@ -96,6 +96,21 @@ const char *heapstore_strerror(heapstore_error_t err)
                "(context: operation exceeded timeout_ms). "
                "Suggestion: Increase timeout or check system performance.";
 
+    case heapstore_ERR_NO_SPACE:
+        return "[ERROR] heapstore_ERR_NO_SPACE: No space left on device. "
+               "(context: write failed, disk full). "
+               "Suggestion: Free disk space and retry the operation.";
+
+    case heapstore_ERR_NOT_SUPPORTED:
+        return "[ERROR] heapstore_ERR_NOT_SUPPORTED: Operation not supported. "
+               "(context: feature unavailable in this build or platform). "
+               "Suggestion: Check build flags and platform support matrix.";
+
+    case heapstore_ERR_FILE_CORRUPT:
+        return "[ERROR] heapstore_ERR_FILE_CORRUPT: Stored file content is corrupt. "
+               "(context: format validation failed). "
+               "Suggestion: Restore the file from backup or remove it to re-initialize.";
+
     case heapstore_ERR_INTERNAL:
         return "[ERROR] heapstore_ERR_INTERNAL: Internal error. "
                "(context: unexpected error occurred). "
