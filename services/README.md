@@ -1,37 +1,40 @@
-# Heapstore Services — 服务存储后端
+# heapstore services — 按服务数据目录说明
 
-**模块路径**: `agentrt/heapstore/services/`
-**版本**: v0.1.0
+**位置：** `heapstore/services/` ｜ **版本：** 0.1.15
+**上游文档：** [heapstore 主文档（中文）](../README_zh.md) ｜ [English](../README.md)
 
 ## 概述
 
-`heapstore/services/` 包含各守护进程（daemon）的存储后端数据目录，为 AgentRT 的 LLM 服务、市场服务和工具服务提供持久化存储空间。每个子目录对应一个守护进程，存放该服务运行时产生的数据文件。
+本目录是一份说明文档，不含源码。它描述 heapstore **数据根**下的
+`services/` 分区：运行时由 `heapstore_init()` 创建，为各守护进程
+划分独立的持久化数据目录。
 
-## 目录结构
+## 运行时目录布局
 
 ```
-services/
-├── llm_d/          # LLM 服务存储后端（.keep 占位，规划中）
-├── market_d/       # 市场服务存储后端（.keep 占位，规划中）
-└── tool_d/         # 工具服务存储后端（.keep 占位，规划中）
+<数据根>/services/
+├── llm_d/      # LLM 推理服务数据
+├── market_d/   # 市场服务数据
+└── tool_d/     # 工具服务数据
 ```
 
-## 核心组件
+| 目录 | 对应守护进程 | 内容 |
+|------|-------------|------|
+| `llm_d/` | llm_d | LLM 服务运行数据（会话上下文、缓存等） |
+| `market_d/` | market_d | 市场服务数据（Agent/Skill 目录相关） |
+| `tool_d/` | tool_d | 工具服务数据（工具注册与执行记录） |
 
-| 目录 | 对应守护进程 | 状态 | 说明 |
-|------|-------------|------|------|
-| `llm_d/` | llm_d | 规划中 | LLM 推理服务的数据存储后端，存放模型缓存、会话上下文等 |
-| `market_d/` | market_d | 规划中 | 市场服务的数据存储后端，存放 Agent/Skill 市场相关数据 |
-| `tool_d/` | tool_d | 规划中 | 工具服务的数据存储后端，存放工具注册信息与执行结果 |
+## 数据根位置
 
-> **注意**：当前各目录仅包含 `.keep` 占位文件，服务存储后端的具体实现尚在规划中。
+数据根按以下顺序解析（详见[主文档](../README_zh.md)的配置一节）：
 
-## 依赖关系
-
-| 组件 | 用途 |
-|------|------|
-| heapstore 核心库 | 数据分区初始化与路径管理 |
+1. `heapstore_config_t.root_path`；
+2. 环境变量 `AIRY_HEAPSTORE_ROOT`；
+3. 平台运行时数据目录下的 `agentrt/heapstore`；
+4. `/tmp/agentrt/heapstore`。
 
 ---
 
-© 2025-2026 SPHARX Ltd. All Rights Reserved.
+**许可证：** 本模块采用双许可证 `AGPL-3.0-or-later OR Apache-2.0`，
+您可以任选其一遵守；完整文本见 [LICENSE](../LICENSE)，版权与商标声明见
+[NOTICE](../NOTICE)。
