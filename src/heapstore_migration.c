@@ -107,7 +107,7 @@ heapstore_error_t mig_restore_data_file(const char *file_path)
     snprintf(backup_path, sizeof(backup_path), "%s%s", file_path,
              HEAPSTORE_MIGRATION_BACKUP_SUFFIX);
 
-    if (rename(backup_path, file_path) != 0) {
+    if (heapstore_atomic_replace(backup_path, file_path) != 0) {
         return heapstore_ERR_FILE_OPERATION_FAILED;
     }
     return heapstore_SUCCESS;
@@ -405,7 +405,7 @@ heapstore_error_t heapstore_migration_set_version(uint32_t version)
         return heapstore_ERR_FILE_OPERATION_FAILED;
     }
 
-    if (rename(tmp_path, version_path) != 0) {
+    if (heapstore_atomic_replace(tmp_path, version_path) != 0) {
         remove(tmp_path);
         return heapstore_ERR_FILE_OPERATION_FAILED;
     }
