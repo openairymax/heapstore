@@ -1,10 +1,10 @@
-# heapstore — 堆式运行时数据存储
+# heapstore — 运行时数据存储层
 
 > 持久化运行时产生的一切：日志、注册表、追踪、内存记录、令牌计数、IPC 状态与批量写入。
 
 **语言:** [English](README.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-0.1.15-5a6b7e)](https://atomgit.com/openairymax/heapstore)
+[![Version](https://img.shields.io/badge/version-0.1.16-5a6b7e)](https://atomgit.com/openairymax/heapstore)
 [![License](https://img.shields.io/badge/license-AGPL--3.0+Apache--2.0-4a90d9)](LICENSE)
 [![C11](https://img.shields.io/badge/C-11-00599C?logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 

@@ -1,6 +1,6 @@
 # heapstore examples — 使用示例
 
-**位置：** `heapstore/examples/` ｜ **版本：** 0.1.15
+**位置：** `heapstore/examples/` ｜ **版本：** 0.1.16
 **上游文档：** [heapstore 主文档（中文）](../README_zh.md) ｜ [English](../README.md)
 
 ## 概述
