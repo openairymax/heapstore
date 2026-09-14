@@ -63,6 +63,14 @@ target_include_directories(airy_heapstore PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# 0.1.16 B4（include 面收口，2026-09-14 裁决③）：heapstore 为 daemon 侧
+# 存储基建（svc_common bootstrap 持有注入），与 daemons 服务面同权消费
+# corekern 头（AIRY_API/airy_err_t，export.h 经 airy_rt.h）——PRIVATE 自取，
+# 不向链接方传递内核头可见性。
+if(AIRY_COREKERN_INCLUDE_DIR)
+    target_include_directories(airy_heapstore PRIVATE ${AIRY_COREKERN_INCLUDE_DIR})
+endif()
+
 target_compile_definitions(airy_heapstore PRIVATE
     airy_heapstore_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
     airy_heapstore_VERSION_MINOR=${PROJECT_VERSION_MINOR}
