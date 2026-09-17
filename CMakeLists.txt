@@ -29,8 +29,6 @@ set(heapstore_SOURCES
     src/heapstore_migration_forward.c
     src/heapstore_migration_rollback.c
     src/utils.c
-    kernel/services/trace_store_service.c
-    kernel/services/log_store_service.c
 )
 
 set(heapstore_HEADERS

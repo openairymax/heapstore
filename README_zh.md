@@ -52,9 +52,9 @@ heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行�
 | 引擎 | 源码 | 后端 | 用途 |
 |------|------|------|------|
 | **core** | `heapstore_core*.c` | 进程内状态 | 初始化、路径布局、统计、指标、错误、熔断器、异步写入 |
-| **log** | `heapstore_log.c`、`kernel/services/log_store_service.c` | 按日期划分的文件 | 日志持久化、按服务分文件、轮转、保留期清理 |
+| **log** | `heapstore_log.c` | 按日期划分的文件 | 日志持久化、按服务分文件、轮转、保留期清理 |
 | **registry** | `heapstore_registry*.c` | SQLite，内存回退 | Agent/Skill/Session CRUD 与迭代查询 |
-| **trace** | `heapstore_trace.c`、`kernel/services/trace_store_service.c` | 内存缓冲 + span 文件 | span 持久化、时间范围/trace 查询、JSON 导出 |
+| **trace** | `heapstore_trace.c` | 内存缓冲 + span 文件 | span 持久化、时间范围/trace 查询、JSON 导出 |
 | **memory** | `heapstore_memory.c` | 内存表 | 内存池与分配记录 |
 | **token** | `heapstore_token.c` | 内存原子计数 | 令牌用量统计、按任务预算（最多 1024 个任务） |
 | **batch** | `heapstore_core_batch.c` | 内存缓冲 | 跨引擎的批量添加/提交/回滚 |
@@ -69,9 +69,6 @@ heapstore/
 ├── CMakeLists.txt            # 定义 airy_heapstore 静态库
 ├── include/                  # 公共头文件（heapstore.h 及各引擎 API）
 ├── src/                      # 引擎实现（+ *_internal.h 私有头）
-├── kernel/
-│   ├── services/             # 内核级日志/追踪存储服务（编译进库）
-│   └── README.md
 ├── services/README.md        # 按服务数据目录布局（运行时创建）
 ├── migrations/               # SQL Schema 脚本（V001 初始、V002 tags/retry、回滚）
 ├── tests/                    # 8 个 ctest 套件 + 基准
