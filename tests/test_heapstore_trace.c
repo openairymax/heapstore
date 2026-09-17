@@ -13,6 +13,7 @@
 #include "airy_memory.h"
 
 #include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -174,6 +175,228 @@ static void test_trace_stats(void)
     printf("PASS\n");
 }
 
+static void fill_span(heapstore_span_t *span, const char *trace_id, const char *span_id, uint64_t t0,
+                      uint64_t t1)
+{
+    AIRY_MEMSET(span, 0, sizeof(*span));
+    snprintf(span->trace_id, sizeof(span->trace_id), "%s", trace_id);
+    snprintf(span->span_id, sizeof(span->span_id), "%s", span_id);
+    snprintf(span->name, sizeof(span->name), "op_%s", span_id);
+    span->start_time_ns = t0;
+    span->end_time_ns = t1;
+    snprintf(span->service_name, sizeof(span->service_name), "query_service");
+    snprintf(span->status, sizeof(span->status), "OK");
+}
+
+static void test_trace_query_roundtrip(void)
+{
+    printf("Test: trace_query_roundtrip...");
+
+    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    assert(err == heapstore_SUCCESS);
+
+    for (int i = 0; i < 3; i++) {
+        heapstore_span_t span;
+        char sid[32];
+        snprintf(sid, sizeof(sid), "q_%d", i);
+        fill_span(&span, "query_trace", sid, 1000000, 2000000);
+        err = heapstore_trace_write_span(&span);
+        assert(err == heapstore_SUCCESS);
+    }
+
+    heapstore_span_t other;
+    fill_span(&other, "other_trace", "other_0", 3000000, 4000000);
+    err = heapstore_trace_write_span(&other);
+    assert(err == heapstore_SUCCESS);
+
+    heapstore_span_t *out = NULL;
+    size_t count = 0;
+    err = heapstore_trace_query_by_trace("query_trace", &out, &count);
+    assert(err == heapstore_SUCCESS);
+    assert(count == 3);
+    heapstore_trace_free_spans(out, count);
+    out = NULL;
+
+    count = 0;
+    err = heapstore_trace_query_by_trace("absent_trace", &out, &count);
+    assert(err == heapstore_ERR_NOT_FOUND);
+    assert(out == NULL && count == 0);
+
+    out = NULL;
+    count = 0;
+    err = heapstore_trace_query_by_time_range(0, 2500000, &out, &count);
+    assert(err == heapstore_SUCCESS);
+    assert(count == 3);
+    heapstore_trace_free_spans(out, count);
+    out = NULL;
+
+    count = 0;
+    err = heapstore_trace_query_by_time_range(0, 1, &out, &count);
+    assert(err == heapstore_ERR_NOT_FOUND);
+    assert(out == NULL && count == 0);
+
+    heapstore_trace_shutdown();
+
+    printf("PASS\n");
+}
+
+static void test_trace_batch_deep_copy(void)
+{
+    printf("Test: trace_batch_deep_copy...");
+
+    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    assert(err == heapstore_SUCCESS);
+
+    heapstore_span_t spans[4];
+    AIRY_MEMSET(spans, 0, sizeof(spans));
+
+    char *owned[4];
+    for (int i = 0; i < 4; i++) {
+        char sid[32];
+        snprintf(sid, sizeof(sid), "deep_%d", i);
+        fill_span(&spans[i], "deep_trace", sid, 100000, 200000);
+        owned[i] = (char *)malloc(32);
+        assert(owned[i] != NULL);
+        snprintf(owned[i], 32, "attr-%d", i);
+        spans[i].attributes = owned[i];
+    }
+
+    err = heapstore_trace_write_spans_batch(spans, 4);
+    assert(err == heapstore_SUCCESS);
+
+    /* 提交后释放调用方自有副本：库内若未深拷贝，此处立即形成悬垂指针，
+     * 后续查询与 free_spans 会在 ASan/valgrind 下报错。 */
+    for (int i = 0; i < 4; i++) {
+        free(owned[i]);
+        spans[i].attributes = NULL;
+    }
+
+    heapstore_span_t *out = NULL;
+    size_t count = 0;
+    err = heapstore_trace_query_by_trace("deep_trace", &out, &count);
+    assert(err == heapstore_SUCCESS);
+    assert(count == 4);
+    for (size_t i = 0; i < count; i++) {
+        char expect[32];
+        snprintf(expect, sizeof(expect), "attr-%zu", i);
+        assert(out[i].attributes != NULL);
+        assert(strcmp((const char *)out[i].attributes, expect) == 0);
+    }
+    heapstore_trace_free_spans(out, count);
+
+    heapstore_trace_shutdown();
+
+    printf("PASS\n");
+}
+
+#define CONC_WRITERS 4
+#define CONC_QUERIERS 2
+#define CONC_ITERS 100
+
+typedef struct {
+    int id;
+    int errors;
+} conc_arg_t;
+
+static void *conc_writer(void *arg)
+{
+    conc_arg_t *a = (conc_arg_t *)arg;
+
+    for (int i = 0; i < CONC_ITERS; i++) {
+        heapstore_span_t span;
+        char sid[32];
+        snprintf(sid, sizeof(sid), "w%d_%d", a->id, i);
+        fill_span(&span, "conc_trace", sid, 1000, 2000);
+        if (heapstore_trace_write_span(&span) != heapstore_SUCCESS) {
+            a->errors++;
+        }
+    }
+
+    return NULL;
+}
+
+static void *conc_querier(void *arg)
+{
+    conc_arg_t *a = (conc_arg_t *)arg;
+
+    for (int i = 0; i < CONC_ITERS; i++) {
+        heapstore_span_t *out = NULL;
+        size_t count = 0;
+        heapstore_error_t qerr = heapstore_trace_query_by_trace("conc_trace", &out, &count);
+        if (qerr == heapstore_SUCCESS) {
+            if (!out || count == 0) {
+                a->errors++;
+            }
+            heapstore_trace_free_spans(out, count);
+        } else if (qerr != heapstore_ERR_NOT_FOUND) {
+            a->errors++;
+        }
+
+        out = NULL;
+        count = 0;
+        qerr = heapstore_trace_query_by_time_range(0, 5000, &out, &count);
+        if (qerr == heapstore_SUCCESS) {
+            if (!out || count == 0) {
+                a->errors++;
+            }
+            heapstore_trace_free_spans(out, count);
+        } else if (qerr != heapstore_ERR_NOT_FOUND) {
+            a->errors++;
+        }
+    }
+
+    return NULL;
+}
+
+static void test_trace_concurrent_query_write(void)
+{
+    printf("Test: trace_concurrent_query_write...");
+
+    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    assert(err == heapstore_SUCCESS);
+
+    pthread_t writers[CONC_WRITERS];
+    pthread_t queriers[CONC_QUERIERS];
+    conc_arg_t wargs[CONC_WRITERS];
+    conc_arg_t qargs[CONC_QUERIERS];
+
+    for (int i = 0; i < CONC_QUERIERS; i++) {
+        qargs[i].id = i;
+        qargs[i].errors = 0;
+        assert(pthread_create(&queriers[i], NULL, conc_querier, &qargs[i]) == 0);
+    }
+    for (int i = 0; i < CONC_WRITERS; i++) {
+        wargs[i].id = i;
+        wargs[i].errors = 0;
+        assert(pthread_create(&writers[i], NULL, conc_writer, &wargs[i]) == 0);
+    }
+
+    for (int i = 0; i < CONC_WRITERS; i++) {
+        assert(pthread_join(writers[i], NULL) == 0);
+    }
+    for (int i = 0; i < CONC_QUERIERS; i++) {
+        assert(pthread_join(queriers[i], NULL) == 0);
+    }
+
+    for (int i = 0; i < CONC_WRITERS; i++) {
+        assert(wargs[i].errors == 0);
+    }
+    for (int i = 0; i < CONC_QUERIERS; i++) {
+        assert(qargs[i].errors == 0);
+    }
+
+    heapstore_span_t *out = NULL;
+    size_t count = 0;
+    err = heapstore_trace_query_by_trace("conc_trace", &out, &count);
+    assert(err == heapstore_SUCCESS);
+    assert(count == (size_t)(CONC_WRITERS * CONC_ITERS));
+    heapstore_trace_free_spans(out, count);
+
+    heapstore_trace_shutdown();
+
+    printf("PASS\n");
+}
+
 int main(void)
 {
     printf("=== AgentRT heapstore Trace Unit Tests ===\n\n");
@@ -189,6 +412,9 @@ int main(void)
     test_trace_flush();
     test_trace_invalid_params();
     test_trace_stats();
+    test_trace_query_roundtrip();
+    test_trace_batch_deep_copy();
+    test_trace_concurrent_query_write();
 
     printf("\n=== All Trace Tests Passed ===\n");
     return 0;

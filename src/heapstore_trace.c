@@ -132,6 +132,7 @@ heapstore_error_t heapstore_trace_write_span(const heapstore_span_t *span)
     if (span->attributes) {
         s_span_buffer[s_span_count].attributes = AIRY_STRDUP((const char *)span->attributes);
         if (!s_span_buffer[s_span_count].attributes) {
+            s_span_buffer[s_span_count].attributes = NULL;
             airy_mtx_unlock(&s_trace_lock);
             return heapstore_ERR_OUT_OF_MEMORY;
         }
@@ -161,6 +162,26 @@ heapstore_error_t heapstore_trace_write_spans_batch(const heapstore_span_t *span
     }
 
     __builtin_memcpy(&s_span_buffer[s_span_count], spans, count * sizeof(heapstore_span_t));
+
+    /* 与 write_span 对称：深拷贝 attributes，避免调用方释放自有副本后残留悬垂指针；
+     * 任一条分配失败即回滚已深拷贝的前缀槽位，保持批量提交的原子性。 */
+    size_t base = s_span_count;
+    for (size_t i = 0; i < count; i++) {
+        if (!spans[i].attributes) {
+            s_span_buffer[base + i].attributes = NULL;
+            continue;
+        }
+        s_span_buffer[base + i].attributes = AIRY_STRDUP((const char *)spans[i].attributes);
+        if (!s_span_buffer[base + i].attributes) {
+            for (size_t j = 0; j < i; j++) {
+                AIRY_FREE(s_span_buffer[base + j].attributes);
+                s_span_buffer[base + j].attributes = NULL;
+            }
+            airy_mtx_unlock(&s_trace_lock);
+            return heapstore_ERR_OUT_OF_MEMORY;
+        }
+    }
+
     s_span_count += count;
 
     airy_mtx_unlock(&s_trace_lock);
@@ -197,7 +218,6 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
 
     heapstore_span_t *result = NULL;
     SAFE_MALLOC_ARRAY(result, match_count, sizeof(heapstore_span_t));
-    airy_mtx_unlock(&s_trace_lock);
 
     size_t idx = 0;
     for (size_t i = 0; i < s_span_count; i++) {
@@ -210,6 +230,7 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
                     for (size_t j = 0; j < idx; j++)
                         AIRY_FREE(result[j].attributes);
                     AIRY_FREE(result);
+                    airy_mtx_unlock(&s_trace_lock);
                     *spans = NULL;
                     *count = 0;
                     return heapstore_ERR_OUT_OF_MEMORY;
