@@ -13,6 +13,14 @@ set(TEST_FILES
 )
 
 foreach(test ${TEST_FILES})
+    # POSIX pthread 压测（test_heapstore_trace.c include <pthread.h> 并直调
+    # pthread_create/join）：MSVC 工具链无 pthread（FindThreads 在 Win32 解析
+    # 为空接口，链接必报 LNK2001 pthread_create/join），范式同
+    # atoms/corekern/tests：多线程覆盖由 POSIX 腿（Linux/macOS）保障，
+    # MSVC 下跳过构建。
+    if(MSVC AND test STREQUAL "test_heapstore_trace")
+        continue()
+    endif()
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${test}.c")
         add_executable(${test} ${test}.c)
         target_include_directories(${test} PRIVATE
