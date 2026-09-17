@@ -52,9 +52,9 @@ heapstore is consumed as the static library `airy_heapstore`, linked by the gate
 | Engine | Source | Backend | Purpose |
 |--------|--------|---------|---------|
 | **core** | `heapstore_core*.c` | in-process state | Init, path layout, stats, metrics, errors, circuit breaker, async writes |
-| **log** | `heapstore_log.c`, `kernel/services/log_store_service.c` | date-partitioned files | Log persistence, per-service files, rotation, retention cleanup |
+| **log** | `heapstore_log.c` | date-partitioned files | Log persistence, per-service files, rotation, retention cleanup |
 | **registry** | `heapstore_registry*.c` | SQLite, in-memory fallback | Agent/Skill/Session CRUD and iterative queries |
-| **trace** | `heapstore_trace.c`, `kernel/services/trace_store_service.c` | in-memory buffer + span files | Span persistence, time-range/trace queries, JSON export |
+| **trace** | `heapstore_trace.c` | in-memory buffer + span files | Span persistence, time-range/trace queries, JSON export |
 | **memory** | `heapstore_memory.c` | in-memory tables | Memory-pool and allocation records |
 | **token** | `heapstore_token.c` | in-memory atomics | Token usage stats, per-task budgets (up to 1024 tasks) |
 | **batch** | `heapstore_core_batch.c` | in-memory buffer | Batched add/commit/rollback across engines |
@@ -69,9 +69,6 @@ heapstore/
 ├── CMakeLists.txt            # Defines the airy_heapstore static library
 ├── include/                  # Public headers (heapstore.h and per-engine APIs)
 ├── src/                      # Engine implementations (+ *_internal.h private headers)
-├── kernel/
-│   ├── services/             # Kernel-level log/trace store services (built into the lib)
-│   └── README.md
 ├── services/README.md        # Per-service data directory layout (created at runtime)
 ├── migrations/               # SQL schema scripts (V001 initial, V002 tags/retry, rollback)
 ├── tests/                    # 8 ctest suites + benchmark
