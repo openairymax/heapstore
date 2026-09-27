@@ -36,7 +36,7 @@ static airy_mtx_t g_integration_mutex = {0};
 /**
   * @brief Initialize the integration-layer mutex
  */
-static void integration_lock_init(void)
+static void heapstore_lock_init(void)
 {
 #ifdef _WIN32
     airy_mtx_init(&g_integration_mutex);
@@ -46,7 +46,7 @@ static void integration_lock_init(void)
 /**
   * @brief Clean up the integration-layer mutex
  */
-static void integration_lock_cleanup(void)
+static void heapstore_lock_free(void)
 {
 #ifdef _WIN32
     airy_mtx_destroy(&g_integration_mutex);
@@ -80,7 +80,7 @@ static void integration_unlock(void)
 airy_err_t heapstore_integration_init(const char *root_path)
 {
 
-    integration_lock_init();
+    heapstore_lock_init();
 
     integration_lock();
 
@@ -161,7 +161,7 @@ void heapstore_integration_shutdown(void)
     g_root_path[0] = '\0';
 
     integration_unlock();
-    integration_lock_cleanup();
+    heapstore_lock_free();
 }
 
 airy_err_t heapstore_syscall_session_save(const char *session_id, const char *metadata,
