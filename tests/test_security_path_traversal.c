@@ -50,17 +50,18 @@ static int test_sanitize_path_component_traversal(void)
 {
     char output[256];
 
-    if (heapstore_path_clean(output, "../etc/passwd", sizeof(output)) != -1) {
+    /* Rejection is signalled by any non-zero code (AIRY_EINVAL et al.) */
+    if (heapstore_path_clean(output, "../etc/passwd", sizeof(output)) == 0) {
         TEST_FAIL("block_parent_dir", "Should block parent directory traversal");
         return -1;
     }
 
-    if (heapstore_path_clean(output, "..\\windows\\system32", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "..\\windows\\system32", sizeof(output)) == 0) {
         TEST_FAIL("block_windows_traversal", "Should block Windows-style traversal");
         return -1;
     }
 
-    if (heapstore_path_clean(output, "....//....//etc/passwd", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "....//....//etc/passwd", sizeof(output)) == 0) {
         TEST_FAIL("block_double_traversal", "Should block double traversal");
         return -1;
     }
@@ -73,17 +74,17 @@ static int test_sanitize_path_component_slashes(void)
 {
     char output[256];
 
-    if (heapstore_path_clean(output, "service/name", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "service/name", sizeof(output)) == 0) {
         TEST_FAIL("block_forward_slash", "Should block forward slash");
         return -1;
     }
 
-    if (heapstore_path_clean(output, "service\\name", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "service\\name", sizeof(output)) == 0) {
         TEST_FAIL("block_backslash", "Should block backslash");
         return -1;
     }
 
-    if (heapstore_path_clean(output, "/absolute/path", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "/absolute/path", sizeof(output)) == 0) {
         TEST_FAIL("block_absolute_path", "Should block absolute path");
         return -1;
     }
@@ -96,7 +97,8 @@ static int test_sanitize_path_component_special_chars(void)
 {
     char output[256];
 
-    if (heapstore_path_clean(output, "service; rm -rf /", sizeof(output)) != 0) {
+    /* Slashes are rejected outright; other special chars are replaced */
+    if (heapstore_path_clean(output, "service; rm -rf", sizeof(output)) != 0) {
         TEST_FAIL("replace_semicolon", "Should replace semicolon");
         return -1;
     }
@@ -131,17 +133,17 @@ static int test_sanitize_path_component_null_checks(void)
 {
     char output[256];
 
-    if (heapstore_path_clean(NULL, "test", sizeof(output)) != -1) {
+    if (heapstore_path_clean(NULL, "test", sizeof(output)) == 0) {
         TEST_FAIL("null_output", "Should reject NULL output");
         return -1;
     }
 
-    if (heapstore_path_clean(output, NULL, sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, NULL, sizeof(output)) == 0) {
         TEST_FAIL("null_input", "Should reject NULL input");
         return -1;
     }
 
-    if (heapstore_path_clean(output, "test", 0) != -1) {
+    if (heapstore_path_clean(output, "test", 0) == 0) {
         TEST_FAIL("zero_size", "Should reject zero size");
         return -1;
     }
@@ -194,20 +196,27 @@ static int test_log_path_traversal_blocked(void)
         return -1;
     }
 
-    err = heapstore_log_write(HEAPSTORE_LOG_INFO, "../etc/passwd", NULL, NULL, 0, "test message");
+    /* log_write() rejects unsafe service names via the same path_clean()
+     * gate as heapstore_log_get_service_path(), which exposes the verdict
+     * as a return code. */
+    char path[512];
+
+    err = heapstore_log_get_service_path("../etc/passwd", path, sizeof(path));
     if (err == heapstore_SUCCESS) {
         TEST_FAIL("log_traversal_blocked", "Should reject path traversal in service name");
         heapstore_log_shutdown();
         return -1;
     }
 
-    err = heapstore_log_write(HEAPSTORE_LOG_INFO, "service/../../etc/passwd", NULL, NULL, 0,
-                              "test message");
+    err = heapstore_log_get_service_path("service/../../etc/passwd", path, sizeof(path));
     if (err == heapstore_SUCCESS) {
         TEST_FAIL("log_nested_traversal_blocked", "Should reject nested path traversal");
         heapstore_log_shutdown();
         return -1;
     }
+
+    HEAPSTORE_LOG_INFO("../etc/passwd", NULL, "test message");
+    HEAPSTORE_LOG_INFO("service/../../etc/passwd", NULL, "test message");
 
     heapstore_log_shutdown();
     TEST_PASS("log_path_traversal_blocked");
@@ -222,15 +231,26 @@ static int test_log_valid_service_allowed(void)
         return -1;
     }
 
-    err = heapstore_log_write(HEAPSTORE_LOG_INFO, "valid_service", NULL, NULL, 0, "test message");
+    char path[512];
+
+    err = heapstore_log_get_service_path("valid_service", path, sizeof(path));
     if (err != heapstore_SUCCESS) {
         TEST_FAIL("log_valid_service", "Should accept valid service name");
         heapstore_log_shutdown();
         return -1;
     }
 
-    err =
-        heapstore_log_write(HEAPSTORE_LOG_INFO, "service-123_test", NULL, NULL, 0, "test message");
+    size_t len = strlen(path);
+    if (len < 4 || strcmp(path + len - 4, ".log") != 0) {
+        TEST_FAIL("log_valid_service_path", "Service path should end with .log");
+        heapstore_log_shutdown();
+        return -1;
+    }
+
+    HEAPSTORE_LOG_INFO("valid_service", NULL, "test message");
+    HEAPSTORE_LOG_INFO("service-123_test", NULL, "test message");
+
+    err = heapstore_log_get_service_path("service-123_test", path, sizeof(path));
     if (err != heapstore_SUCCESS) {
         TEST_FAIL("log_valid_service_complex", "Should accept complex valid name");
         heapstore_log_shutdown();

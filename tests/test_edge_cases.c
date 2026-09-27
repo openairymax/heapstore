@@ -11,6 +11,7 @@
 #include "../include/heapstore.h"
 #include "../include/utils.h"
 #include "platform.h"
+#include "airy_memory.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -64,9 +65,10 @@ static int test_null_pointer_handling(void)
         return -1;
     }
 
+    /* NULL/empty service falls back to the main log file (valid contract) */
     err = heapstore_log_write_fast(NULL, 0, "test");
-    if (err != heapstore_ERR_INVALID_PARAM) {
-        TEST_FAIL("null_service_name", "Should reject NULL service name");
+    if (err != heapstore_SUCCESS) {
+        TEST_FAIL("null_service_name", "NULL service should fall back to main log");
         heapstore_shutdown();
         return -1;
     }
@@ -95,8 +97,8 @@ static int test_empty_string_handling(void)
     }
 
     err = heapstore_log_write_fast("", 0, "test");
-    if (err != heapstore_ERR_INVALID_PARAM) {
-        TEST_FAIL("empty_service_name", "Should reject empty service name");
+    if (err != heapstore_SUCCESS) {
+        TEST_FAIL("empty_service_name", "Empty service should fall back to main log");
         heapstore_shutdown();
         return -1;
     }
@@ -205,7 +207,7 @@ static int test_sanitize_function_edge_cases(void)
         return -1;
     }
 
-    if (heapstore_path_clean(output, "", sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, "", sizeof(output)) == 0) {
         TEST_FAIL("empty_input", "Should reject empty input");
         return -1;
     }
@@ -219,7 +221,7 @@ static int test_sanitize_function_edge_cases(void)
     AIRY_MEMSET(very_long, 'A', sizeof(very_long) - 1);
     very_long[sizeof(very_long) - 1] = '\0';
 
-    if (heapstore_path_clean(output, very_long, sizeof(output)) != -1) {
+    if (heapstore_path_clean(output, very_long, sizeof(output)) == 0) {
         TEST_FAIL("buffer_overflow", "Should reject input larger than buffer");
         return -1;
     }

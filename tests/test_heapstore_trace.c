@@ -23,7 +23,7 @@ static void test_trace_init_shutdown(void)
 {
     printf("Test: trace_init_shutdown...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_trace_shutdown();
@@ -35,7 +35,7 @@ static void test_trace_write_span(void)
 {
     printf("Test: trace_write_span...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_span_t span;
@@ -62,7 +62,7 @@ static void test_trace_write_batch(void)
 {
     printf("Test: trace_write_batch...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_span_t spans[5];
@@ -90,7 +90,7 @@ static void test_trace_flush(void)
 {
     printf("Test: trace_flush...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_span_t span;
@@ -119,7 +119,7 @@ static void test_trace_invalid_params(void)
 {
     printf("Test: trace_invalid_params...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     err = heapstore_trace_write_span(NULL);
@@ -145,7 +145,7 @@ static void test_trace_stats(void)
 {
     printf("Test: trace_stats...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     uint64_t total = 0, pending = 0, size = 0;
@@ -192,7 +192,7 @@ static void test_trace_query_roundtrip(void)
 {
     printf("Test: trace_query_roundtrip...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     for (int i = 0; i < 3; i++) {
@@ -244,7 +244,7 @@ static void test_trace_batch_deep_copy(void)
 {
     printf("Test: trace_batch_deep_copy...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_span_t spans[4];
@@ -352,7 +352,7 @@ static void test_trace_concurrent_query_write(void)
 {
     printf("Test: trace_concurrent_query_write...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_trace_init();
+    heapstore_error_t err = heapstore_trace_init();
     assert(err == heapstore_SUCCESS);
 
     pthread_t writers[CONC_WRITERS];
