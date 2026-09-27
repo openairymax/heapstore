@@ -22,7 +22,7 @@ static void test_registry_init_shutdown(void)
 {
     printf("Test: registry_init_shutdown...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_registry_init();
+    heapstore_error_t err = heapstore_registry_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_registry_shutdown();
@@ -149,7 +149,7 @@ static void test_registry_invalid_params(void)
 {
     printf("Test: registry_invalid_params...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_registry_init();
+    heapstore_error_t err = heapstore_registry_init();
     assert(err == heapstore_SUCCESS);
 
     heapstore_agent_record_t agent_record;
@@ -176,7 +176,7 @@ static void test_registry_vacuum(void)
 {
     printf("Test: registry_vacuum...");
 
-    heapstore_error_t err __attribute__((unused)) = heapstore_registry_init();
+    heapstore_error_t err = heapstore_registry_init();
     assert(err == heapstore_SUCCESS);
 
     err = heapstore_registry_vacuum();

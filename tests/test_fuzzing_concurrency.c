@@ -17,8 +17,10 @@
 #include "../include/heapstore_registry.h"
 #include "../include/utils.h"
 #include "platform.h"
+#include "airy_memory.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,12 +49,12 @@ static int g_init_done = 0;
         g_tests_failed++;                           \
     } while (0)
 
-#define ASSERT_TRUE(cond, msg)            \
-    do {                                  \
-        if (!(cond)) {                    \
-            TEST_FAIL(__FUNCTION__, msg); \
-            return;                       \
-        }                                 \
+#define ASSERT_TRUE(cond, msg)          \
+    do {                                \
+        if (!(cond)) {                  \
+            TEST_FAIL(__func__, msg);   \
+            return;                     \
+        }                               \
     } while (0)
 
 /* ===========================================================================
@@ -200,14 +202,8 @@ static void *thread_log_writer(void *arg)
         char msg[128];
         snprintf(msg, sizeof(msg), "Thread-%d Log-%d", ctx->thread_id, i);
 
-        heapstore_error_t err =
-            heapstore_log_write(LOG_INFO, "fuzz_test_service", NULL, __FILE__, __LINE__, "%s", msg);
-
-        if (err == heapstore_SUCCESS) {
-            atomic_fetch_add(ctx->success_count, 1);
-        } else {
-            atomic_fetch_add(ctx->failure_count, 1);
-        }
+        HEAPSTORE_LOG_INFO("fuzz_test_service", NULL, "%s", msg);
+        atomic_fetch_add(ctx->success_count, 1);
     }
 
     return NULL;
@@ -232,7 +228,7 @@ static void *thread_registry_worker(void *arg)
 
         heapstore_error_t err = heapstore_registry_add_agent(&record);
 
-        if (err == heapstore_SUCCESS || err == heapstore_ERR_ALREADY_EXISTS) {
+        if (err == heapstore_SUCCESS) {
             atomic_fetch_add(ctx->success_count, 1);
         } else {
             atomic_fetch_add(ctx->failure_count, 1);
@@ -270,15 +266,13 @@ static void test_concurrent_log_writing(void)
 
     int expected_ops = CONCURRENT_THREADS * CONCURRENT_OPS_PER_THREAD;
     int actual_success = atomic_load(&total_success);
-    int actual_failure = atomic_load(&total_failure);
 
     printf("  Expected operations: %d\n", expected_ops);
-    printf("  Successful: %d (%.1f%%)\n", actual_success,
+    printf("  Completed: %d (%.1f%%)\n", actual_success,
            (float)actual_success / expected_ops * 100);
-    printf("  Failed: %d (%.1f%%)\n", actual_failure, (float)actual_failure / expected_ops * 100);
 
-    float success_rate = (float)actual_success / expected_ops;
-    ASSERT_TRUE(success_rate > 0.95, "Success rate should be > 95%");
+    ASSERT_TRUE(actual_success == expected_ops,
+                "All concurrent log writes must complete without deadlock");
 
     TEST_PASS("concurrent log writing stress test");
 }
@@ -340,9 +334,8 @@ static void test_concurrent_init_shutdown_race(void)
                                      .circuit_breaker_threshold = 5,
                                      .circuit_breaker_timeout_sec = 30};
 
-        heapstore_error_t err = heapstore_init(&config);
-
-        err = heapstore_shutdown();
+        (void)heapstore_init(&config);
+        heapstore_shutdown();
     }
 
     TEST_PASS("init/shutdown race condition test (100 rounds)");
@@ -361,8 +354,6 @@ static void test_memory_stability_under_load(void)
 {
     printf("\n=== Memory Stability Test Under Load ===\n");
 
-    size_t initial_memory = 0;
-
     const int BATCH_SIZE = 1000;
     heapstore_agent_record_t *agents = calloc(BATCH_SIZE, sizeof(heapstore_agent_record_t));
     ASSERT_TRUE(agents != NULL, "Memory allocation failed");
@@ -376,6 +367,7 @@ static void test_memory_stability_under_load(void)
         }
 
         heapstore_error_t err = heapstore_registry_batch_insert_agents(agents, BATCH_SIZE);
+        ASSERT_TRUE(err == heapstore_SUCCESS, "Batch insert must succeed under load");
     }
 
     free(agents);
@@ -423,6 +415,14 @@ int main(int argc, char *argv[])
         test_fuzz_safe_identifier();
     }
     test_fuzz_config_params();
+
+    /* fuzz_config_params() tore the module down in its 1000 init/shutdown
+     * rounds; re-initialize before the concurrency and memory suites. */
+    if (heapstore_init(&config) == heapstore_SUCCESS) {
+        g_init_done = 1;
+    } else {
+        g_init_done = 0;
+    }
 
     if (g_init_done) {
         test_concurrent_log_writing();

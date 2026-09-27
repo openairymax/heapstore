@@ -3,14 +3,15 @@
 
 /**
  * @file test_heapstore_batch.c
-  * @brief heapstore 批量写入模块单元测试
+ * @brief heapstore 批量写入模块单元测试
  *
  * @note 测试覆盖目标: 90%+
  */
 
 // @owner: team-B
 #include "heapstore.h"
-#include "private.h"
+#include "heapstore_batch.h"
+#include "heapstore_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,93 +44,88 @@ static int test_passes = 0;
 static int test_failures = 0;
 
 /**
-  * @brief Test batch context init and destroy
+ * @brief Test batch context init and destroy
  */
 static void test_batch_init_destroy(void)
 {
     printf("\n=== Test: Batch Init/Destroy ===\n");
 
-    heapstore_batch_context_t *ctx = NULL;
-    size_t capacity = 100;
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(100);
+    TEST_ASSERT(ctx != NULL, "batch_begin should succeed");
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "initial count should be 0");
+    TEST_ASSERT_EQ(100, (int)heapstore_batch_get_capacity(ctx), "capacity should match");
 
-    heapstore_error_t err = heapstore_batch_begin(capacity, &ctx);
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "batch_begin should succeed");
-    TEST_ASSERT(ctx != NULL, "context should not be NULL");
-    TEST_ASSERT_EQ(0, ctx->count, "initial count should be 0");
-
-    err = heapstore_batch_destroy(ctx);
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "batch_destroy should succeed");
+    heapstore_batch_context_destroy(ctx);
 }
 
 /**
-  * @brief Test batch log addition
+ * @brief Test batch log addition
  */
 static void test_batch_add_log(void)
 {
     printf("\n=== Test: Batch Add Log ===\n");
 
-    heapstore_batch_context_t *ctx = NULL;
-    heapstore_error_t err = heapstore_batch_begin(100, &ctx);
-    if (err != heapstore_SUCCESS || !ctx) {
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(100);
+    if (!ctx) {
         TEST_ASSERT(false, "Failed to init batch context");
         return;
     }
 
-    err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_INFO, "test_service", "trace_001",
-                                  "Test message");
+    heapstore_error_t err =
+        heapstore_batch_add_log(ctx, "test_service", HEAPSTORE_LOG_INFO, "Test message");
     TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add_log should succeed");
-    TEST_ASSERT_EQ(1, ctx->count, "count should be 1 after add");
+    TEST_ASSERT_EQ(1, (int)heapstore_batch_get_count(ctx), "count should be 1 after add");
 
-    err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_ERROR, "test_service2", NULL, "Error message");
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add_log without trace_id should succeed");
-    TEST_ASSERT_EQ(2, ctx->count, "count should be 2 after second add");
+    err = heapstore_batch_add_log_with_trace(ctx, "test_service2", HEAPSTORE_LOG_ERROR,
+                                             "trace_001", "Error message");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add_log_with_trace should succeed");
+    TEST_ASSERT_EQ(2, (int)heapstore_batch_get_count(ctx), "count should be 2 after second add");
 
-    err = heapstore_batch_destroy(ctx);
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "cleanup should succeed");
+    heapstore_batch_context_destroy(ctx);
 }
 
 /**
-  * @brief Test parameter validation (boundary conditions)
+ * @brief Test parameter validation (boundary conditions)
  */
 static void test_batch_parameter_validation(void)
 {
     printf("\n=== Test: Parameter Validation ===\n");
 
+    /* batch_size=0 语义为默认容量（HEAPSTORE_BATCH_MAX_ITEMS） */
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(0);
+    TEST_ASSERT(ctx != NULL, "batch_begin with 0 should use default capacity");
+    TEST_ASSERT_EQ(HEAPSTORE_BATCH_MAX_ITEMS, (int)heapstore_batch_get_capacity(ctx),
+                   "default capacity should be HEAPSTORE_BATCH_MAX_ITEMS");
+    heapstore_batch_context_destroy(ctx);
+
     heapstore_error_t err;
+    err = heapstore_batch_add_log(NULL, "svc", HEAPSTORE_LOG_INFO, "msg");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, err, "add_log with NULL ctx should fail");
 
-    err = heapstore_batch_begin(0, NULL);
-    TEST_ASSERT(err != heapstore_SUCCESS, "batch_begin with NULL should fail");
+    ctx = heapstore_batch_begin(10);
+    if (!ctx) {
+        TEST_ASSERT(false, "Failed to init batch context");
+        return;
+    }
 
-    heapstore_batch_context_t ctx;
-    AIRY_MEMSET(&ctx, 0, sizeof(ctx));
-    ctx.capacity = 10;
-    ctx.count = 5;
+    err = heapstore_batch_add_log(ctx, NULL, HEAPSTORE_LOG_INFO, "msg");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, err, "add_log with NULL service should fail");
 
-    err = heapstore_batch_add_log(NULL, HEAPSTORE_LOG_INFO, "svc", NULL, "msg");
-    TEST_ASSERT(err != heapstore_SUCCESS, "add_log with NULL ctx should fail");
+    err = heapstore_batch_add_log(ctx, "svc", HEAPSTORE_LOG_INFO, NULL);
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, err, "add_log with NULL message should fail");
 
-    err = heapstore_batch_add_log(&ctx, HEAPSTORE_LOG_INFO, NULL, NULL, "msg");
-    TEST_ASSERT(err != heapstore_SUCCESS, "add_log with NULL service should fail");
-
-    err = heapstore_batch_add_log(&ctx, HEAPSTORE_LOG_INFO, "svc", NULL, NULL);
-    TEST_ASSERT(err != heapstore_SUCCESS, "add_log with NULL message should fail");
-
-    ctx.count = ctx.capacity;
-    err = heapstore_batch_add_log(&ctx, HEAPSTORE_LOG_INFO, "svc", NULL, "msg");
-    TEST_ASSERT(err == heapstore_ERR_OUT_OF_MEMORY,
-                "add_log when full should return OUT_OF_MEMORY");
+    heapstore_batch_context_destroy(ctx);
 }
 
 /**
-  * @brief Test batch commit and rollback
+ * @brief Test batch commit and rollback
  */
 static void test_batch_commit_rollback(void)
 {
     printf("\n=== Test: Batch Commit/Rollback ===\n");
 
-    heapstore_batch_context_t *ctx = NULL;
-    heapstore_error_t err = heapstore_batch_begin(100, &ctx);
-    if (err != heapstore_SUCCESS || !ctx) {
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(100);
+    if (!ctx) {
         TEST_ASSERT(false, "Failed to init batch context");
         return;
     }
@@ -137,87 +133,91 @@ static void test_batch_commit_rollback(void)
     for (int i = 0; i < 5; i++) {
         char msg[64];
         snprintf(msg, sizeof(msg), "Log message %d", i);
-        err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_INFO, "test_svc", NULL, msg);
+        heapstore_error_t err =
+            heapstore_batch_add_log(ctx, "test_svc", HEAPSTORE_LOG_INFO, msg);
         if (err != heapstore_SUCCESS) {
             break;
         }
     }
 
-    TEST_ASSERT_EQ(5, ctx->count, "should have 5 items before commit");
+    TEST_ASSERT_EQ(5, (int)heapstore_batch_get_count(ctx), "should have 5 items before commit");
 
-    err = heapstore_batch_commit(ctx);
-    TEST_ASSERT(err == heapstore_SUCCESS || err == heapstore_ERR_NOT_INITIALIZED,
-                "commit should succeed or indicate not initialized");
-    TEST_ASSERT_EQ(0, ctx->count, "count should be 0 after commit");
+    heapstore_error_t err = heapstore_batch_commit(ctx);
+    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "commit of log entries should succeed");
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "count should be 0 after commit");
 
-    heapstore_batch_destroy(ctx);
+    heapstore_batch_context_destroy(ctx);
 
-    ctx = NULL;
-    err = heapstore_batch_begin(50, &ctx);
-    if (err != heapstore_SUCCESS || !ctx) {
+    ctx = heapstore_batch_begin(50);
+    if (!ctx) {
         return;
     }
 
-    err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_INFO, "svc", NULL, "rollback test");
+    err = heapstore_batch_add_log(ctx, "svc", HEAPSTORE_LOG_INFO, "rollback test");
     TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add before rollback should succeed");
 
-    err = heapstore_batch_rollback(ctx);
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "rollback should succeed");
-    TEST_ASSERT_EQ(0, ctx->count, "count should be 0 after rollback");
+    heapstore_batch_rollback(ctx);
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "count should be 0 after rollback");
 
-    heapstore_batch_destroy(ctx);
+    heapstore_batch_context_destroy(ctx);
 }
 
 /**
-  * @brief Test capacity limits
+ * @brief Test capacity limits
  */
 static void test_batch_capacity_limit(void)
 {
     printf("\n=== Test: Capacity Limit ===\n");
 
     const size_t small_capacity = 3;
-    heapstore_batch_context_t *ctx = NULL;
-    heapstore_error_t err = heapstore_batch_begin(small_capacity, &ctx);
-    if (err != heapstore_SUCCESS || !ctx) {
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(small_capacity);
+    if (!ctx) {
         TEST_ASSERT(false, "Failed to init batch context");
         return;
     }
 
-    TEST_ASSERT_EQ(small_capacity, ctx->capacity, "capacity should match");
+    TEST_ASSERT_EQ((int)small_capacity, (int)heapstore_batch_get_capacity(ctx),
+                   "capacity should match");
 
     for (size_t i = 0; i < small_capacity; i++) {
         char msg[32];
         snprintf(msg, sizeof(msg), "Item %zu", i);
-        err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_INFO, "svc", NULL, msg);
+        heapstore_error_t err = heapstore_batch_add_log(ctx, "svc", HEAPSTORE_LOG_INFO, msg);
         TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add within capacity should succeed");
     }
 
-    TEST_ASSERT_EQ(small_capacity, ctx->count, "should reach capacity limit");
+    TEST_ASSERT_EQ((int)small_capacity, (int)heapstore_batch_get_count(ctx),
+                   "should reach capacity limit");
 
-    err = heapstore_batch_add_log(ctx, HEAPSTORE_LOG_INFO, "svc", NULL, "overflow");
+    heapstore_error_t err = heapstore_batch_add_log(ctx, "svc", HEAPSTORE_LOG_INFO, "overflow");
     TEST_ASSERT_EQ(heapstore_ERR_OUT_OF_MEMORY, err, "overflow should return error");
 
-    heapstore_batch_destroy(ctx);
+    heapstore_batch_context_destroy(ctx);
 }
 
 /**
-  * @brief Test repeated-destroy safety
+ * @brief Test destroy safety (NULL and repeated destroy)
  */
-static void test_batch_double_destroy(void)
+static void test_batch_destroy_safety(void)
 {
-    printf("\n=== Test: Double Destroy Safety ===\n");
+    printf("\n=== Test: Destroy Safety ===\n");
 
-    heapstore_batch_context_t *ctx = NULL;
-    heapstore_error_t err = heapstore_batch_begin(10, &ctx);
-    if (err != heapstore_SUCCESS || !ctx) {
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(10);
+    if (!ctx) {
         return;
     }
 
-    err = heapstore_batch_destroy(ctx);
-    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "first destroy should succeed");
+    heapstore_batch_context_destroy(ctx);
+    TEST_ASSERT(true, "destroy must not crash");
 
-    err = heapstore_batch_destroy(ctx);
-    TEST_ASSERT(err != heapstore_SUCCESS, "second destroy of same pointer should fail");
+    /* Destroying the same pointer twice would be use-after-free; the
+     * contract only guarantees NULL-safety. */
+    heapstore_batch_context_destroy(NULL);
+    TEST_ASSERT(true, "destroy with NULL must not crash");
+
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(NULL), "get_count with NULL returns 0");
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_capacity(NULL),
+                   "get_capacity with NULL returns 0");
 }
 
 int main(int argc, char **argv)
@@ -237,12 +237,11 @@ int main(int argc, char **argv)
     test_batch_parameter_validation();
     test_batch_commit_rollback();
     test_batch_capacity_limit();
-    test_batch_double_destroy();
+    test_batch_destroy_safety();
 
     printf("\n========================================\n");
     printf("Test Results: %d passed, %d failed\n", test_passes, test_failures);
     printf("Total tests: %d\n", test_passes + test_failures);
-    printf("Coverage target: 90%%+\n");
     printf("========================================\n");
 
     return (test_failures > 0) ? 1 : 0;

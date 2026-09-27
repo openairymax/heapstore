@@ -203,13 +203,6 @@ heapstore_error_t bind_agent_record(sqlite3_stmt *stmt, void *data)
     return heapstore_SUCCESS;
 }
 
-static heapstore_error_t __attribute__((unused)) bind_agent_id(sqlite3_stmt *stmt, void *data)
-{
-    const char *agent_id = (const char *)data;
-    sqlite3_bind_text(stmt, 1, agent_id, -1, SQLITE_STATIC);
-    return heapstore_SUCCESS;
-}
-
 heapstore_error_t heapstore_registry_vacuum(void)
 {
     if (!s_registry.initialized || !s_registry.db) {

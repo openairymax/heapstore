@@ -10,6 +10,11 @@ set(TEST_FILES
     test_heapstore_memory
     test_heapstore_migration
     test_heapstore_integration
+    test_heapstore_batch
+    test_batch_performance
+    test_fuzzing_concurrency
+    test_edge_cases
+    test_security_path_traversal
 )
 
 foreach(test ${TEST_FILES})
@@ -18,13 +23,15 @@ foreach(test ${TEST_FILES})
     # 为空接口，链接必报 LNK2001 pthread_create/join），范式同
     # atoms/corekern/tests：多线程覆盖由 POSIX 腿（Linux/macOS）保障，
     # MSVC 下跳过构建。
-    if(MSVC AND test STREQUAL "test_heapstore_trace")
+    if(MSVC AND (test STREQUAL "test_heapstore_trace" OR
+                 test STREQUAL "test_fuzzing_concurrency"))
         continue()
     endif()
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${test}.c")
         add_executable(${test} ${test}.c)
         target_include_directories(${test} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
+            ${CMAKE_CURRENT_SOURCE_DIR}/../src
             ${CMAKE_CURRENT_SOURCE_DIR}/../../commons/utils/memory
         )
         target_link_libraries(${test}

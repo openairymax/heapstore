@@ -11,6 +11,8 @@
 #include "../include/heapstore.h"
 #include "../include/heapstore_registry.h"
 #include "platform.h"
+#include "airy_memory.h"
+#include "io.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +20,15 @@
 #include <time.h>
 
 #define NUM_RECORDS 1000
+
+/* 性能基线要求每次运行都从空库开始计满插耗时；
+ * 上一轮运行（或中断）遗留的 registry.db 会令主键冲突，
+ * 故先递归清除两个固定基准目录（airy_io_remove_dir_recursive 幂等）。 */
+static void clean_baseline_dirs(void)
+{
+    airy_io_remove_dir_recursive(AIRY_TMP_DIR "/heapstore_perf_test");
+    airy_io_remove_dir_recursive(AIRY_TMP_DIR "/heapstore_perf_test_batch");
+}
 
 static double get_time_ms(void)
 {
@@ -165,6 +176,8 @@ int main(void)
     printf("========================================\n");
     printf(" heapstore Batch Insert Performance Test\n");
     printf("========================================\n\n");
+
+    clean_baseline_dirs();
 
     return test_comparison();
 }

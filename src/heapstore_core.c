@@ -194,46 +194,6 @@ static void initialize_atomic_vars(void)
     heapstore_core_metrics_init();
 }
 
-/**
-  * @brief Initialize subsystems, rolling back on failure
- */
-typedef heapstore_error_t (*subsystem_init_func)(void);
-typedef void (*subsystem_shutdown_func)(void);
-
-static heapstore_error_t __attribute__((unused)) init_subsys_rollback(
-    subsystem_init_func init, subsystem_shutdown_func shutdown, const char *name)
-{
-
-    heapstore_error_t err = init();
-    if (err != heapstore_SUCCESS) {
-        AIRY_LOG_ERROR("heapstore: failed to initialize %s: %s", name, heapstore_strerror(err));
-        return err;
-    }
-    return heapstore_SUCCESS;
-}
-
-#define INIT_SUBSYSTEM(init_func, shutdown_func, name)                                    \
-    do {                                                                                  \
-        heapstore_error_t err =                                                           \
-            init_subsys_rollback((subsystem_init_func)(init_func),                \
-                                         (subsystem_shutdown_func)(shutdown_func), name); \
-        if (err != heapstore_SUCCESS) {                                                   \
-            return err;                                                                   \
-        }                                                                                 \
-    } while (0)
-
-#define ROLLBACK_AND_RETURN(init_func, shutdown_func, name)                               \
-    do {                                                                                  \
-        heapstore_error_t err =                                                           \
-            init_subsys_rollback((subsystem_init_func)(init_func),                \
-                                         (subsystem_shutdown_func)(shutdown_func), name); \
-        if (err != heapstore_SUCCESS) {                                                   \
-            shutdown_func();                                                              \
-            s_initialized = false;                                                        \
-            return err;                                                                   \
-        }                                                                                 \
-    } while (0)
-
 heapstore_error_t heapstore_init(const heapstore_config_t *manager)
 {
     if (s_initialized) {
