@@ -34,6 +34,9 @@ static void test_ipc_channel_crud(void)
 {
     printf("Test: ipc_channel_crud...");
 
+    heapstore_error_t err = heapstore_ipc_init();
+    assert(err == heapstore_SUCCESS);
+
     heapstore_ipc_channel_t channel;
     AIRY_MEMSET(&channel, 0, sizeof(channel));
 
@@ -46,20 +49,25 @@ static void test_ipc_channel_crud(void)
     channel.current_usage = 1024;
     snprintf(channel.status, sizeof(channel.status), "active");
 
-    heapstore_error_t err = heapstore_ipc_record_channel(&channel);
-    if (err == heapstore_SUCCESS) {
-        heapstore_ipc_channel_t get_ch;
-        AIRY_MEMSET(&get_ch, 0, sizeof(get_ch));
+    err = heapstore_ipc_record_channel(&channel);
+    assert(err == heapstore_SUCCESS);
 
-        err = heapstore_ipc_get_channel(channel.channel_id, &get_ch);
-        assert(err == heapstore_SUCCESS);
-        assert(strcmp(get_ch.name, channel.name) == 0);
-        assert(strcmp(get_ch.type, channel.type) == 0);
-        assert(get_ch.buffer_size == channel.buffer_size);
+    heapstore_ipc_channel_t get_ch;
+    AIRY_MEMSET(&get_ch, 0, sizeof(get_ch));
 
-        err = heapstore_ipc_update_channel_activity(channel.channel_id);
-        assert(err == heapstore_SUCCESS);
-    }
+    err = heapstore_ipc_get_channel(channel.channel_id, &get_ch);
+    assert(err == heapstore_SUCCESS);
+    assert(strcmp(get_ch.name, channel.name) == 0);
+    assert(strcmp(get_ch.type, channel.type) == 0);
+    assert(get_ch.buffer_size == channel.buffer_size);
+    assert(get_ch.current_usage == channel.current_usage);
+
+    err = heapstore_ipc_update_channel_activity(channel.channel_id);
+    assert(err == heapstore_SUCCESS);
+
+    char path[heapstore_IPC_MAX_PATH + 256];
+    snprintf(path, sizeof(path), "%s/channels/%s.json", s_ipc_path, channel.channel_id);
+    remove(path);
 
     printf("PASS\n");
 }
@@ -67,6 +75,9 @@ static void test_ipc_channel_crud(void)
 static void test_ipc_buffer_crud(void)
 {
     printf("Test: ipc_buffer_crud...");
+
+    heapstore_error_t err = heapstore_ipc_init();
+    assert(err == heapstore_SUCCESS);
 
     heapstore_ipc_channel_t channel;
     AIRY_MEMSET(&channel, 0, sizeof(channel));
@@ -77,7 +88,8 @@ static void test_ipc_buffer_crud(void)
     channel.created_at = (uint64_t)time(NULL);
     snprintf(channel.status, sizeof(channel.status), "active");
 
-    heapstore_error_t err = heapstore_ipc_record_channel(&channel);
+    err = heapstore_ipc_record_channel(&channel);
+    assert(err == heapstore_SUCCESS);
 
     heapstore_ipc_buffer_t buffer;
     AIRY_MEMSET(&buffer, 0, sizeof(buffer));
@@ -86,22 +98,26 @@ static void test_ipc_buffer_crud(void)
     snprintf(buffer.channel_id, sizeof(buffer.channel_id), "%s", channel.channel_id);
     buffer.created_at = (uint64_t)time(NULL);
     buffer.size = 8192;
-    buffer.used = 0;
+    buffer.used = 4096;
     snprintf(buffer.status, sizeof(buffer.status), "active");
 
-    if (err == heapstore_SUCCESS) {
-        err = heapstore_ipc_record_buffer(&buffer);
-        if (err == heapstore_SUCCESS) {
-            heapstore_ipc_buffer_t get_buf;
-            AIRY_MEMSET(&get_buf, 0, sizeof(get_buf));
+    err = heapstore_ipc_record_buffer(&buffer);
+    assert(err == heapstore_SUCCESS);
 
-            err = heapstore_ipc_get_buffer(buffer.buffer_id, &get_buf);
-            assert(err == heapstore_SUCCESS);
-            assert(strcmp(get_buf.channel_id, buffer.channel_id) == 0);
-            assert(get_buf.size == buffer.size);
-            assert(get_buf.size == buffer.size);
-        }
-    }
+    heapstore_ipc_buffer_t get_buf;
+    AIRY_MEMSET(&get_buf, 0, sizeof(get_buf));
+
+    err = heapstore_ipc_get_buffer(buffer.buffer_id, &get_buf);
+    assert(err == heapstore_SUCCESS);
+    assert(strcmp(get_buf.channel_id, buffer.channel_id) == 0);
+    assert(get_buf.size == buffer.size);
+    assert(get_buf.used == buffer.used);
+
+    char path[heapstore_IPC_MAX_PATH + 256];
+    snprintf(path, sizeof(path), "%s/buffers/%s.json", s_ipc_path, buffer.buffer_id);
+    remove(path);
+    snprintf(path, sizeof(path), "%s/channels/%s.json", s_ipc_path, channel.channel_id);
+    remove(path);
 
     printf("PASS\n");
 }
@@ -131,7 +147,10 @@ static void test_ipc_invalid_params(void)
 {
     printf("Test: ipc_invalid_params...");
 
-    heapstore_error_t err = heapstore_ipc_record_channel(NULL);
+    heapstore_error_t err = heapstore_ipc_init();
+    assert(err == heapstore_SUCCESS);
+
+    err = heapstore_ipc_record_channel(NULL);
     assert(err == heapstore_ERR_INVALID_PARAM);
 
     heapstore_ipc_channel_t invalid_ch;
@@ -163,11 +182,13 @@ static void test_ipc_not_found(void)
 {
     printf("Test: ipc_not_found...");
 
+    heapstore_error_t err = heapstore_ipc_init();
+    assert(err == heapstore_SUCCESS);
+
     heapstore_ipc_channel_t channel;
     AIRY_MEMSET(&channel, 0, sizeof(channel));
 
-    heapstore_error_t err =
-        heapstore_ipc_get_channel("nonexistent_id", &channel);
+    err = heapstore_ipc_get_channel("nonexistent_id", &channel);
     assert(err == heapstore_ERR_NOT_FOUND);
 
     heapstore_ipc_buffer_t buffer;
@@ -185,6 +206,9 @@ static void test_ipc_not_found(void)
 static void test_ipc_multiple_channels(void)
 {
     printf("Test: ipc_multiple_channels...");
+
+    heapstore_error_t init_err = heapstore_ipc_init();
+    assert(init_err == heapstore_SUCCESS);
 
     for (int i = 0; i < 5; i++) {
         heapstore_ipc_channel_t channel;
@@ -279,6 +303,11 @@ static void test_ipc_persist_roundtrip(void)
 int main(void)
 {
     printf("=== AgentRT heapstore IPC Unit Tests ===\n\n");
+
+    /* 隔离测试数据：root 解析依赖 AIRY_HOME 体系，独立 home 避免
+     * 触碰真实生产数据分区（~/.airymaxrt/data/agentrt/heapstore） */
+    setenv("AIRY_HOME", "/tmp/agentrt_hs_test_home", 1);
+    setenv("AIRY_RUNTIME_DIR", "/tmp/agentrt_hs_test_run", 1);
 
     test_ipc_init_shutdown();
     test_ipc_channel_crud();
