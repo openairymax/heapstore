@@ -220,6 +220,175 @@ static void test_batch_destroy_safety(void)
                    "get_capacity with NULL returns 0");
 }
 
+/**
+ * @brief 填充 7 类记录用于入队/校验测试。
+ */
+static void fill_records(heapstore_session_record_t *session, heapstore_agent_record_t *agent,
+                         heapstore_skill_record_t *skill, heapstore_memory_pool_t *pool,
+                         heapstore_memory_allocation_t *alloc, heapstore_ipc_channel_t *channel,
+                         heapstore_ipc_buffer_t *buffer)
+{
+    memset(session, 0, sizeof(*session));
+    memset(agent, 0, sizeof(*agent));
+    memset(skill, 0, sizeof(*skill));
+    memset(pool, 0, sizeof(*pool));
+    memset(alloc, 0, sizeof(*alloc));
+    memset(channel, 0, sizeof(*channel));
+    memset(buffer, 0, sizeof(*buffer));
+
+    snprintf(session->id, sizeof(session->id), "sess_001");
+    snprintf(agent->id, sizeof(agent->id), "agent_001");
+    snprintf(skill->id, sizeof(skill->id), "skill_001");
+    snprintf(pool->pool_id, sizeof(pool->pool_id), "pool_001");
+    snprintf(alloc->allocation_id, sizeof(alloc->allocation_id), "alloc_001");
+    snprintf(channel->channel_id, sizeof(channel->channel_id), "ch_001");
+    snprintf(buffer->buffer_id, sizeof(buffer->buffer_id), "buf_001");
+}
+
+/**
+ * @brief 覆盖 7 类记录入队：类型标签序列与载荷落位
+ */
+static void test_batch_add_records(void)
+{
+    printf("\n=== Test: Batch Add Records ===\n");
+
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(16);
+    if (!ctx) {
+        TEST_ASSERT(false, "Failed to init batch context");
+        return;
+    }
+
+    heapstore_session_record_t session;
+    heapstore_agent_record_t agent;
+    heapstore_skill_record_t skill;
+    heapstore_memory_pool_t pool;
+    heapstore_memory_allocation_t alloc;
+    heapstore_ipc_channel_t channel;
+    heapstore_ipc_buffer_t buffer;
+    fill_records(&session, &agent, &skill, &pool, &alloc, &channel, &buffer);
+
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_session(ctx, &session),
+                   "add_session should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_agent(ctx, &agent),
+                   "add_agent should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_skill(ctx, &skill),
+                   "add_skill should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_memory_pool(ctx, &pool),
+                   "add_memory_pool should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_allocation(ctx, &alloc),
+                   "add_allocation should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_ipc_channel(ctx, &channel),
+                   "add_ipc_channel should succeed");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_ipc_buffer(ctx, &buffer),
+                   "add_ipc_buffer should succeed");
+    TEST_ASSERT_EQ(7, (int)heapstore_batch_get_count(ctx), "count should be 7 after adding");
+
+    /* 白盒校验：节点类型标签与载荷落位必须与入队顺序一一对应 */
+    const heapstore_batch_item_type_t expect_types[7] = {
+        HEAPSTORE_BATCH_ITEM_SESSION,       HEAPSTORE_BATCH_ITEM_AGENT,
+        HEAPSTORE_BATCH_ITEM_SKILL,         HEAPSTORE_BATCH_ITEM_MEMORY_POOL,
+        HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC,  HEAPSTORE_BATCH_ITEM_IPC_CHANNEL,
+        HEAPSTORE_BATCH_ITEM_IPC_BUFFER,
+    };
+    const heapstore_batch_item_t *node = ctx->head;
+    int idx = 0;
+    while (node && idx < 7) {
+        TEST_ASSERT_EQ(expect_types[idx], node->type, "batch node type should match order");
+        node = node->next;
+        idx++;
+    }
+    TEST_ASSERT_EQ(7, idx, "linked list should contain 7 nodes");
+    TEST_ASSERT(node == NULL, "node count should stop at 7");
+
+    TEST_ASSERT(strcmp(ctx->head->data.session.id, "sess_001") == 0,
+                "session payload should land in session slot");
+    TEST_ASSERT(strcmp(ctx->head->next->data.agent.id, "agent_001") == 0,
+                "agent payload should land in agent slot");
+    TEST_ASSERT(strcmp(ctx->head->next->next->data.skill.id, "skill_001") == 0,
+                "skill payload should land in skill slot");
+    TEST_ASSERT(strcmp(ctx->head->next->next->next->data.memory_pool.pool_id, "pool_001") == 0,
+                "memory_pool payload should land in memory_pool slot");
+    TEST_ASSERT(strcmp(ctx->head->next->next->next->next->data.memory_alloc.allocation_id,
+                       "alloc_001") == 0,
+                "allocation payload should land in memory_alloc slot");
+    TEST_ASSERT(strcmp(ctx->head->next->next->next->next->next->data.ipc_channel.channel_id,
+                       "ch_001") == 0,
+                "ipc_channel payload should land in ipc_channel slot");
+    TEST_ASSERT(strcmp(ctx->head->next->next->next->next->next->next->data.ipc_buffer.buffer_id,
+                       "buf_001") == 0,
+                "ipc_buffer payload should land in ipc_buffer slot");
+
+    heapstore_batch_rollback(ctx);
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "count should be 0 after rollback");
+    heapstore_batch_context_destroy(ctx);
+}
+
+/**
+ * @brief 覆盖 7 类记录的参数校验与容量上限
+ */
+static void test_batch_record_validation(void)
+{
+    printf("\n=== Test: Record Validation ===\n");
+
+    heapstore_session_record_t session;
+    heapstore_agent_record_t agent;
+    heapstore_skill_record_t skill;
+    heapstore_memory_pool_t pool;
+    heapstore_memory_allocation_t alloc;
+    heapstore_ipc_channel_t channel;
+    heapstore_ipc_buffer_t buffer;
+    fill_records(&session, &agent, &skill, &pool, &alloc, &channel, &buffer);
+
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_session(NULL, &session),
+                   "add_session with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_session(NULL, NULL),
+                   "add_session with NULL both should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_agent(NULL, &agent),
+                   "add_agent with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_skill(NULL, &skill),
+                   "add_skill with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_memory_pool(NULL, &pool),
+                   "add_memory_pool with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_allocation(NULL, &alloc),
+                   "add_allocation with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_ipc_channel(NULL, &channel),
+                   "add_ipc_channel with NULL ctx should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_ipc_buffer(NULL, &buffer),
+                   "add_ipc_buffer with NULL ctx should fail");
+
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(4);
+    if (!ctx) {
+        TEST_ASSERT(false, "Failed to init batch context");
+        return;
+    }
+
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_session(ctx, NULL),
+                   "add_session with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_agent(ctx, NULL),
+                   "add_agent with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_skill(ctx, NULL),
+                   "add_skill with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_memory_pool(ctx, NULL),
+                   "add_memory_pool with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_allocation(ctx, NULL),
+                   "add_allocation with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_ipc_channel(ctx, NULL),
+                   "add_ipc_channel with NULL record should fail");
+    TEST_ASSERT_EQ(heapstore_ERR_INVALID_PARAM, heapstore_batch_add_ipc_buffer(ctx, NULL),
+                   "add_ipc_buffer with NULL record should fail");
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "rejected adds must not change count");
+
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_session(ctx, &session), "fill 1/4");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_agent(ctx, &agent), "fill 2/4");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_skill(ctx, &skill), "fill 3/4");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_ipc_buffer(ctx, &buffer), "fill 4/4");
+    TEST_ASSERT_EQ(heapstore_ERR_OUT_OF_MEMORY, heapstore_batch_add_ipc_channel(ctx, &channel),
+                   "add beyond capacity should return OUT_OF_MEMORY");
+    TEST_ASSERT_EQ(4, (int)heapstore_batch_get_count(ctx), "count should stay at capacity");
+
+    heapstore_batch_context_destroy(ctx);
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -238,6 +407,8 @@ int main(int argc, char **argv)
     test_batch_commit_rollback();
     test_batch_capacity_limit();
     test_batch_destroy_safety();
+    test_batch_add_records();
+    test_batch_record_validation();
 
     printf("\n========================================\n");
     printf("Test Results: %d passed, %d failed\n", test_passes, test_failures);
