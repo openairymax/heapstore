@@ -77,27 +77,7 @@ heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size)
 heapstore_error_t heapstore_batch_add_log(heapstore_batch_context_t *ctx, const char *service,
                                           int level, const char *message)
 {
-    if (!ctx || !service || !message) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_LOG;
-    AIRY_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
-    item->data.log.level = level;
-    if (message) {
-        AIRY_STRNCPY_TERM(item->data.log.message, message, sizeof(item->data.log.message));
-    }
-
-    return batch_append_item(ctx, item);
+    return heapstore_batch_add_log_with_trace(ctx, service, level, NULL, message);
 }
 
 heapstore_error_t heapstore_batch_add_log_with_trace(heapstore_batch_context_t *ctx,
