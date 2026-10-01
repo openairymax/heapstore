@@ -76,10 +76,30 @@ static void test_batch_add_log(void)
     TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add_log should succeed");
     TEST_ASSERT_EQ(1, (int)heapstore_batch_get_count(ctx), "count should be 1 after add");
 
+    /* 白盒：无 trace 入口不得写入任何 trace_id，且载荷字段必须落位。 */
+    const heapstore_batch_item_t *first = ctx->head;
+    TEST_ASSERT(first != NULL, "head should be linked after add_log");
+    if (first) {
+        TEST_ASSERT_EQ(HEAPSTORE_BATCH_ITEM_LOG, (int)first->type, "node type should be LOG");
+        TEST_ASSERT(strcmp(first->data.log.service, "test_service") == 0,
+                    "service should be copied");
+        TEST_ASSERT(strcmp(first->data.log.message, "Test message") == 0,
+                    "message should be copied");
+        TEST_ASSERT_EQ(HEAPSTORE_LOG_INFO, first->data.log.level, "level should be copied");
+        TEST_ASSERT(first->data.log.trace_id[0] == '\0', "trace_id should stay empty");
+    }
+
     err = heapstore_batch_add_log_with_trace(ctx, "test_service2", HEAPSTORE_LOG_ERROR,
                                              "trace_001", "Error message");
     TEST_ASSERT_EQ(heapstore_SUCCESS, err, "add_log_with_trace should succeed");
     TEST_ASSERT_EQ(2, (int)heapstore_batch_get_count(ctx), "count should be 2 after second add");
+
+    const heapstore_batch_item_t *second = first ? first->next : NULL;
+    TEST_ASSERT(second != NULL, "second node should be linked");
+    if (second) {
+        TEST_ASSERT(strcmp(second->data.log.trace_id, "trace_001") == 0,
+                    "trace variant should carry trace_id");
+    }
 
     heapstore_batch_context_destroy(ctx);
 }
