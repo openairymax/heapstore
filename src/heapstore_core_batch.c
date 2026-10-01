@@ -70,11 +70,7 @@ heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size)
     if (ctx->capacity > HEAPSTORE_BATCH_MAX_ITEMS) {
         ctx->capacity = HEAPSTORE_BATCH_MAX_ITEMS;
     }
-#ifdef _WIN32
     airy_mtx_init(&ctx->lock);
-#else
-    airy_mtx_init(&ctx->lock);
-#endif
     return ctx;
 }
 
@@ -171,8 +167,33 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
     return batch_append_item(ctx, item);
 }
 
-heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
-                                              const heapstore_session_record_t *record)
+/** batch 条目联合体中各记录槽位的偏移与载荷长度。 */
+typedef struct {
+    uint32_t off;
+    uint32_t size;
+} batch_rec_slot_t;
+
+/** LOG/SPAN 走专用入口，故前两项留空；其余与联合成员一一对应。 */
+static const batch_rec_slot_t batch_rec_slots[HEAPSTORE_BATCH_ITEM_IPC_BUFFER + 1] = {
+    [HEAPSTORE_BATCH_ITEM_SESSION] =
+        {offsetof(heapstore_batch_item_t, data.session), sizeof(heapstore_session_record_t)},
+    [HEAPSTORE_BATCH_ITEM_AGENT] =
+        {offsetof(heapstore_batch_item_t, data.agent), sizeof(heapstore_agent_record_t)},
+    [HEAPSTORE_BATCH_ITEM_SKILL] =
+        {offsetof(heapstore_batch_item_t, data.skill), sizeof(heapstore_skill_record_t)},
+    [HEAPSTORE_BATCH_ITEM_MEMORY_POOL] =
+        {offsetof(heapstore_batch_item_t, data.memory_pool), sizeof(heapstore_memory_pool_t)},
+    [HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC] = {offsetof(heapstore_batch_item_t, data.memory_alloc),
+                                           sizeof(heapstore_memory_allocation_t)},
+    [HEAPSTORE_BATCH_ITEM_IPC_CHANNEL] =
+        {offsetof(heapstore_batch_item_t, data.ipc_channel), sizeof(heapstore_ipc_channel_t)},
+    [HEAPSTORE_BATCH_ITEM_IPC_BUFFER] =
+        {offsetof(heapstore_batch_item_t, data.ipc_buffer), sizeof(heapstore_ipc_buffer_t)},
+};
+
+/** 分配条目、打类型标签、整块拷贝载荷，再追加到链表尾部。 */
+static heapstore_error_t batch_add_rec(heapstore_batch_context_t *ctx, const void *record,
+                                       heapstore_batch_item_type_t type)
 {
     if (!ctx || !record) {
         return heapstore_ERR_INVALID_PARAM;
@@ -187,142 +208,53 @@ heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
         return heapstore_ERR_OUT_OF_MEMORY;
     }
     __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_SESSION;
-    __builtin_memcpy(&item->data.session, record, sizeof(heapstore_session_record_t));
+    item->type = type;
+    __builtin_memcpy((char *)item + batch_rec_slots[type].off, record,
+                     batch_rec_slots[type].size);
 
     return batch_append_item(ctx, item);
+}
+
+heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
+                                              const heapstore_session_record_t *record)
+{
+    return batch_add_rec(ctx, record, HEAPSTORE_BATCH_ITEM_SESSION);
 }
 
 heapstore_error_t heapstore_batch_add_agent(heapstore_batch_context_t *ctx,
                                             const heapstore_agent_record_t *record)
 {
-    if (!ctx || !record) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_AGENT;
-    __builtin_memcpy(&item->data.agent, record, sizeof(heapstore_agent_record_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, record, HEAPSTORE_BATCH_ITEM_AGENT);
 }
 
 heapstore_error_t heapstore_batch_add_skill(heapstore_batch_context_t *ctx,
                                             const heapstore_skill_record_t *record)
 {
-    if (!ctx || !record) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_SKILL;
-    __builtin_memcpy(&item->data.skill, record, sizeof(heapstore_skill_record_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, record, HEAPSTORE_BATCH_ITEM_SKILL);
 }
 
 heapstore_error_t heapstore_batch_add_memory_pool(heapstore_batch_context_t *ctx,
                                                   const heapstore_memory_pool_t *pool)
 {
-    if (!ctx || !pool) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_MEMORY_POOL;
-    __builtin_memcpy(&item->data.memory_pool, pool, sizeof(heapstore_memory_pool_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, pool, HEAPSTORE_BATCH_ITEM_MEMORY_POOL);
 }
 
 heapstore_error_t heapstore_batch_add_allocation(heapstore_batch_context_t *ctx,
                                                  const heapstore_memory_allocation_t *allocation)
 {
-    if (!ctx || !allocation) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC;
-    __builtin_memcpy(&item->data.memory_alloc, allocation, sizeof(heapstore_memory_allocation_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, allocation, HEAPSTORE_BATCH_ITEM_MEMORY_ALLOC);
 }
 
 heapstore_error_t heapstore_batch_add_ipc_channel(heapstore_batch_context_t *ctx,
                                                   const heapstore_ipc_channel_t *channel)
 {
-    if (!ctx || !channel) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_IPC_CHANNEL;
-    __builtin_memcpy(&item->data.ipc_channel, channel, sizeof(heapstore_ipc_channel_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, channel, HEAPSTORE_BATCH_ITEM_IPC_CHANNEL);
 }
 
 heapstore_error_t heapstore_batch_add_ipc_buffer(heapstore_batch_context_t *ctx,
                                                  const heapstore_ipc_buffer_t *buffer)
 {
-    if (!ctx || !buffer) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
-    if (!item) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_IPC_BUFFER;
-    __builtin_memcpy(&item->data.ipc_buffer, buffer, sizeof(heapstore_ipc_buffer_t));
-
-    return batch_append_item(ctx, item);
+    return batch_add_rec(ctx, buffer, HEAPSTORE_BATCH_ITEM_IPC_BUFFER);
 }
 
 heapstore_error_t heapstore_batch_add_span(heapstore_batch_context_t *ctx,
@@ -373,11 +305,7 @@ void heapstore_batch_context_destroy(heapstore_batch_context_t *ctx)
     }
 
     heapstore_batch_rollback(ctx);
-#ifdef _WIN32
     airy_mtx_destroy(&ctx->lock);
-#else
-    airy_mtx_destroy(&ctx->lock);
-#endif
     AIRY_FREE(ctx);
 }
 
