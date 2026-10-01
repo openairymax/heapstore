@@ -10,6 +10,7 @@
 
 #include "heapstore.h"
 #include "heapstore_ipc.h"
+#include "heapstore_ipc_internal.h"
 #include "airy_memory.h"
 
 #include <assert.h>
@@ -207,6 +208,74 @@ static void test_ipc_multiple_channels(void)
     printf("PASS\n");
 }
 
+static void test_ipc_persist_roundtrip(void)
+{
+    printf("Test: ipc_persist_roundtrip...");
+
+    heapstore_error_t err = heapstore_ipc_init();
+    assert(err == heapstore_SUCCESS);
+
+    heapstore_ipc_channel_t channel;
+    AIRY_MEMSET(&channel, 0, sizeof(channel));
+    snprintf(channel.channel_id, sizeof(channel.channel_id), "ch_rt_%ld", (long)time(NULL));
+    snprintf(channel.name, sizeof(channel.name), "Round Trip Channel");
+    snprintf(channel.type, sizeof(channel.type), "binder");
+    snprintf(channel.status, sizeof(channel.status), "active");
+    channel.created_at = 1700000001ULL;
+    channel.last_activity_at = 1700000002ULL;
+    channel.buffer_size = 65536U;
+    channel.current_usage = 4096U;
+
+    assert(persist_channel_to_file(&channel) == heapstore_SUCCESS);
+
+    heapstore_ipc_channel_t back;
+    AIRY_MEMSET(&back, 0xAA, sizeof(back));
+    assert(load_channel_from_file(channel.channel_id, &back) == heapstore_SUCCESS);
+    assert(strcmp(back.channel_id, channel.channel_id) == 0);
+    assert(strcmp(back.name, channel.name) == 0);
+    assert(strcmp(back.type, channel.type) == 0);
+    assert(strcmp(back.status, channel.status) == 0);
+    assert(back.created_at == channel.created_at);
+    assert(back.last_activity_at == channel.last_activity_at);
+    assert(back.buffer_size == channel.buffer_size);
+    assert(back.current_usage == channel.current_usage);
+
+    heapstore_ipc_buffer_t buffer;
+    AIRY_MEMSET(&buffer, 0, sizeof(buffer));
+    snprintf(buffer.buffer_id, sizeof(buffer.buffer_id), "buf_rt_%ld", (long)time(NULL));
+    snprintf(buffer.channel_id, sizeof(buffer.channel_id), "%s", channel.channel_id);
+    buffer.size = 131072U;
+    buffer.used = 2048U;
+    buffer.created_at = 1700000003ULL;
+    snprintf(buffer.status, sizeof(buffer.status), "active");
+
+    assert(persist_buffer_to_file(&buffer) == heapstore_SUCCESS);
+
+    heapstore_ipc_buffer_t back_buf;
+    AIRY_MEMSET(&back_buf, 0xAA, sizeof(back_buf));
+    assert(load_buffer_from_file(buffer.buffer_id, &back_buf) == heapstore_SUCCESS);
+    assert(strcmp(back_buf.buffer_id, buffer.buffer_id) == 0);
+    assert(strcmp(back_buf.channel_id, buffer.channel_id) == 0);
+    assert(back_buf.size == buffer.size);
+    assert(back_buf.used == buffer.used);
+    assert(back_buf.created_at == buffer.created_at);
+    assert(strcmp(back_buf.status, buffer.status) == 0);
+
+    heapstore_ipc_channel_t missing;
+    AIRY_MEMSET(&missing, 0, sizeof(missing));
+    assert(load_channel_from_file("no_such_channel", &missing) == heapstore_ERR_NOT_FOUND);
+    assert(load_channel_from_file(NULL, &missing) == heapstore_ERR_INVALID_PARAM);
+    assert(load_channel_from_file(channel.channel_id, NULL) == heapstore_ERR_INVALID_PARAM);
+
+    char path[heapstore_IPC_MAX_PATH + 256];
+    snprintf(path, sizeof(path), "%s/channels/%s.json", s_ipc_path, channel.channel_id);
+    remove(path);
+    snprintf(path, sizeof(path), "%s/buffers/%s.json", s_ipc_path, buffer.buffer_id);
+    remove(path);
+
+    printf("PASS\n");
+}
+
 int main(void)
 {
     printf("=== AgentRT heapstore IPC Unit Tests ===\n\n");
@@ -218,6 +287,7 @@ int main(void)
     test_ipc_invalid_params();
     test_ipc_not_found();
     test_ipc_multiple_channels();
+    test_ipc_persist_roundtrip();
 
     printf("\n=== All IPC Tests Passed ===\n");
     return 0;
