@@ -29,10 +29,7 @@
 #include "airy_dirent.h"
 
 #ifdef _WIN32
-#include <direct.h>
 #include <sys/stat.h>
-#include <windows.h>
-#define mkdir(path, mode) _mkdir(path)
 #else
 #include "platform.h"
 
@@ -446,36 +443,6 @@ heapstore_error_t heapstore_log_rotate(void)
     return heapstore_SUCCESS;
 }
 
-#ifndef _WIN32
-/* Remove files older than the cutoff in a directory (non-recursive).
- * Returns bytes freed. */
-static uint64_t clean_dir_by_mtime(const char *dir_path, time_t cutoff, uint64_t *freed)
-{
-    uint64_t local_freed = 0;
-    DIR *dir = opendir(dir_path);
-    if (!dir)
-        return 0;
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type != DT_REG)
-            continue;
-        char filepath[heapstore_LOG_MAX_PATH];
-        snprintf(filepath, sizeof(filepath), "%s/%s", dir_path, entry->d_name);
-        struct stat st;
-        if (stat(filepath, &st) == 0 && st.st_mtime < cutoff) {
-            uint64_t file_size = (uint64_t)st.st_size;
-            if (unlink(filepath) == 0) {
-                local_freed += file_size;
-                if (freed)
-                    *freed += file_size;
-            }
-        }
-    }
-    closedir(dir);
-    return local_freed;
-}
-#endif
-
 heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 {
     if (!s_initialized) {
@@ -492,80 +459,13 @@ heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 
     time_t cutoff_time = time(NULL) - (days_to_keep * 86400);
 
-#ifndef _WIN32
-    clean_dir_by_mtime(get_log_base_path(), cutoff_time, freed_bytes);
+    heapstore_dir_clean(get_log_base_path(), cutoff_time, freed_bytes);
     const char *subdirs[] = {"kernel", "services", "apps"};
     for (size_t i = 0; i < sizeof(subdirs) / sizeof(subdirs[0]); i++) {
         char sub[heapstore_LOG_MAX_PATH];
         snprintf(sub, sizeof(sub), "%s/%s", get_log_base_path(), subdirs[i]);
-        clean_dir_by_mtime(sub, cutoff_time, freed_bytes);
+        heapstore_dir_clean(sub, cutoff_time, freed_bytes);
     }
-#else
-    WIN32_FIND_DATAA find_data;
-    char search_path[heapstore_LOG_MAX_PATH];
-
-    snprintf(search_path, sizeof(search_path), "%s/*", get_log_base_path());
-
-    HANDLE h_find = FindFirstFileA(search_path, &find_data);
-    if (h_find == INVALID_HANDLE_VALUE) {
-        return heapstore_SUCCESS;
-    }
-
-    do {
-        if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-            char filepath[heapstore_LOG_MAX_PATH];
-            snprintf(filepath, sizeof(filepath), "%s/%s", get_log_base_path(), find_data.cFileName);
-
-            FILETIME ft_write = find_data.ftLastWriteTime;
-            ULARGE_INTEGER uli;
-            uli.LowPart = ft_write.dwLowDateTime;
-            uli.HighPart = ft_write.dwHighDateTime;
-            time_t file_time = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000);
-
-            if (file_time < cutoff_time) {
-                uint64_t file_size =
-                    ((uint64_t)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
-                if (DeleteFileA(filepath)) {
-                    if (freed_bytes)
-                        *freed_bytes += file_size;
-                }
-            }
-        }
-    } while (FindNextFileA(h_find, &find_data));
-
-    FindClose(h_find);
-
-    /* Also clean rotated kernel/service log files on Windows. */
-    const char *subdirs[] = {"kernel", "services", "apps"};
-    for (size_t i = 0; i < sizeof(subdirs) / sizeof(subdirs[0]); i++) {
-        char sub[heapstore_LOG_MAX_PATH];
-        snprintf(sub, sizeof(sub), "%s/%s", get_log_base_path(), subdirs[i]);
-        snprintf(search_path, sizeof(search_path), "%s/*", sub);
-        HANDLE h_sub = FindFirstFileA(search_path, &find_data);
-        if (h_sub == INVALID_HANDLE_VALUE)
-            continue;
-        do {
-            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                char filepath[heapstore_LOG_MAX_PATH];
-                snprintf(filepath, sizeof(filepath), "%s/%s", sub, find_data.cFileName);
-                FILETIME ft_write = find_data.ftLastWriteTime;
-                ULARGE_INTEGER uli;
-                uli.LowPart = ft_write.dwLowDateTime;
-                uli.HighPart = ft_write.dwHighDateTime;
-                time_t file_time = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000);
-                if (file_time < cutoff_time) {
-                    uint64_t file_size =
-                        ((uint64_t)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
-                    if (DeleteFileA(filepath)) {
-                        if (freed_bytes)
-                            *freed_bytes += file_size;
-                    }
-                }
-            }
-        } while (FindNextFileA(h_sub, &find_data));
-        FindClose(h_sub);
-    }
-#endif
 
     return heapstore_SUCCESS;
 }

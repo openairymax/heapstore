@@ -11,28 +11,9 @@
 
 #ifdef heapstore_SQLITE_IMPLEMENTATION
 
-heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *record)
+static heapstore_error_t bind_skill_row(sqlite3_stmt *stmt, void *data)
 {
-    if (!record || !record->id[0]) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    airy_mtx_lock(&s_registry.lock);
-
-    const char *sql = "INSERT INTO skills "
-                      "(id, name, version, library_path, manifest_path, installed_at) "
-                      "VALUES (?, ?, ?, ?, ?, ?);";
-    sqlite3_stmt *stmt;
-
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
+    const heapstore_skill_record_t *record = (const heapstore_skill_record_t *)data;
 
     sqlite3_bind_text(stmt, 1, record->id, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, record->name, -1, SQLITE_STATIC);
@@ -40,16 +21,49 @@ heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *r
     sqlite3_bind_text(stmt, 4, record->library_path, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 5, record->manifest_path, -1, SQLITE_STATIC);
     sqlite3_bind_int64(stmt, 6, record->installed_at);
+    return heapstore_SUCCESS;
+}
 
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-    airy_mtx_unlock(&s_registry.lock);
+void extract_skill_row(sqlite3_stmt *stmt, void *rec)
+{
+    heapstore_skill_record_t *record = (heapstore_skill_record_t *)rec;
+    const char *text;
 
-    if (rc != SQLITE_DONE) {
-        return heapstore_ERR_DB_QUERY_FAILED;
+    __builtin_memset(record, 0, sizeof(*record));
+
+    text = (const char *)sqlite3_column_text(stmt, 0);
+    if (text) {
+        AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
+    }
+    text = (const char *)sqlite3_column_text(stmt, 1);
+    if (text) {
+        AIRY_STRNCPY_TERM(record->name, text, sizeof(record->name));
+    }
+    text = (const char *)sqlite3_column_text(stmt, 2);
+    if (text) {
+        AIRY_STRNCPY_TERM(record->version, text, sizeof(record->version));
+    }
+    text = (const char *)sqlite3_column_text(stmt, 3);
+    if (text) {
+        AIRY_STRNCPY_TERM(record->library_path, text, sizeof(record->library_path));
+    }
+    text = (const char *)sqlite3_column_text(stmt, 4);
+    if (text) {
+        AIRY_STRNCPY_TERM(record->manifest_path, text, sizeof(record->manifest_path));
+    }
+    record->installed_at = sqlite3_column_int64(stmt, 5);
+}
+
+heapstore_error_t heapstore_registry_add_skill(const heapstore_skill_record_t *record)
+{
+    if (!record || !record->id[0]) {
+        return heapstore_ERR_INVALID_PARAM;
     }
 
-    return heapstore_SUCCESS;
+    return sql_exec_locked("INSERT INTO skills "
+                           "(id, name, version, library_path, manifest_path, installed_at) "
+                           "VALUES (?, ?, ?, ?, ?, ?);",
+                           bind_skill_row, (void *)record);
 }
 
 heapstore_error_t heapstore_registry_get_skill(const char *id, heapstore_skill_record_t *record)
@@ -58,56 +72,9 @@ heapstore_error_t heapstore_registry_get_skill(const char *id, heapstore_skill_r
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    airy_mtx_lock(&s_registry.lock);
-
-    const char *sql = "SELECT id, name, version, library_path, manifest_path, installed_at FROM "
-                      "skills WHERE id = ?;";
-    sqlite3_stmt *stmt;
-
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    sqlite3_bind_text(stmt, 1, id, -1, SQLITE_STATIC);
-
-    rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) {
-        const char *text;
-        text = (const char *)sqlite3_column_text(stmt, 0);
-        if (text) {
-            AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
-        }
-        text = (const char *)sqlite3_column_text(stmt, 1);
-        if (text) {
-            AIRY_STRNCPY_TERM(record->name, text, sizeof(record->name));
-        }
-        text = (const char *)sqlite3_column_text(stmt, 2);
-        if (text) {
-            AIRY_STRNCPY_TERM(record->version, text, sizeof(record->version));
-        }
-        text = (const char *)sqlite3_column_text(stmt, 3);
-        if (text) {
-            AIRY_STRNCPY_TERM(record->library_path, text, sizeof(record->library_path));
-        }
-        text = (const char *)sqlite3_column_text(stmt, 4);
-        if (text) {
-            AIRY_STRNCPY_TERM(record->manifest_path, text, sizeof(record->manifest_path));
-        }
-        record->installed_at = sqlite3_column_int64(stmt, 5);
-        sqlite3_finalize(stmt);
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_SUCCESS;
-    }
-
-    sqlite3_finalize(stmt);
-    airy_mtx_unlock(&s_registry.lock);
-    return heapstore_ERR_NOT_FOUND;
+    return registry_query_one("SELECT id, name, version, library_path, manifest_path, "
+                              "installed_at FROM skills WHERE id = ?;",
+                              registry_bind_id, (void *)id, extract_skill_row, record);
 }
 
 heapstore_error_t heapstore_registry_delete_skill(const char *id)
@@ -116,32 +83,7 @@ heapstore_error_t heapstore_registry_delete_skill(const char *id)
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    airy_mtx_lock(&s_registry.lock);
-
-    const char *sql = "DELETE FROM skills WHERE id = ?;";
-    sqlite3_stmt *stmt;
-
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    sqlite3_bind_text(stmt, 1, id, -1, SQLITE_STATIC);
-
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-    airy_mtx_unlock(&s_registry.lock);
-
-    if (rc != SQLITE_DONE) {
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    return heapstore_SUCCESS;
+    return sql_exec_locked("DELETE FROM skills WHERE id = ?;", registry_bind_id, (void *)id);
 }
 
 heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **iter)
@@ -149,39 +91,13 @@ heapstore_error_t heapstore_registry_query_skills(heapstore_registry_iter_t **it
     if (!iter) {
         return heapstore_ERR_INVALID_PARAM;
     }
-
     if (!s_registry.initialized || !s_registry.db) {
         return heapstore_ERR_NOT_INITIALIZED;
     }
 
-    airy_mtx_lock(&s_registry.lock);
-
-    const char *sql = "SELECT id, name, version, library_path, manifest_path, installed_at FROM "
-                      "skills ORDER BY installed_at DESC;";
-    sqlite3_stmt *stmt;
-
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    heapstore_registry_iter_t *new_iter =
-        (heapstore_registry_iter_t *)AIRY_MALLOC(sizeof(heapstore_registry_iter_t));
-    if (!new_iter) {
-        sqlite3_finalize(stmt);
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    new_iter->stmt = stmt;
-    new_iter->current_type = 1; /* skills */
-    new_iter->has_more = 1;
-
-    *iter = new_iter;
-    airy_mtx_unlock(&s_registry.lock);
-
-    return heapstore_SUCCESS;
+    return registry_query_open("SELECT id, name, version, library_path, manifest_path, "
+                               "installed_at FROM skills ORDER BY installed_at DESC;",
+                               heapstore_REGISTRY_REC_SKILL, NULL, NULL, iter);
 }
 
 heapstore_error_t heapstore_registry_batch_insert_skills(const heapstore_skill_record_t *records,
@@ -191,62 +107,12 @@ heapstore_error_t heapstore_registry_batch_insert_skills(const heapstore_skill_r
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    const char *sql = "INSERT INTO skills "
-                      "(id, name, version, library_path, manifest_path, installed_at) "
-                      "VALUES (?, ?, ?, ?, ?, ?);";
-
-    airy_mtx_lock(&s_registry.lock);
-
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
-    if (rc != SQLITE_OK) {
-        sqlite3_finalize(stmt);
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    heapstore_error_t result = heapstore_SUCCESS;
-    for (size_t i = 0; i < count; i++) {
-        const heapstore_skill_record_t *record = &records[i];
-
-        sqlite3_bind_text(stmt, 1, record->id, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 2, record->name, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 3, record->version, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 4, record->library_path, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 5, record->manifest_path, -1, SQLITE_STATIC);
-        sqlite3_bind_int64(stmt, 6, record->installed_at);
-
-        rc = sqlite3_step(stmt);
-        if (rc != SQLITE_DONE) {
-            result = heapstore_ERR_DB_QUERY_FAILED;
-            sqlite3_exec(s_registry.db, "ROLLBACK;", NULL, NULL, NULL);
-            break;
-        }
-
-        sqlite3_reset(stmt);
-    }
-
-    if (result == heapstore_SUCCESS) {
-        rc = sqlite3_exec(s_registry.db, "COMMIT;", NULL, NULL, NULL);
-        if (rc != SQLITE_OK) {
-            result = heapstore_ERR_DB_QUERY_FAILED;
-        }
-    }
-
-    sqlite3_finalize(stmt);
-    airy_mtx_unlock(&s_registry.lock);
-
-    return result;
+    return batch_exec_locked("INSERT INTO skills "
+                                 "(id, name, version, library_path, manifest_path, "
+                                 " installed_at) "
+                                 "VALUES (?, ?, ?, ?, ?, ?);",
+                                 bind_skill_row, records, count,
+                                 sizeof(heapstore_skill_record_t));
 }
 
 #endif /* heapstore_SQLITE_IMPLEMENTATION */
