@@ -32,16 +32,7 @@ int main(int argc, char **argv)
     printf("========================================\n\n");
 
     printf("Step 1: Initialize heapstore\n");
-    heapstore_config_t config = {.root_path = "./heapstore_data",
-                                 .max_log_size_mb = 100,
-                                 .log_retention_days = 7,
-                                 .trace_retention_days = 3,
-                                 .enable_auto_cleanup = true,
-                                 .enable_log_rotation = true,
-                                 .enable_trace_export = true,
-                                 .db_vacuum_interval_days = 7,
-                                 .circuit_breaker_threshold = 5,
-                                 .circuit_breaker_timeout_sec = 30};
+    heapstore_config_t config = heapstore_def_config("./heapstore_data");
 
     heapstore_error_t err = heapstore_init(&config);
     if (err != heapstore_SUCCESS) {

@@ -58,6 +58,24 @@ static heapstore_error_t batch_append_item(heapstore_batch_context_t *ctx,
     return heapstore_SUCCESS;
 }
 
+/** 分配零初始化条目并打类型标签；容量满或分配失败均返回 NULL。 */
+static heapstore_batch_item_t *batch_item_new(heapstore_batch_context_t *ctx,
+                                              heapstore_batch_item_type_t type)
+{
+    if (!ctx || ctx->count >= ctx->capacity) {
+        return NULL;
+    }
+
+    heapstore_batch_item_t *item =
+        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    if (!item) {
+        return NULL;
+    }
+    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
+    item->type = type;
+    return item;
+}
+
 heapstore_batch_context_t *heapstore_batch_begin(size_t batch_size)
 {
     heapstore_batch_context_t *ctx =
@@ -87,17 +105,11 @@ heapstore_error_t heapstore_batch_add_log_with_trace(heapstore_batch_context_t *
     if (!ctx || !service || !message) {
         return heapstore_ERR_INVALID_PARAM;
     }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
 
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = batch_item_new(ctx, HEAPSTORE_BATCH_ITEM_LOG);
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_LOG;
     AIRY_STRNCPY_TERM(item->data.log.service, service, sizeof(item->data.log.service));
     item->data.log.level = level;
     if (trace_id) {
@@ -118,17 +130,11 @@ heapstore_error_t heapstore_batch_add_trace(heapstore_batch_context_t *ctx, cons
     if (!ctx || !trace_id || !span_id || !name) {
         return heapstore_ERR_INVALID_PARAM;
     }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
 
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = batch_item_new(ctx, HEAPSTORE_BATCH_ITEM_SPAN);
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = HEAPSTORE_BATCH_ITEM_SPAN;
     AIRY_STRNCPY_TERM(item->data.span.trace_id, trace_id, sizeof(item->data.span.trace_id));
     AIRY_STRNCPY_TERM(item->data.span.span_id, span_id, sizeof(item->data.span.span_id));
     if (parent_span_id) {
@@ -178,17 +184,11 @@ static heapstore_error_t batch_add_rec(heapstore_batch_context_t *ctx, const voi
     if (!ctx || !record) {
         return heapstore_ERR_INVALID_PARAM;
     }
-    if (ctx->count >= ctx->capacity) {
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
 
-    heapstore_batch_item_t *item =
-        (heapstore_batch_item_t *)AIRY_MALLOC(sizeof(heapstore_batch_item_t));
+    heapstore_batch_item_t *item = batch_item_new(ctx, type);
     if (!item) {
         return heapstore_ERR_OUT_OF_MEMORY;
     }
-    __builtin_memset(item, 0, sizeof(heapstore_batch_item_t));
-    item->type = type;
     __builtin_memcpy((char *)item + batch_rec_slots[type].off, record,
                      batch_rec_slots[type].size);
 

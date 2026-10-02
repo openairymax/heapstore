@@ -20,18 +20,6 @@
 
 #include "airy_memory.h"
 
-#ifdef _WIN32
-#include <direct.h>
-#include <windows.h>
-#define mkdir(path, mode) _mkdir(path)
-#else
-#include "airy_dirent.h"
-#include "platform.h"
-
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
 #define heapstore_TRACE_MAX_PATH 512
 #define heapstore_TRACE_MAX_SPANS 10000
 #define heapstore_TRACE_BATCH_SIZE 100
@@ -447,62 +435,7 @@ heapstore_error_t heapstore_trace_cleanup(int days_to_keep, uint64_t *freed_byte
     char spans_path[heapstore_TRACE_MAX_PATH];
     snprintf(spans_path, sizeof(spans_path), "%s/spans", s_trace_path);
 
-#ifdef _WIN32
-    WIN32_FIND_DATAA find_data;
-    char search_path[heapstore_TRACE_MAX_PATH];
-    snprintf(search_path, sizeof(search_path), "%s/*", spans_path);
-
-    HANDLE h_find = FindFirstFileA(search_path, &find_data);
-    if (h_find != INVALID_HANDLE_VALUE) {
-        do {
-            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                char filepath[heapstore_TRACE_MAX_PATH];
-                snprintf(filepath, sizeof(filepath), "%s/%s", spans_path, find_data.cFileName);
-
-                FILETIME ft_write = find_data.ftLastWriteTime;
-                ULARGE_INTEGER uli;
-                uli.LowPart = ft_write.dwLowDateTime;
-                uli.HighPart = ft_write.dwHighDateTime;
-                time_t file_time = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000);
-
-                if (file_time < cutoff_time) {
-                    uint64_t file_size =
-                        ((uint64_t)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
-                    if (DeleteFileA(filepath)) {
-                        if (freed_bytes)
-                            *freed_bytes += file_size;
-                    }
-                }
-            }
-        } while (FindNextFileA(h_find, &find_data));
-        FindClose(h_find);
-    }
-#else
-    DIR *dir = opendir(spans_path);
-    if (dir) {
-        struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_type != DT_REG) {
-                continue;
-            }
-
-            char filepath[heapstore_TRACE_MAX_PATH];
-            snprintf(filepath, sizeof(filepath), "%s/%s", spans_path, entry->d_name);
-
-            struct stat st;
-            if (stat(filepath, &st) == 0) {
-                if (st.st_mtime < cutoff_time) {
-                    uint64_t file_size = (uint64_t)st.st_size;
-                    if (unlink(filepath) == 0) {
-                        if (freed_bytes)
-                            *freed_bytes += file_size;
-                    }
-                }
-            }
-        }
-        closedir(dir);
-    }
-#endif
+    heapstore_dir_clean(spans_path, cutoff_time, freed_bytes);
 
     airy_mtx_unlock(&s_trace_lock);
 

@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -195,6 +196,86 @@ bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_coun
 #endif
 
     return true;
+}
+
+uint64_t heapstore_dir_clean(const char *dir, time_t cutoff, uint64_t *freed)
+{
+    if (!dir || !dir[0]) {
+        return 0;
+    }
+
+    uint64_t local_freed = 0;
+
+#ifdef _WIN32
+    char search_path[MAX_PATH];
+    WIN32_FIND_DATAA find_data;
+
+    snprintf(search_path, sizeof(search_path), "%s/*", dir);
+
+    HANDLE h_find = FindFirstFileA(search_path, &find_data);
+    if (h_find == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    do {
+        if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            continue;
+        }
+
+        ULARGE_INTEGER uli;
+        uli.LowPart = find_data.ftLastWriteTime.dwLowDateTime;
+        uli.HighPart = find_data.ftLastWriteTime.dwHighDateTime;
+        time_t file_time = (time_t)((uli.QuadPart - 116444736000000000ULL) / 10000000);
+
+        if (file_time >= cutoff) {
+            continue;
+        }
+
+        uint64_t file_size = ((uint64_t)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
+        char filepath[MAX_PATH];
+        snprintf(filepath, sizeof(filepath), "%s/%s", dir, find_data.cFileName);
+        if (DeleteFileA(filepath)) {
+            local_freed += file_size;
+            if (freed) {
+                *freed += file_size;
+            }
+        }
+    } while (FindNextFileA(h_find, &find_data));
+
+    FindClose(h_find);
+#else
+    DIR *d = opendir(dir);
+    if (!d) {
+        return 0;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+        if (entry->d_type != DT_REG) {
+            continue;
+        }
+
+        char filepath[1024];
+        snprintf(filepath, sizeof(filepath), "%s/%s", dir, entry->d_name);
+
+        struct stat st;
+        if (stat(filepath, &st) != 0 || st.st_mtime >= cutoff) {
+            continue;
+        }
+
+        uint64_t file_size = (uint64_t)st.st_size;
+        if (unlink(filepath) == 0) {
+            local_freed += file_size;
+            if (freed) {
+                *freed += file_size;
+            }
+        }
+    }
+
+    closedir(d);
+#endif
+
+    return local_freed;
 }
 
 int heapstore_path_clean(char *output, const char *input, size_t size)

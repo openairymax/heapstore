@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,24 @@ bool heapstore_dir_ensure(const char *path);
  * @since v1.0.0
  */
 bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_count);
+
+/**
+ * @brief Delete regular files in a directory older than the cutoff (non-recursive)
+ *
+ * @param dir [in] directory path
+ * @param cutoff [in] files modified before this time are removed
+ * @param freed [out] optional accumulator of freed bytes
+ * @return uint64_t bytes freed within this directory
+ *
+ * @ownership caller owns the lifetime of dir and freed
+ * @threadsafe yes
+ * @reentrant yes
+ *
+ * @note Missing or unreadable directories yield 0 without error;
+ *       accumulates into freed only for successfully deleted files
+ * @since v0.1.19
+ */
+uint64_t heapstore_dir_clean(const char *dir, time_t cutoff, uint64_t *freed);
 
 /**
   * @brief Sanitize a path component against traversal and injection attacks

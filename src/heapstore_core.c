@@ -98,19 +98,26 @@ static const char *_get_default_root(void)
     return s_default_root;
 }
 
+heapstore_config_t heapstore_def_config(const char *root_path)
+{
+    heapstore_config_t config;
+    AIRY_MEMSET(&config, 0, sizeof(config));
+    config.root_path = root_path;
+    config.max_log_size_mb = 100;
+    config.log_retention_days = 7;
+    config.trace_retention_days = 3;
+    config.enable_auto_cleanup = true;
+    config.enable_log_rotation = true;
+    config.enable_trace_export = true;
+    config.db_vacuum_interval_days = 7;
+    config.circuit_breaker_threshold = heapstore_DEFAULT_CIRCUIT_THRESHOLD;
+    config.circuit_breaker_timeout_sec = heapstore_DEFAULT_CIRCUIT_TIMEOUT_SEC;
+    return config;
+}
+
 static void set_default_config(void)
 {
-    AIRY_MEMSET(&s_config, 0, sizeof(s_config));
-    s_config.root_path = _get_default_root();
-    s_config.max_log_size_mb = 100;
-    s_config.log_retention_days = 7;
-    s_config.trace_retention_days = 3;
-    s_config.enable_auto_cleanup = true;
-    s_config.enable_log_rotation = true;
-    s_config.enable_trace_export = true;
-    s_config.db_vacuum_interval_days = 7;
-    s_config.circuit_breaker_threshold = heapstore_DEFAULT_CIRCUIT_THRESHOLD;
-    s_config.circuit_breaker_timeout_sec = heapstore_DEFAULT_CIRCUIT_TIMEOUT_SEC;
+    s_config = heapstore_def_config(_get_default_root());
 }
 
 /**

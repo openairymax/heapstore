@@ -106,16 +106,7 @@ airy_err_t heapstore_integration_init(const char *root_path)
         }
     }
 
-    heapstore_config_t config = {.root_path = effective_root,
-                                 .max_log_size_mb = 100,
-                                 .log_retention_days = 7,
-                                 .trace_retention_days = 3,
-                                 .enable_auto_cleanup = true,
-                                 .enable_log_rotation = true,
-                                 .enable_trace_export = true,
-                                 .db_vacuum_interval_days = 7,
-                                 .circuit_breaker_threshold = 5,
-                                 .circuit_breaker_timeout_sec = 30};
+    heapstore_config_t config = heapstore_def_config(effective_root);
 
     heapstore_error_t err = heapstore_init(&config);
     if (err != heapstore_SUCCESS) {

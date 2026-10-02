@@ -94,6 +94,23 @@ typedef struct heapstore_config {
 } heapstore_config_t;
 
 /**
+ * @brief Build the default configuration with the given root path
+ *
+ * @param root_path [in] storage root directory (stored as-is, not copied)
+ * @return heapstore_config_t default configuration
+ *
+ * @ownership caller owns the lifetime of root_path
+ * @threadsafe yes
+ * @reentrant yes
+ *
+ * @note Production defaults: 100MB log cap, 7d log / 3d trace retention,
+ *       auto cleanup, log rotation and trace export enabled, 7d vacuum,
+ *       circuit breaker 5 failures / 30s timeout
+ * @since v0.1.19
+ */
+heapstore_config_t heapstore_def_config(const char *root_path);
+
+/**
   * @brief Statistics structure
  */
 typedef struct heapstore_stats {
