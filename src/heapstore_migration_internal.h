@@ -77,9 +77,34 @@ void mig_cleanup_backup_file(const char *file_path);
 void mig_db_path(char *buffer, size_t buffer_size);
 
 /**
-  * @brief Select applicable steps, execute them in order and fill the report.
+  * @brief Entry prelude shared by forward/rollback: readiness + version read
+ */
+heapstore_error_t mig_entry_begin(uint32_t *current_version);
+
+/**
+  * @brief Fill the no-op report emitted when no steps are applicable
+ */
+void mig_report_noop(heapstore_migration_report_t *report, uint32_t version,
+                     heapstore_migration_direction_t direction);
+
+/**
+  * @brief One declarative column operation of a migration step.
  *
- * @param steps Step table
+ * A step is a list of these: column != NULL selects ADD COLUMN,
+ * drop_columns != NULL selects the DROP-and-rebuild path.
+ */
+typedef struct {
+    const char *table;
+    const char *column;               /* ADD: column name */
+    const char *column_def;           /* ADD: full column definition */
+    const char *const *drop_columns;  /* DROP: column name list */
+    size_t drop_count;                /* DROP: list size */
+} mig_col_op_t;
+
+/**
+  * @brief Select applicable steps, execute them in order and fill the report.
+   *
+   * @param steps Step table
  * @param step_count Step table size
  * @param current_version Current on-disk version
  * @param target_version Target version
@@ -90,6 +115,13 @@ void mig_db_path(char *buffer, size_t buffer_size);
 heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_count,
                                 uint32_t current_version, uint32_t target_version,
                                 heapstore_migration_report_t *report, bool forward);
+
+/**
+  * @brief Run one migration step: the shared backup/open/column-ops/close
+ *        skeleton around a declarative mig_col_op_t list.
+ */
+heapstore_error_t mig_apply_cols(const mig_col_op_t *ops, size_t op_count,
+                                 uint64_t *records_affected);
 
 #ifdef AIRY_HAS_SQLITE3
 
