@@ -7,26 +7,6 @@
  */
 
 // @owner: team-B
-#include "heapstore_registry.h"
-
-#include "../include/utils.h"
-#include "platform.h"
-#include "private.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
-#include "airy_memory.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
 #include "heapstore_registry_internal.h"
 
 #ifdef heapstore_SQLITE_IMPLEMENTATION
