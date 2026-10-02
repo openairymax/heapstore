@@ -127,6 +127,27 @@ void mig_db_path(char *buffer, size_t buffer_size)
     snprintf(buffer, buffer_size, "%s%s", root, HEAPSTORE_MIGRATION_DB_REL_PATH);
 }
 
+heapstore_error_t mig_entry_begin(uint32_t *current_version)
+{
+    if (!heapstore_ready()) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+    return heapstore_migration_get_version(current_version);
+}
+
+void mig_report_noop(heapstore_migration_report_t *report, uint32_t version,
+                     heapstore_migration_direction_t direction)
+{
+    if (!report) {
+        return;
+    }
+    AIRY_MEMSET(report, 0, sizeof(*report));
+    report->from_version = version;
+    report->to_version = version;
+    report->direction = direction;
+    report->success = true;
+}
+
 #ifdef AIRY_HAS_SQLITE3
 
 sqlite3 *mig_db_open(void)
@@ -309,6 +330,59 @@ heapstore_error_t mig_drop_columns(sqlite3 *db, const char *table,
 }
 
 #endif /* AIRY_HAS_SQLITE3 */
+
+heapstore_error_t mig_apply_cols(const mig_col_op_t *ops, size_t op_count,
+                                 uint64_t *records_affected)
+{
+    *records_affected = 0;
+
+#ifndef AIRY_HAS_SQLITE3
+    (void)ops;
+    (void)op_count;
+    return heapstore_SUCCESS;
+#else
+    char db_path[heapstore_MAX_PATH_LEN];
+    struct stat st;
+    mig_db_path(db_path, sizeof(db_path));
+    if (stat(db_path, &st) != 0) {
+        return heapstore_SUCCESS;
+    }
+
+    heapstore_error_t err = mig_backup_data_file(db_path);
+    if (err != heapstore_SUCCESS) {
+        return err;
+    }
+
+    sqlite3 *db = mig_db_open();
+    if (!db) {
+        mig_restore_data_file(db_path);
+        return heapstore_ERR_DB_INIT_FAILED;
+    }
+
+    uint64_t affected = 0;
+    uint64_t op_affected = 0;
+    for (size_t i = 0; i < op_count; i++) {
+        const mig_col_op_t *op = &ops[i];
+        if (op->drop_columns) {
+            err = mig_drop_columns(db, op->table, op->drop_columns, op->drop_count,
+                                   &op_affected);
+        } else {
+            err = mig_add_column(db, op->table, op->column, op->column_def, &op_affected);
+        }
+        if (err != heapstore_SUCCESS) {
+            sqlite3_close(db);
+            mig_restore_data_file(db_path);
+            return err;
+        }
+        affected += op_affected;
+    }
+
+    sqlite3_close(db);
+    mig_cleanup_backup_file(db_path);
+    *records_affected = affected;
+    return heapstore_SUCCESS;
+#endif
+}
 
 heapstore_error_t heapstore_migration_get_version(uint32_t *version)
 {
