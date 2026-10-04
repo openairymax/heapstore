@@ -23,10 +23,6 @@
 #include "atomic_compat.h"
 #include "airy_memory.h"
 
-#ifdef _WIN32
-#else
-#endif
-
 #define MAX_TASK_ID_LEN 128
 #define MAX_BUDGET_ENTRIES 1024
 
@@ -58,7 +54,6 @@ typedef struct {
 static task_budget_entry_t g_budget_table[MAX_BUDGET_ENTRIES];
 static int g_budget_count = 0;
 
-#ifdef _WIN32
 static void token_mutex_init(void)
 {
     airy_mtx_init(&g_token_mutex);
@@ -78,27 +73,6 @@ static void token_mutex_unlock(void)
 {
     airy_mtx_unlock(&g_token_mutex);
 }
-#else
-static void token_mutex_init(void)
-{
-    airy_mtx_init(&g_token_mutex);
-}
-
-static void token_mutex_destroy(void)
-{
-    airy_mtx_destroy(&g_token_mutex);
-}
-
-static void token_mutex_lock(void)
-{
-    airy_mtx_lock(&g_token_mutex);
-}
-
-static void token_mutex_unlock(void)
-{
-    airy_mtx_unlock(&g_token_mutex);
-}
-#endif
 
 static int find_budget_entry(const char *task_id)
 {
