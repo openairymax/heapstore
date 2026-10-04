@@ -14,6 +14,16 @@
 
 #include "heapstore.h"
 
+/* ---- Family-shared internal prelude (single source of truth) ---- */
+#include "heapstore_log.h"
+
+#include "logging.h"
+#include "logging_compat.h"
+#include "platform.h"
+
+#include "airy_memory.h"
+#include "atomic_compat.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
