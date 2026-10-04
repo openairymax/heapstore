@@ -131,40 +131,51 @@ void heapstore_registry_shutdown(void)
     airy_mtx_destroy(&s_registry.lock);
 }
 
-heapstore_error_t sql_exec_locked(
-    const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data)
+/* 注册表 SQLite 会话机制件：校验初始化态、持锁并预处理语句。
+ * 成功返回语句句柄（锁保持，调用方负责 finalize 与解锁）；返回
+ * NULL 时 *out_err 承载失败码且锁未持有，调用方直接返回即可。 */
+static sqlite3_stmt *session_begin(const char *sql, heapstore_error_t *out_err)
 {
     if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+        *out_err = heapstore_ERR_NOT_INITIALIZED;
+        return NULL;
     }
 
     airy_mtx_lock(&s_registry.lock);
 
     sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
+    if (sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
+        *out_err = heapstore_ERR_DB_QUERY_FAILED;
+        return NULL;
+    }
+    return stmt;
+}
+
+heapstore_error_t sql_exec_locked(
+    const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data)
+{
+    heapstore_error_t err;
+    sqlite3_stmt *stmt = session_begin(sql, &err);
+    if (!stmt) {
+        return err;
     }
 
     if (bind_func) {
-        heapstore_error_t err = bind_func(stmt, bind_data);
-        if (err != heapstore_SUCCESS) {
+        heapstore_error_t berr = bind_func(stmt, bind_data);
+        if (berr != heapstore_SUCCESS) {
             sqlite3_finalize(stmt);
             airy_mtx_unlock(&s_registry.lock);
-            return err;
+            return berr;
         }
     }
 
-    rc = sqlite3_step(stmt);
+    int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     airy_mtx_unlock(&s_registry.lock);
 
-    if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    return heapstore_SUCCESS;
+    return (rc == SQLITE_DONE || rc == SQLITE_ROW) ? heapstore_SUCCESS
+                                                   : heapstore_ERR_DB_QUERY_FAILED;
 }
 
 heapstore_error_t bind_agent_record(sqlite3_stmt *stmt, void *data)
@@ -190,25 +201,20 @@ heapstore_error_t registry_query_one(const char *sql,
                                      void *bind_data, void (*extract_fn)(sqlite3_stmt *, void *),
                                      void *out)
 {
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    heapstore_error_t err;
+    sqlite3_stmt *stmt = session_begin(sql, &err);
+    if (!stmt) {
+        return err;
     }
 
-    airy_mtx_lock(&s_registry.lock);
-
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     heapstore_error_t result = heapstore_ERR_DB_QUERY_FAILED;
-
-    if (rc == SQLITE_OK) {
-        if (!bind_fn || bind_fn(stmt, bind_data) == heapstore_SUCCESS) {
-            rc = sqlite3_step(stmt);
-            if (rc == SQLITE_ROW) {
-                extract_fn(stmt, out);
-                result = heapstore_SUCCESS;
-            } else if (rc == SQLITE_DONE) {
-                result = heapstore_ERR_NOT_FOUND;
-            }
+    if (!bind_fn || bind_fn(stmt, bind_data) == heapstore_SUCCESS) {
+        int rc = sqlite3_step(stmt);
+        if (rc == SQLITE_ROW) {
+            extract_fn(stmt, out);
+            result = heapstore_SUCCESS;
+        } else if (rc == SQLITE_DONE) {
+            result = heapstore_ERR_NOT_FOUND;
         }
     }
 
@@ -221,29 +227,24 @@ heapstore_error_t registry_query_open(const char *sql, int rec_type,
                                       heapstore_error_t (*bind_fn)(sqlite3_stmt *, void *),
                                       void *bind_data, heapstore_registry_iter_t **iter)
 {
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    heapstore_error_t err;
+    sqlite3_stmt *stmt = session_begin(sql, &err);
+    if (!stmt) {
+        return err;
     }
 
-    airy_mtx_lock(&s_registry.lock);
-
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
     heapstore_error_t result = heapstore_ERR_DB_QUERY_FAILED;
-
-    if (rc == SQLITE_OK) {
-        if (!bind_fn || bind_fn(stmt, bind_data) == heapstore_SUCCESS) {
-            heapstore_registry_iter_t *new_iter = AIRY_CALLOC(1, sizeof(*new_iter));
-            if (new_iter) {
-                new_iter->stmt = stmt;
-                new_iter->current_type = rec_type;
-                new_iter->has_more = 1;
-                *iter = new_iter;
-                stmt = NULL;
-                result = heapstore_SUCCESS;
-            } else {
-                result = heapstore_ERR_OUT_OF_MEMORY;
-            }
+    if (!bind_fn || bind_fn(stmt, bind_data) == heapstore_SUCCESS) {
+        heapstore_registry_iter_t *new_iter = AIRY_CALLOC(1, sizeof(*new_iter));
+        if (new_iter) {
+            new_iter->stmt = stmt;
+            new_iter->current_type = rec_type;
+            new_iter->has_more = 1;
+            *iter = new_iter;
+            stmt = NULL;
+            result = heapstore_SUCCESS;
+        } else {
+            result = heapstore_ERR_OUT_OF_MEMORY;
         }
     }
 
@@ -256,20 +257,13 @@ heapstore_error_t batch_exec_locked(const char *sql,
                                         heapstore_error_t (*bind_fn)(sqlite3_stmt *, void *),
                                         const void *records, size_t count, size_t elem_size)
 {
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    heapstore_error_t err;
+    sqlite3_stmt *stmt = session_begin(sql, &err);
+    if (!stmt) {
+        return err;
     }
 
-    airy_mtx_lock(&s_registry.lock);
-
-    sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(s_registry.db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        airy_mtx_unlock(&s_registry.lock);
-        return heapstore_ERR_DB_QUERY_FAILED;
-    }
-
-    rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+    int rc = sqlite3_exec(s_registry.db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         sqlite3_finalize(stmt);
         airy_mtx_unlock(&s_registry.lock);
