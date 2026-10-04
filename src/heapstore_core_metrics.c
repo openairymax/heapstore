@@ -11,10 +11,6 @@
 // @owner: team-B
 #include "heapstore_core_internal.h"
 
-#include "heapstore.h"
-
-#include "atomic_compat.h"
-
 typedef struct {
     atomic_uint_fast64_t total_operations;
     atomic_uint_fast64_t failed_operations;

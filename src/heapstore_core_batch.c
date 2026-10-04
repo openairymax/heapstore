@@ -7,31 +7,10 @@
  */
 
 // @owner: team-B
-#include "heapstore.h"
+#include "heapstore_core_internal.h"
 #include "heapstore_batch.h"
-#include "heapstore_ipc.h"
-#include "heapstore_log.h"
-#include "heapstore_memory.h"
-#include "heapstore_migration.h"
-#include "heapstore_registry.h"
-#include "heapstore_trace.h"
-#include "logging.h"
-#include "logging_compat.h"
-#include "platform.h"
-#include "private.h"
-#include "utils.h"
 
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <time.h>
-
-#include "airy_memory.h"
-
-#include "atomic_compat.h"
 
 /** 将条目追加到 batch 链表尾部（线程安全，持有上下文锁）。 */
 static heapstore_error_t batch_append_item(heapstore_batch_context_t *ctx,

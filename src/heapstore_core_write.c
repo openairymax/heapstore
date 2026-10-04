@@ -11,18 +11,9 @@
 // @owner: team-B
 #include "heapstore_core_internal.h"
 
-#include "heapstore.h"
-#include "heapstore_log.h"
-#include "heapstore_trace.h"
-#include "logging.h"
-#include "logging_compat.h"
-#include "private.h"
 #include "utils.h"
 
 #include <stdio.h>
-#include <string.h>
-
-#include "airy_memory.h"
 
 const char *heapstore_get_path(heapstore_path_type_t type)
 {

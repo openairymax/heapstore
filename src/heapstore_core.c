@@ -13,16 +13,7 @@
 // @owner: team-B
 #include "heapstore_core_internal.h"
 
-#include "heapstore.h"
-#include "heapstore_ipc.h"
-#include "heapstore_log.h"
-#include "heapstore_memory.h"
 #include "heapstore_migration.h"
-#include "heapstore_registry.h"
-#include "heapstore_trace.h"
-#include "logging.h"
-#include "logging_compat.h"
-#include "platform.h"
 #include "private.h"
 #include "utils.h"
 
@@ -33,10 +24,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
-
-#include "airy_memory.h"
-
-#include "atomic_compat.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

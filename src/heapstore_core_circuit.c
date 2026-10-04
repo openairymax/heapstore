@@ -11,13 +11,7 @@
 // @owner: team-B
 #include "heapstore_core_internal.h"
 
-#include "heapstore.h"
-#include "logging.h"
-#include "logging_compat.h"
-
 #include <time.h>
-
-#include "atomic_compat.h"
 
 typedef struct {
     atomic_uint_fast32_t state;
