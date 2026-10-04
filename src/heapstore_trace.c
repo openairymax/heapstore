@@ -177,6 +177,73 @@ heapstore_error_t heapstore_trace_write_spans_batch(const heapstore_span_t *span
     return heapstore_SUCCESS;
 }
 
+/* 查询谓词与收集仪式的机制层：谓词为策略，收集为机制（锁由调用方管理）。 */
+typedef bool (*span_pred_fn)(const heapstore_span_t *span, const void *ctx);
+
+typedef struct span_time_ctx {
+    uint64_t start_ns;
+    uint64_t end_ns;
+} span_time_ctx_t;
+
+static bool span_match_trace(const heapstore_span_t *span, const void *ctx)
+{
+    return strcmp(span->trace_id, (const char *)ctx) == 0;
+}
+
+static bool span_match_time(const heapstore_span_t *span, const void *ctxp)
+{
+    const span_time_ctx_t *ctx = (const span_time_ctx_t *)ctxp;
+    return span->start_time_ns >= ctx->start_ns && span->end_time_ns <= ctx->end_ns;
+}
+
+static heapstore_error_t spans_collect(span_pred_fn match, const void *ctx,
+                                       heapstore_span_t **spans, size_t *count)
+{
+    size_t match_count = 0;
+    for (size_t i = 0; i < s_span_count; i++) {
+        if (match(&s_span_buffer[i], ctx))
+            match_count++;
+    }
+
+    if (match_count == 0) {
+        *spans = NULL;
+        *count = 0;
+        return heapstore_ERR_NOT_FOUND;
+    }
+
+    heapstore_span_t *result = airy_malloc_array(match_count, sizeof(heapstore_span_t));
+    if (!result) {
+        *spans = NULL;
+        *count = 0;
+        return heapstore_ERR_OUT_OF_MEMORY;
+    }
+
+    size_t idx = 0;
+    for (size_t i = 0; i < s_span_count; i++) {
+        if (!match(&s_span_buffer[i], ctx))
+            continue;
+        __builtin_memcpy(&result[idx], &s_span_buffer[i], sizeof(heapstore_span_t));
+        /* 深拷贝 attributes：结果归调用方所有，free_spans 对称释放。 */
+        result[idx].attributes = NULL;
+        if (s_span_buffer[i].attributes) {
+            result[idx].attributes = AIRY_STRDUP((const char *)s_span_buffer[i].attributes);
+            if (!result[idx].attributes) {
+                for (size_t j = 0; j < idx; j++)
+                    AIRY_FREE(result[j].attributes);
+                AIRY_FREE(result);
+                *spans = NULL;
+                *count = 0;
+                return heapstore_ERR_OUT_OF_MEMORY;
+            }
+        }
+        idx++;
+    }
+
+    *spans = result;
+    *count = match_count;
+    return heapstore_SUCCESS;
+}
+
 heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore_span_t **spans,
                                                  size_t *count)
 {
@@ -189,51 +256,10 @@ heapstore_error_t heapstore_trace_query_by_trace(const char *trace_id, heapstore
     }
 
     airy_mtx_lock(&s_trace_lock);
-
-    size_t match_count = 0;
-    for (size_t i = 0; i < s_span_count; i++) {
-        if (strcmp(s_span_buffer[i].trace_id, trace_id) == 0) {
-            match_count++;
-        }
-    }
-
-    if (match_count == 0) {
-        airy_mtx_unlock(&s_trace_lock);
-        *spans = NULL;
-        *count = 0;
-        return heapstore_ERR_NOT_FOUND;
-    }
-
-    heapstore_span_t *result = NULL;
-    SAFE_MALLOC_ARRAY(result, match_count, sizeof(heapstore_span_t));
-
-    size_t idx = 0;
-    for (size_t i = 0; i < s_span_count; i++) {
-        if (strcmp(s_span_buffer[i].trace_id, trace_id) == 0) {
-            __builtin_memcpy(&result[idx], &s_span_buffer[i], sizeof(heapstore_span_t));
-            /* 深拷贝 attributes：结果归调用方所有，free_spans 对称释放。 */
-            if (s_span_buffer[i].attributes) {
-                result[idx].attributes = AIRY_STRDUP((const char *)s_span_buffer[i].attributes);
-                if (!result[idx].attributes) {
-                    for (size_t j = 0; j < idx; j++)
-                        AIRY_FREE(result[j].attributes);
-                    AIRY_FREE(result);
-                    airy_mtx_unlock(&s_trace_lock);
-                    *spans = NULL;
-                    *count = 0;
-                    return heapstore_ERR_OUT_OF_MEMORY;
-                }
-            }
-            idx++;
-        }
-    }
-
-    *spans = result;
-    *count = match_count;
-
+    heapstore_error_t st = spans_collect(span_match_trace, trace_id, spans, count);
     airy_mtx_unlock(&s_trace_lock);
 
-    return heapstore_SUCCESS;
+    return st;
 }
 
 heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint64_t end_time,
@@ -247,57 +273,13 @@ heapstore_error_t heapstore_trace_query_by_time_range(uint64_t start_time, uint6
         return heapstore_ERR_INVALID_PARAM;
     }
 
+    const span_time_ctx_t ctx = { start_time, end_time };
+
     airy_mtx_lock(&s_trace_lock);
-
-    size_t match_count = 0;
-    for (size_t i = 0; i < s_span_count; i++) {
-        if (s_span_buffer[i].start_time_ns >= start_time &&
-            s_span_buffer[i].end_time_ns <= end_time) {
-            match_count++;
-        }
-    }
-
-    if (match_count == 0) {
-        airy_mtx_unlock(&s_trace_lock);
-        *spans = NULL;
-        *count = 0;
-        return heapstore_ERR_NOT_FOUND;
-    }
-
-    heapstore_span_t *result =
-        (heapstore_span_t *)airy_malloc_array(match_count, sizeof(heapstore_span_t));
-    if (!result) {
-        airy_mtx_unlock(&s_trace_lock);
-        return heapstore_ERR_OUT_OF_MEMORY;
-    }
-
-    size_t idx = 0;
-    for (size_t i = 0; i < s_span_count; i++) {
-        if (s_span_buffer[i].start_time_ns >= start_time &&
-            s_span_buffer[i].end_time_ns <= end_time) {
-            __builtin_memcpy(&result[idx], &s_span_buffer[i], sizeof(heapstore_span_t));
-            /* 深拷贝 attributes：结果归调用方所有，free_spans 对称释放。 */
-            if (s_span_buffer[i].attributes) {
-                result[idx].attributes = AIRY_STRDUP((const char *)s_span_buffer[i].attributes);
-                if (!result[idx].attributes) {
-                    for (size_t j = 0; j < idx; j++)
-                        AIRY_FREE(result[j].attributes);
-                    AIRY_FREE(result);
-                    *spans = NULL;
-                    *count = 0;
-                    return heapstore_ERR_OUT_OF_MEMORY;
-                }
-            }
-            idx++;
-        }
-    }
-
-    *spans = result;
-    *count = match_count;
-
+    heapstore_error_t st = spans_collect(span_match_time, &ctx, spans, count);
     airy_mtx_unlock(&s_trace_lock);
 
-    return heapstore_SUCCESS;
+    return st;
 }
 
 void heapstore_trace_free_spans(heapstore_span_t *spans, size_t count)
@@ -416,19 +398,11 @@ heapstore_error_t heapstore_trace_get_stats(uint64_t *total_spans, uint64_t *pen
 #pragma GCC diagnostic ignored "-Wformat-truncation"
 heapstore_error_t heapstore_trace_cleanup(int days_to_keep, uint64_t *freed_bytes)
 {
-    if (!s_initialized) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    time_t cutoff_time;
+    heapstore_error_t st;
+    if (!heapstore_pre_clean(s_initialized, days_to_keep, freed_bytes, &cutoff_time, &st)) {
+        return st;
     }
-
-    if (freed_bytes) {
-        *freed_bytes = 0;
-    }
-
-    if (days_to_keep <= 0) {
-        return heapstore_SUCCESS;
-    }
-
-    time_t cutoff_time = time(NULL) - (days_to_keep * 86400);
 
     airy_mtx_lock(&s_trace_lock);
 
