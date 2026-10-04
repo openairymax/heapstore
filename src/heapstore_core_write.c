@@ -127,37 +127,11 @@ heapstore_error_t heapstore_get_stats(heapstore_stats_t *stats)
     return heapstore_SUCCESS;
 }
 
-heapstore_error_t heapstore_log_write_fast(const char *service, int level, const char *message)
-{
-    if (!heapstore_ready()) {
-        return heapstore_ERR_NOT_INITIALIZED;
-    }
-
-    if (!message) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-
-    if (heapstore_circuit_open()) {
-        return heapstore_ERR_CIRCUIT_OPEN;
-    }
-
-    bool is_failed = false;
-
-    if (!heapstore_ready()) {
-        is_failed = true;
-        heapstore_core_circuit_record_failure();
-    } else {
-        heapstore_log_write(level, service, NULL, NULL, 0, message);
-        heapstore_core_circuit_record_success();
-    }
-
-    heapstore_core_metrics_update(0, true, is_failed);
-
-    return is_failed ? heapstore_ERR_NOT_INITIALIZED : heapstore_SUCCESS;
-}
-
-heapstore_error_t heapstore_log_write_slow(const char *service, int level, const char *message,
-                                           const char *trace_id, uint32_t timeout_ms)
+/**
+  * @brief Shared preflight, dispatch and metrics path for fast/slow writes
+ */
+static heapstore_error_t write_dispatch(const char *service, int level, const char *message,
+                                        const char *trace_id, bool slow)
 {
     if (!heapstore_ready()) {
         return heapstore_ERR_NOT_INITIALIZED;
@@ -181,9 +155,21 @@ heapstore_error_t heapstore_log_write_slow(const char *service, int level, const
         heapstore_core_circuit_record_success();
     }
 
-    heapstore_core_metrics_update(0, false, is_failed);
+    heapstore_core_metrics_update(0, slow, is_failed);
 
     return is_failed ? heapstore_ERR_NOT_INITIALIZED : heapstore_SUCCESS;
+}
+
+heapstore_error_t heapstore_log_write_fast(const char *service, int level, const char *message)
+{
+    return write_dispatch(service, level, message, NULL, true);
+}
+
+heapstore_error_t heapstore_log_write_slow(const char *service, int level, const char *message,
+                                           const char *trace_id, uint32_t timeout_ms)
+{
+    (void)timeout_ms;
+    return write_dispatch(service, level, message, trace_id, false);
 }
 
 heapstore_error_t heapstore_cleanup(bool dry_run, uint64_t *freed_bytes)
