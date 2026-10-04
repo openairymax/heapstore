@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "heapstore.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -67,6 +69,30 @@ bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_coun
  * @since v0.1.19
  */
 uint64_t heapstore_dir_clean(const char *dir, time_t cutoff, uint64_t *freed);
+
+/**
+ * @brief Shared prologue for partition cleanup entry points
+ *
+ * Validates initialization, resets the freed-bytes accumulator, applies the
+ * retention-day early-exit policy and derives the cleanup cutoff timestamp.
+ *
+ * @param initialized [in] partition initialized flag
+ * @param days_to_keep [in] retention window in days, <= 0 disables cleanup
+ * @param freed_bytes [out] optional accumulator, reset to 0 on entry
+ * @param cutoff [out] derived cutoff timestamp (now - days * 86400)
+ * @param st [out] return code when the caller must terminate early
+ * @return bool true to continue cleanup, false to return *st immediately
+ *
+ * @ownership caller owns the lifetime of all pointer arguments
+ * @threadsafe yes
+ * @reentrant yes
+ *
+ * @note Centralizes the cleanup preamble contract so trace and log
+ *       partitions cannot drift apart on edge-case semantics
+ * @since v0.1.19
+ */
+bool heapstore_pre_clean(bool initialized, int days_to_keep, uint64_t *freed_bytes,
+                         time_t *cutoff, heapstore_error_t *st);
 
 /**
   * @brief Sanitize a path component against traversal and injection attacks

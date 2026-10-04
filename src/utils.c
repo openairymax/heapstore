@@ -278,6 +278,27 @@ uint64_t heapstore_dir_clean(const char *dir, time_t cutoff, uint64_t *freed)
     return local_freed;
 }
 
+bool heapstore_pre_clean(bool initialized, int days_to_keep, uint64_t *freed_bytes,
+                         time_t *cutoff, heapstore_error_t *st)
+{
+    if (!initialized) {
+        *st = heapstore_ERR_NOT_INITIALIZED;
+        return false;
+    }
+
+    if (freed_bytes) {
+        *freed_bytes = 0;
+    }
+
+    if (days_to_keep <= 0) {
+        *st = heapstore_SUCCESS;
+        return false;
+    }
+
+    *cutoff = time(NULL) - (time_t)days_to_keep * 86400;
+    return true;
+}
+
 int heapstore_path_clean(char *output, const char *input, size_t size)
 {
     if (!output || !input || size == 0) {

@@ -445,19 +445,11 @@ heapstore_error_t heapstore_log_rotate(void)
 
 heapstore_error_t heapstore_log_cleanup(int days_to_keep, uint64_t *freed_bytes)
 {
-    if (!s_initialized) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    time_t cutoff_time;
+    heapstore_error_t st;
+    if (!heapstore_pre_clean(s_initialized, days_to_keep, freed_bytes, &cutoff_time, &st)) {
+        return st;
     }
-
-    if (freed_bytes) {
-        *freed_bytes = 0;
-    }
-
-    if (days_to_keep <= 0) {
-        return heapstore_SUCCESS;
-    }
-
-    time_t cutoff_time = time(NULL) - (days_to_keep * 86400);
 
     heapstore_dir_clean(get_log_base_path(), cutoff_time, freed_bytes);
     const char *subdirs[] = {"kernel", "services", "apps"};
