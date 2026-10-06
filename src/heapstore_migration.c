@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <time.h>
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -30,18 +29,12 @@
 #endif
 
 #include "airy_memory.h"
+#include "platform.h"
 
 void mig_get_version_file_path(char *buffer, size_t buffer_size)
 {
     const char *root = heapstore_get_root();
     snprintf(buffer, buffer_size, "%s/%s", root, HEAPSTORE_MIGRATION_VERSION_FILE);
-}
-
-uint64_t mig_get_time_ms(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
 static int mig_fsync_file(FILE *f)
@@ -558,15 +551,15 @@ heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_c
 
     mig_report_prepare(report, current_version, target_version, direction, applicable_count);
 
-    uint64_t total_start = mig_get_time_ms();
+    uint64_t total_start = airy_time_ms();
     bool all_success = true;
 
     for (size_t i = 0; i < applicable_count; i++) {
-        uint64_t step_start = mig_get_time_ms();
+        uint64_t step_start = airy_time_ms();
         uint64_t records = 0;
 
         heapstore_error_t step_err = applicable_steps[i]->execute(&records);
-        uint64_t step_duration = mig_get_time_ms() - step_start;
+        uint64_t step_duration = airy_time_ms() - step_start;
 
         if (report && report->steps) {
             AIRY_STRNCPY_TERM(report->steps[i].name, applicable_steps[i]->name,
@@ -593,7 +586,7 @@ heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_c
 
     if (report) {
         report->success = all_success;
-        report->total_duration_ms = mig_get_time_ms() - total_start;
+        report->total_duration_ms = airy_time_ms() - total_start;
     }
 
     return all_success ? heapstore_SUCCESS : heapstore_ERR_INTERNAL;
