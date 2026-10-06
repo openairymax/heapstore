@@ -52,13 +52,8 @@ typedef struct {
 void mig_get_version_file_path(char *buffer, size_t buffer_size);
 
 /**
-  * @brief Get the current timestamp (ms)
- */
-uint64_t mig_get_time_ms(void);
-
-/**
   * @brief Back up data files
- */
+*/
 heapstore_error_t mig_backup_data_file(const char *file_path);
 
 /**

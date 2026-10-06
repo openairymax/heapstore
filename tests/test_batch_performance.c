@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #define NUM_RECORDS 1000
 
@@ -30,15 +29,10 @@ static void clean_baseline_dirs(void)
     airy_io_remove_dir_recursive(AIRY_TMP_DIR "/heapstore_perf_test_batch");
 }
 
-static double get_time_ms(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
-}
-
 static void init_agent_record(heapstore_agent_record_t *record, int index)
 {
+    uint64_t now_s = airy_time_wall_ms() / 1000ULL;
+
     AIRY_MEMSET(record, 0, sizeof(*record));
     snprintf(record->id, sizeof(record->id), "agent_%06d", index);
     snprintf(record->name, sizeof(record->name), "Test Agent %d", index);
@@ -46,8 +40,8 @@ static void init_agent_record(heapstore_agent_record_t *record, int index)
     snprintf(record->version, sizeof(record->version), "1.0.0");
     snprintf(record->status, sizeof(record->status), "active");
     snprintf(record->config_path, sizeof(record->config_path), "/path/to/config_%d.json", index);
-    record->created_at = time(NULL);
-    record->updated_at = time(NULL);
+    record->created_at = now_s;
+    record->updated_at = now_s;
 }
 
 static int test_single_insert_performance(void)
@@ -64,7 +58,7 @@ static int test_single_insert_performance(void)
         return -1;
     }
 
-    double start_time = get_time_ms();
+    double start_time = (double)airy_time_ms();
 
     for (int i = 0; i < NUM_RECORDS; i++) {
         heapstore_agent_record_t record;
@@ -79,7 +73,7 @@ static int test_single_insert_performance(void)
         }
     }
 
-    double end_time = get_time_ms();
+    double end_time = (double)airy_time_ms();
     double total_time = end_time - start_time;
     double avg_per_record = total_time / NUM_RECORDS;
     double records_per_sec = NUM_RECORDS / (total_time / 1000.0);
@@ -118,7 +112,7 @@ static int test_batch_insert_performance(void)
         init_agent_record(&records[i], i);
     }
 
-    double start_time = get_time_ms();
+    double start_time = (double)airy_time_ms();
 
     err = heapstore_registry_batch_insert_agents(records, NUM_RECORDS);
     if (err != heapstore_SUCCESS) {
@@ -128,7 +122,7 @@ static int test_batch_insert_performance(void)
         return -1;
     }
 
-    double end_time = get_time_ms();
+    double end_time = (double)airy_time_ms();
     double total_time = end_time - start_time;
     double avg_per_record = total_time / NUM_RECORDS;
     double records_per_sec = NUM_RECORDS / (total_time / 1000.0);
