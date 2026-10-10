@@ -4,7 +4,7 @@
 /**
  * @file heapstore_migration_internal.h
  * @brief Internal header shared by the migration functional domains
- *        (management+version detection / forward steps / rollback steps)
+ *        (management+version detection / forward steps)
  *        after heapstore_migration.c was split.
  */
 
@@ -72,15 +72,14 @@ void mig_cleanup_backup_file(const char *file_path);
 void mig_db_path(char *buffer, size_t buffer_size);
 
 /**
-  * @brief Entry prelude shared by forward/rollback: readiness + version read
+  * @brief Entry prelude shared by forward migrations: readiness + version read
  */
 heapstore_error_t mig_entry_begin(uint32_t *current_version);
 
 /**
   * @brief Fill the no-op report emitted when no steps are applicable
  */
-void mig_report_noop(heapstore_migration_report_t *report, uint32_t version,
-                     heapstore_migration_direction_t direction);
+void mig_report_noop(heapstore_migration_report_t *report, uint32_t version);
 
 /**
   * @brief One declarative column operation of a migration step.
@@ -104,12 +103,10 @@ typedef struct {
  * @param current_version Current on-disk version
  * @param target_version Target version
  * @param report Report buffer (may be NULL)
- * @param forward true for forward selection (from>=current && to<=target),
- *                false for rollback selection (from<=current && to>=target)
  */
 heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_count,
                                 uint32_t current_version, uint32_t target_version,
-                                heapstore_migration_report_t *report, bool forward);
+                                heapstore_migration_report_t *report);
 
 /**
   * @brief Run one migration step: the shared backup/open/column-ops/close

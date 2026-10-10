@@ -9,7 +9,6 @@
  * - SCHEMA_VERSION persisted in the heapstore data directory
  * - automatic version-difference detection at startup
  * - forward-compatible (v1 -> v2) non-destructive migration
- * - backward-compatible (v2 -> v1) rollback (core data preserved)
  */
 
 /* @owner: team-C */
@@ -35,16 +34,8 @@ extern "C" {
 #define HEAPSTORE_SCHEMA_VERSION_CURRENT 10000 /* v1.0.0 */
 
 /**
-  * @brief Migration direction
- */
-typedef enum {
-    HEAPSTORE_MIGRATE_FORWARD = 0,
-    HEAPSTORE_MIGRATE_BACKWARD
-} heapstore_migration_direction_t;
-
-/**
   * @brief Migration step result
- */
+  */
 typedef struct heapstore_migration_step {
     char name[128];
     heapstore_error_t result;
@@ -58,7 +49,6 @@ typedef struct heapstore_migration_step {
 typedef struct heapstore_migration_report {
     uint32_t from_version;
     uint32_t to_version;
-    heapstore_migration_direction_t direction;
     size_t step_count;
     heapstore_migration_step_t *steps;
     bool success;
@@ -134,26 +124,6 @@ heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *cur
  */
 heapstore_error_t heapstore_migration_forward(uint32_t target_version,
                                               heapstore_migration_report_t *report);
-
-/**
-  * @brief Run a backward-compatible rollback (v_to -> v_from)
- *
-  * Drops new fields and keeps core data.
-  * Requires explicit confirmation (no --force here; the caller decides).
- *
- * @param target_version [in] target version number
-  * @param report [out] Rollback report (may be NULL)
-  * @return heapstore_error_t Error code
- *
- * @ownership report: BORROW (caller-owned buffer, function writes to it, may be NULL)
- * @threadsafe no
- * @reentrant no
- *
-  * @warning Rollback discards data added in newer versions
- * @since v1.0.0
- */
-heapstore_error_t heapstore_migration_rollback(uint32_t target_version,
-                                               heapstore_migration_report_t *report);
 
 /**
   * @brief Free dynamically allocated memory in a migration report

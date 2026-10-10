@@ -67,10 +67,10 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
     }
 
     if (current_ver >= target_version) {
-        mig_report_noop(report, current_ver, HEAPSTORE_MIGRATE_FORWARD);
+        mig_report_noop(report, current_ver);
         return heapstore_SUCCESS;
     }
 
     return mig_run_steps(g_forward_steps, g_forward_step_count, current_ver, target_version,
-                         report, true);
+                         report);
 }

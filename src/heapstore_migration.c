@@ -9,7 +9,6 @@
  * Functional domain after heapstore_migration.c split:
  * - version management of the heapstore data format (.schema_version)
  * - forward steps live in heapstore_migration_forward.c
- * - rollback steps live in heapstore_migration_rollback.c
  */
 
 // @owner: team-C
@@ -128,8 +127,7 @@ heapstore_error_t mig_entry_begin(uint32_t *current_version)
     return heapstore_migration_get_version(current_version);
 }
 
-void mig_report_noop(heapstore_migration_report_t *report, uint32_t version,
-                     heapstore_migration_direction_t direction)
+void mig_report_noop(heapstore_migration_report_t *report, uint32_t version)
 {
     if (!report) {
         return;
@@ -137,7 +135,6 @@ void mig_report_noop(heapstore_migration_report_t *report, uint32_t version,
     AIRY_MEMSET(report, 0, sizeof(*report));
     report->from_version = version;
     report->to_version = version;
-    report->direction = direction;
     report->success = true;
 }
 
@@ -510,8 +507,7 @@ heapstore_error_t heapstore_migration_check(bool *needs_migration, uint32_t *cur
   * @brief Fill the report header and allocate the per-step array.
  */
 static void mig_report_prepare(heapstore_migration_report_t *report, uint32_t from_version,
-                               uint32_t to_version, heapstore_migration_direction_t direction,
-                               size_t step_count)
+                               uint32_t to_version, size_t step_count)
 {
     if (!report) {
         return;
@@ -520,7 +516,6 @@ static void mig_report_prepare(heapstore_migration_report_t *report, uint32_t fr
     AIRY_MEMSET(report, 0, sizeof(*report));
     report->from_version = from_version;
     report->to_version = to_version;
-    report->direction = direction;
     report->step_count = step_count;
     report->steps = (heapstore_migration_step_t *)AIRY_MALLOC(
         step_count * sizeof(heapstore_migration_step_t));
@@ -531,25 +526,20 @@ static void mig_report_prepare(heapstore_migration_report_t *report, uint32_t fr
 
 heapstore_error_t mig_run_steps(const migration_step_def_t *steps, size_t step_count,
                                 uint32_t current_version, uint32_t target_version,
-                                heapstore_migration_report_t *report, bool forward)
+                                heapstore_migration_report_t *report)
 {
-    heapstore_migration_direction_t direction =
-        forward ? HEAPSTORE_MIGRATE_FORWARD : HEAPSTORE_MIGRATE_BACKWARD;
-
     const migration_step_def_t *applicable_steps[HEAPSTORE_MIGRATION_MAX_STEPS];
     size_t applicable_count = 0;
 
     for (size_t i = 0; i < step_count && applicable_count < HEAPSTORE_MIGRATION_MAX_STEPS; i++) {
-        bool applicable = forward ? (steps[i].from_version >= current_version &&
-                                     steps[i].to_version <= target_version)
-                                  : (steps[i].from_version <= current_version &&
-                                     steps[i].to_version >= target_version);
+        bool applicable = steps[i].from_version >= current_version &&
+                          steps[i].to_version <= target_version;
         if (applicable) {
             applicable_steps[applicable_count++] = &steps[i];
         }
     }
 
-    mig_report_prepare(report, current_version, target_version, direction, applicable_count);
+    mig_report_prepare(report, current_version, target_version, applicable_count);
 
     uint64_t total_start = airy_time_ms();
     bool all_success = true;
