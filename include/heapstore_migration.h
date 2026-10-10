@@ -17,13 +17,9 @@
 
 #include "heapstore.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "airy_abi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+AIRY_ABI_BEGIN
 
 /**
   * @brief Current heapstore data format schema version
@@ -157,8 +153,6 @@ void heapstore_migration_report_free(heapstore_migration_report_t *report);
 heapstore_error_t heapstore_migration_list_fields(const char *record_type, char ***fields,
                                                   size_t *field_count);
 
-#ifdef __cplusplus
-}
-#endif
+AIRY_ABI_END
 
 #endif /* AIRY_RT_HEAPSTORE_MIGRATION_H */

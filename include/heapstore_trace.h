@@ -12,13 +12,9 @@
 
 #include "heapstore.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "airy_abi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+AIRY_ABI_BEGIN
 
 
 /**
@@ -209,8 +205,6 @@ bool heapstore_trace_is_healthy(void);
  * @since v1.0.0*/
 heapstore_error_t heapstore_trace_export_to_json(char **out_json, bool include_events);
 
-#ifdef __cplusplus
-}
-#endif
+AIRY_ABI_END
 
 #endif /* AIRY_heapstore_TRACE_H */
