@@ -22,12 +22,10 @@ set(heapstore_SOURCES
     src/heapstore_ipc_shm.c
     src/heapstore_ipc_msg.c
     src/heapstore_memory.c
-    src/heapstore_token.c
     src/heapstore_integration.c
     src/heapstore_migration.c
-    # 域拆分（2026-08-27）：migration 切出前向/回滚两域
+    # 域拆分（2026-08-27）：migration 切出前向域
     src/heapstore_migration_forward.c
-    src/heapstore_migration_rollback.c
     src/utils.c
 )
 
@@ -40,7 +38,6 @@ set(heapstore_HEADERS
     include/heapstore_memory.h
     include/heapstore_batch.h
     include/heapstore_migration.h
-    include/heapstore_token.h
     include/heapstore_integration.h
     include/utils.h
     src/private.h
