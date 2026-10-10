@@ -12,13 +12,9 @@
 
 #include "heapstore.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "airy_abi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+AIRY_ABI_BEGIN
 
 
 /**
@@ -146,8 +142,6 @@ heapstore_error_t heapstore_ipc_create_channel(const char *channel_id, const cha
                                                const char *type, size_t buffer_size);
 heapstore_error_t heapstore_ipc_destroy_channel(const char *channel_id);
 
-#ifdef __cplusplus
-}
-#endif
+AIRY_ABI_END
 
 #endif /* AIRY_heapstore_IPC_H */

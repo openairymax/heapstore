@@ -13,13 +13,9 @@
 #include "../../commons/platform/include/platform.h"
 #include "heapstore.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "airy_abi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+AIRY_ABI_BEGIN
 
 /** Batch 上下文最大容纳条目数。 */
 #define HEAPSTORE_BATCH_MAX_ITEMS 1024
@@ -226,8 +222,6 @@ size_t heapstore_batch_get_count(const heapstore_batch_context_t *ctx);
  */
 size_t heapstore_batch_get_capacity(const heapstore_batch_context_t *ctx);
 
-#ifdef __cplusplus
-}
-#endif
+AIRY_ABI_END
 
 #endif /* AIRY_RT_HEAPSTORE_BATCH_H */
