@@ -90,6 +90,12 @@ void extract_agent_row(sqlite3_stmt *stmt, void *rec);
 void extract_session_row(sqlite3_stmt *stmt, void *rec);
 void extract_skill_row(sqlite3_stmt *stmt, void *rec);
 
+/** 提取 text 列到定长缓冲：列为 NULL 时保留记录清零后的默认值。 */
+void copy_text_col(sqlite3_stmt *stmt, int col, char *dst, size_t size);
+
+/** 迭代查询前置校验：iter 非空且注册表就绪，否则返回对应错误码。 */
+heapstore_error_t query_precheck(heapstore_registry_iter_t **iter);
+
 #endif /* heapstore_SQLITE_IMPLEMENTATION */
 
 #endif /* AIRY_HEAPSTORE_REGISTRY_INTERNAL_H */

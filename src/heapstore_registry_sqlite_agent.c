@@ -49,41 +49,19 @@ static heapstore_error_t bind_agent_filters(sqlite3_stmt *stmt, void *data)
 void extract_agent_row(sqlite3_stmt *stmt, void *rec)
 {
     heapstore_agent_record_t *record = (heapstore_agent_record_t *)rec;
-    const char *text;
 
     __builtin_memset(record, 0, sizeof(*record));
 
-    text = (const char *)sqlite3_column_text(stmt, 0);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 1);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->name, text, sizeof(record->name));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 2);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->type, text, sizeof(record->type));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 3);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->version, text, sizeof(record->version));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 4);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->status, text, sizeof(record->status));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 5);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->config_path, text, sizeof(record->config_path));
-    }
+    copy_text_col(stmt, 0, record->id, sizeof(record->id));
+    copy_text_col(stmt, 1, record->name, sizeof(record->name));
+    copy_text_col(stmt, 2, record->type, sizeof(record->type));
+    copy_text_col(stmt, 3, record->version, sizeof(record->version));
+    copy_text_col(stmt, 4, record->status, sizeof(record->status));
+    copy_text_col(stmt, 5, record->config_path, sizeof(record->config_path));
     record->created_at = sqlite3_column_int64(stmt, 6);
     record->updated_at = sqlite3_column_int64(stmt, 7);
     record->priority = sqlite3_column_int(stmt, 8);
-    text = (const char *)sqlite3_column_text(stmt, 9);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->tags, text, sizeof(record->tags));
-    }
+    copy_text_col(stmt, 9, record->tags, sizeof(record->tags));
 }
 
 heapstore_error_t heapstore_registry_add_agent(const heapstore_agent_record_t *record)
@@ -137,11 +115,9 @@ heapstore_error_t heapstore_registry_query_agents(const char *filter_type,
                                                   const char *filter_status,
                                                   heapstore_registry_iter_t **iter)
 {
-    if (!iter) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    heapstore_error_t pre = query_precheck(iter);
+    if (pre != heapstore_SUCCESS) {
+        return pre;
     }
 
     char sql[512];
