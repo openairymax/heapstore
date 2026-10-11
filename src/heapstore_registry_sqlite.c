@@ -300,6 +300,27 @@ heapstore_error_t registry_bind_id(sqlite3_stmt *stmt, void *id)
     return heapstore_SUCCESS;
 }
 
+/* 三域行提取共用：text 列拷贝到定长缓冲，列为 NULL 时保留清零默认值。 */
+void copy_text_col(sqlite3_stmt *stmt, int col, char *dst, size_t size)
+{
+    const char *text = (const char *)sqlite3_column_text(stmt, col);
+    if (text) {
+        AIRY_STRNCPY_TERM(dst, text, size);
+    }
+}
+
+/* 三域迭代查询共用前置校验：迭代器指针非空且注册表已就绪。 */
+heapstore_error_t query_precheck(heapstore_registry_iter_t **iter)
+{
+    if (!iter) {
+        return heapstore_ERR_INVALID_PARAM;
+    }
+    if (!s_registry.initialized || !s_registry.db) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+    return heapstore_SUCCESS;
+}
+
 heapstore_error_t heapstore_registry_vacuum(void)
 {
     if (!s_registry.initialized || !s_registry.db) {

@@ -41,29 +41,16 @@ static heapstore_error_t bind_session_update(sqlite3_stmt *stmt, void *data)
 void extract_session_row(sqlite3_stmt *stmt, void *rec)
 {
     heapstore_session_record_t *record = (heapstore_session_record_t *)rec;
-    const char *text;
 
     __builtin_memset(record, 0, sizeof(*record));
 
-    text = (const char *)sqlite3_column_text(stmt, 0);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->id, text, sizeof(record->id));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 1);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->user_id, text, sizeof(record->user_id));
-    }
+    copy_text_col(stmt, 0, record->id, sizeof(record->id));
+    copy_text_col(stmt, 1, record->user_id, sizeof(record->user_id));
     record->created_at = sqlite3_column_int64(stmt, 2);
     record->last_active_at = sqlite3_column_int64(stmt, 3);
     record->ttl_seconds = sqlite3_column_int(stmt, 4);
-    text = (const char *)sqlite3_column_text(stmt, 5);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->status, text, sizeof(record->status));
-    }
-    text = (const char *)sqlite3_column_text(stmt, 6);
-    if (text) {
-        AIRY_STRNCPY_TERM(record->metadata, text, sizeof(record->metadata));
-    }
+    copy_text_col(stmt, 5, record->status, sizeof(record->status));
+    copy_text_col(stmt, 6, record->metadata, sizeof(record->metadata));
 }
 
 heapstore_error_t heapstore_registry_add_session(const heapstore_session_record_t *record)
@@ -113,11 +100,9 @@ heapstore_error_t heapstore_registry_delete_session(const char *id)
 heapstore_error_t heapstore_registry_query_sessions(const char *filter_status,
                                                     heapstore_registry_iter_t **iter)
 {
-    if (!iter) {
-        return heapstore_ERR_INVALID_PARAM;
-    }
-    if (!s_registry.initialized || !s_registry.db) {
-        return heapstore_ERR_NOT_INITIALIZED;
+    heapstore_error_t pre = query_precheck(iter);
+    if (pre != heapstore_SUCCESS) {
+        return pre;
     }
 
     if (filter_status && filter_status[0]) {
