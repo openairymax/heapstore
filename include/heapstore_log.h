@@ -98,24 +98,6 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
                          const char *file, int line, const char *format, ...);
 
 /**
-  * @brief Write a log entry (va_list variant)
- *
-  * @param level [in] Log level
-  * @param service [in] Service name
-  * @param trace_id [in] Trace ID (may be NULL)
-  * @param file [in] File name
-  * @param line [in] Line number
-  * @param format [in] Format string
- * @param args [in] va_list
- *
-  * @ownership Caller owns the lifetime of all parameters
- * @threadsafe yes
- * @reentrant no
- */
-void heapstore_log_writev(heapstore_log_level_t level, const char *service, const char *trace_id,
-                          const char *file, int line, const char *format, va_list args);
-
-/**
   * @brief Get the current log level
  *
   * @return heapstore_log_level_t Current log level
