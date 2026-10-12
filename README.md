@@ -111,7 +111,7 @@ heapstore_log_write_slow("my_service", 1, "important message",
                          "trace-001", 1000);    /* sync, validated */
 
 heapstore_batch_context_t *ctx = heapstore_batch_begin(1024);
-heapstore_batch_add_log(ctx, "my_service", 1, "batched entry");
+heapstore_batch_add_session(ctx, &session);     /* enqueue, commit later */
 heapstore_batch_commit(ctx);
 heapstore_batch_context_destroy(ctx);
 
@@ -126,7 +126,7 @@ Core API surface (`include/heapstore.h`):
 | `heapstore_ready()` / `heapstore_get_root()` | State and data-root inspection |
 | `heapstore_get_path()` / `heapstore_get_full_path()` | Managed sub-paths |
 | `heapstore_log_write_fast()` / `heapstore_log_write_slow()` | Dual-path log writes |
-| `heapstore_batch_begin/add_*/commit/rollback/context_destroy` | Transactional batch writes |
+| `heapstore_batch_begin/add_session/commit/context_destroy` | Transactional batch writes |
 | `heapstore_get_stats()` / `heapstore_get_metrics()` / `heapstore_reset_metrics()` | Statistics |
 | `heapstore_health_check()` | Health of registry/trace/log/ipc/memory |
 | `heapstore_get_circuit_state()` / `heapstore_reset_circuit()` | Circuit breaker |

@@ -111,7 +111,7 @@ heapstore_log_write_slow("my_service", 1, "important message",
                          "trace-001", 1000);    /* 同步、带校验 */
 
 heapstore_batch_context_t *ctx = heapstore_batch_begin(1024);
-heapstore_batch_add_log(ctx, "my_service", 1, "batched entry");
+heapstore_batch_add_session(ctx, &session);     /* 先入队，随后统一提交 */
 heapstore_batch_commit(ctx);
 heapstore_batch_context_destroy(ctx);
 
@@ -126,7 +126,7 @@ heapstore_shutdown();
 | `heapstore_ready()` / `heapstore_get_root()` | 状态与数据根查询 |
 | `heapstore_get_path()` / `heapstore_get_full_path()` | 托管子路径 |
 | `heapstore_log_write_fast()` / `heapstore_log_write_slow()` | 双路径日志写入 |
-| `heapstore_batch_begin/add_*/commit/rollback/context_destroy` | 事务性批量写入 |
+| `heapstore_batch_begin/add_session/commit/context_destroy` | 事务性批量写入 |
 | `heapstore_get_stats()` / `heapstore_get_metrics()` / `heapstore_reset_metrics()` | 统计 |
 | `heapstore_health_check()` | registry/trace/log/ipc/memory 健康检查 |
 | `heapstore_get_circuit_state()` / `heapstore_reset_circuit()` | 熔断器 |
