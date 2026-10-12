@@ -134,25 +134,6 @@ heapstore_error_t heapstore_migration_forward(uint32_t target_version,
  */
 void heapstore_migration_report_free(heapstore_migration_report_t *report);
 
-/**
-  * @brief List the fields of all record types in the current data format
- *
-  * Lets migration scripts inspect the current schema.
- *
-  * @param record_type [in] Record type name (e.g. "agent", "session", "skill")
-  * @param fields [out] Output NULL-terminated field name array; caller frees
-  * @param field_count [out] Field count
-  * @return heapstore_error_t Error code
- *
- * @ownership fields: OWNER (caller must free each string and the array)
- * @threadsafe yes
- * @reentrant yes
- *
- * @since v1.0.0
- */
-heapstore_error_t heapstore_migration_list_fields(const char *record_type, char ***fields,
-                                                  size_t *field_count);
-
 AIRY_ABI_END
 
 #endif /* AIRY_RT_HEAPSTORE_MIGRATION_H */

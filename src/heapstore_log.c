@@ -313,57 +313,6 @@ void heapstore_log_write(heapstore_log_level_t level, const char *service, const
     airy_mtx_unlock(&s_log_lock);
 }
 
-void heapstore_log_writev(heapstore_log_level_t level, const char *service, const char *trace_id,
-                          const char *file, int line, const char *format, va_list args)
-{
-    if (!s_initialized) {
-        return;
-    }
-
-    if (level > s_log_level) {
-        return;
-    }
-
-    airy_mtx_lock(&s_log_lock);
-
-    uint64_t now_ms = airy_time_ms();
-    time_t now = (time_t)(now_ms / 1000);
-    struct tm tm_buf3;
-    struct tm *tm_info = localtime_r(&now, &tm_buf3);
-    char timestamp[32];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-    char msec[8];
-    snprintf(msec, sizeof(msec), "%03d", (int)(now_ms % 1000));
-
-    char message[heapstore_LOG_MAX_LINE_LEN];
-    vsnprintf(message, sizeof(message), format,
-              args); /* flawfinder: ignore - bounded buffer heapstore_LOG_MAX_LINE_LEN */
-
-    const char *filename = file;
-    const char *last_slash = strrchr(file, '/');
-    if (last_slash) {
-        filename = last_slash + 1;
-    }
-
-    FILE *fp = get_service_log_file(service);
-
-    char _buf4[2048];
-    if (trace_id && trace_id[0]) {
-        snprintf(_buf4, sizeof(_buf4), "%s.%s [%s] [%s] [trace=%s] [%s:%d] %s\n", timestamp, msec,
-                 level_to_string(level), service ? service : "unknown", trace_id, filename, line,
-                 message);
-        fputs(_buf4, fp);
-    } else {
-        snprintf(_buf4, sizeof(_buf4), "%s.%s [%s] [%s] [%s:%d] %s\n", timestamp, msec,
-                 level_to_string(level), service ? service : "unknown", filename, line, message);
-        fputs(_buf4, fp);
-    }
-
-    fflush(fp);
-
-    airy_mtx_unlock(&s_log_lock);
-}
-
 heapstore_log_level_t heapstore_log_get_level(void)
 {
     return s_log_level;
