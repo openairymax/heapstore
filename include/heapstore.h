@@ -45,7 +45,6 @@ typedef enum {
 #include "heapstore_types.h"
 
 
-#include "heapstore_ipc.h"
 #include "heapstore_memory.h"
 #include "heapstore_registry.h"
 #include "heapstore_trace.h"
@@ -347,7 +346,7 @@ heapstore_error_t heapstore_flush(void);
   * @param registry_ok [out] Whether the registry subsystem is healthy (may be NULL)
   * @param trace_ok [out] Whether the trace subsystem is healthy (may be NULL)
   * @param log_ok [out] Whether the log subsystem is healthy (may be NULL)
-  * @param ipc_ok [out] Whether the IPC subsystem is healthy (may be NULL)
+  * @param ipc_ok [out] Compatibility slot, always true (IPC subsystem retired; may be NULL)
   * @param memory_ok [out] Whether the memory subsystem is healthy (may be NULL)
   * @return heapstore_error_t Error code; heapstore_SUCCESS means overall health
  *

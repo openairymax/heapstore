@@ -263,20 +263,9 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     }
     AIRY_LOG_INFO("heapstore_init: [OK] trace initialized");
 
-    err = heapstore_ipc_init();
-    if (err != heapstore_SUCCESS) {
-        AIRY_LOG_ERROR("heapstore_init: ipc init failed, err=%d", err);
-        heapstore_trace_shutdown();
-        heapstore_registry_shutdown();
-        s_initialized = false;
-        return err;
-    }
-    AIRY_LOG_INFO("heapstore_init: [OK] ipc initialized");
-
     err = heapstore_memory_init();
     if (err != heapstore_SUCCESS) {
         AIRY_LOG_ERROR("heapstore_init: memory init failed, err=%d", err);
-        heapstore_ipc_shutdown();
         heapstore_trace_shutdown();
         heapstore_registry_shutdown();
         s_initialized = false;
@@ -288,7 +277,6 @@ heapstore_error_t heapstore_init(const heapstore_config_t *manager)
     if (err != heapstore_SUCCESS) {
         AIRY_LOG_ERROR("heapstore_init: log init failed, err=%d", err);
         heapstore_memory_shutdown();
-        heapstore_ipc_shutdown();
         heapstore_trace_shutdown();
         heapstore_registry_shutdown();
         s_initialized = false;
@@ -308,8 +296,6 @@ void heapstore_shutdown(void)
         AIRY_LOG_INFO("heapstore_shutdown: [OK] log shutdown");
         heapstore_trace_shutdown();
         AIRY_LOG_INFO("heapstore_shutdown: [OK] trace shutdown");
-        heapstore_ipc_shutdown();
-        AIRY_LOG_INFO("heapstore_shutdown: [OK] ipc shutdown");
         heapstore_memory_shutdown();
         AIRY_LOG_INFO("heapstore_shutdown: [OK] memory shutdown");
         heapstore_registry_shutdown();
@@ -327,7 +313,7 @@ bool heapstore_ready(void)
 const char *heapstore_get_root(void)
 {
     if (s_root_path[0] == '\0') {
-        /* 未显式 heapstore_init 时（如 trace/ipc 子模块独立初始化），
+        /* 未显式 heapstore_init 时（如 trace 子模块独立初始化），
          * 惰性解析默认 root（AIRY_HEAPSTORE_ROOT 或 $AIRY_HOME/data），
          * 避免落到空串导致的 "/" 根目录写入。 */
         const char *root = _get_default_root();
@@ -464,8 +450,10 @@ heapstore_error_t heapstore_health_check(bool *registry_ok, bool *trace_ok, bool
     update_health_status(log_ok, check_subsystem_health("log", heapstore_log_is_healthy),
                          &all_healthy);
 
-    update_health_status(ipc_ok, check_subsystem_health("ipc", heapstore_ipc_is_healthy),
-                         &all_healthy);
+    /* IPC 通道子域已清退（单元六十七）：*ipc_ok 为保签名恒 true。 */
+    if (ipc_ok) {
+        *ipc_ok = true;
+    }
 
     update_health_status(memory_ok, check_subsystem_health("memory", heapstore_memory_is_healthy),
                          &all_healthy);

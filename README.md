@@ -1,6 +1,6 @@
 # heapstore — Runtime Data Storage Layer
 
-> Persists everything the runtime produces: logs, registries, traces, memory records, token counts, IPC state, and batched writes.
+> Persists everything the runtime produces: logs, registries, traces, memory records, token counts, and batched writes.
 
 **Language:** English | [简体中文](README_zh.md)
 
@@ -14,7 +14,7 @@
 
 ## What It Is
 
-**heapstore** is the runtime data persistence library of the Airymax agent runtime (AgentRT). It persists what a running system produces — system logs, agent/skill/session registries, trace spans, memory-pool accounting, token usage and budgets, IPC channel/buffer state, and transactional batch writes — behind one unified C API.
+**heapstore** is the runtime data persistence library of the Airymax agent runtime (AgentRT). It persists what a running system produces — system logs, agent/skill/session registries, trace spans, memory-pool accounting, token usage and budgets, and transactional batch writes — behind one unified C API.
 
 The storage model is deliberately pragmatic:
 
@@ -22,7 +22,6 @@ The storage model is deliberately pragmatic:
 - **Logs** are plain append files partitioned by date and by service, with rotation and retention cleanup.
 - **Traces** are buffered in memory and flushed as span files under the data root, with JSON export.
 - **Tokens, memory records, and batch contexts** are in-process structures protected by locks or atomics.
-- **IPC state** combines POSIX shared memory with file persistence under the data root.
 
 A **fast / slow dual-path** write model keeps high-frequency logging off the critical path (lock-free asynchronous writes) while important writes go through a synchronous path with full validation, timeout, and trace-id propagation. A **circuit breaker** (CLOSED → OPEN → HALF_OPEN) rejects writes after consecutive failures instead of letting faults cascade.
 
@@ -39,10 +38,9 @@ heapstore is consumed as the static library `airy_heapstore`, linked by the gate
 | Memory pool / allocation accounting | `heapstore_memory_*` |
 | Token usage counters and per-task budgets | `heapstore_token_record` / `heapstore_token_set_budget` / `heapstore_token_check_budget` |
 | Transactional batch writes for logs, spans, records | `heapstore_batch_begin` / `heapstore_batch_add_*` / `heapstore_batch_commit` |
-| IPC channel/buffer records over shared memory + files | `heapstore_ipc_*` |
 | Circuit breaker with state inspection and manual reset | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
 | Usage statistics and performance metrics | `heapstore_get_stats` / `heapstore_get_metrics` |
-| Health check across five subsystems | `heapstore_health_check` |
+| Health check across four subsystems | `heapstore_health_check` |
 | Schema migration (forward / rollback) for the SQLite registry | `heapstore_migration_*`, `migrations/*.sql` |
 
 ## Composition
@@ -58,7 +56,6 @@ heapstore is consumed as the static library `airy_heapstore`, linked by the gate
 | **memory** | `heapstore_memory.c` | in-memory tables | Memory-pool and allocation records |
 | **token** | `heapstore_token.c` | in-memory atomics | Token usage stats, per-task budgets (up to 1024 tasks) |
 | **batch** | `heapstore_core_batch.c` | in-memory buffer | Batched add/commit/rollback across engines |
-| **ipc** | `heapstore_ipc*.c` | shared memory + files | Durable IPC channel/buffer state |
 | **migration** | `heapstore_migration*.c` | SQLite + version file | Schema upgrades and rollback (V001, V002) |
 | **integration** | `heapstore_integration.c` | data + metadata files | End-to-end write/read flows |
 
@@ -71,7 +68,7 @@ heapstore/
 ├── src/                      # Engine implementations (+ *_internal.h private headers)
 ├── services/README.md        # Per-service data directory layout (created at runtime)
 ├── migrations/               # SQL schema scripts (V001 initial, V002 tags/retry, rollback)
-├── tests/                    # 8 ctest suites + benchmark
+├── tests/                    # 7 ctest suites + benchmark
 ├── examples/                 # quick_start.c, batch_write.c
 └── scripts/                  # Performance regression detector, @since tag tool
 ```
@@ -87,7 +84,7 @@ heapstore/
 ├── traces/spans/                  # flushed trace span files
 ├── services/{llm_d,market_d,tool_d}/  # per-daemon data directories
 └── kernel/
-    ├── ipc/{channels,buffers}/    # IPC state persistence
+    ├── ipc/{channels,buffers}/    # reserved partition (IPC channel subsystem retired)
     └── memory/{pools,allocations,stats,index,meta,patterns,raw}/
 ```
 
@@ -128,13 +125,13 @@ Core API surface (`include/heapstore.h`):
 | `heapstore_log_write_fast()` / `heapstore_log_write_slow()` | Dual-path log writes |
 | `heapstore_batch_begin/add_session/commit/context_destroy` | Transactional batch writes |
 | `heapstore_get_stats()` / `heapstore_get_metrics()` / `heapstore_reset_metrics()` | Statistics |
-| `heapstore_health_check()` | Health of registry/trace/log/ipc/memory |
+| `heapstore_health_check()` | Health of registry/trace/log/memory (`ipc_ok` kept for compatibility, always true) |
 | `heapstore_get_circuit_state()` / `heapstore_reset_circuit()` | Circuit breaker |
 | `heapstore_cleanup()` / `heapstore_flush()` | Retention cleanup and forced flush |
 | `heapstore_strerror()` | Error code to description |
 | `heapstore_reload_config()` | Hot config update |
 
-Per-engine APIs live in `heapstore_registry.h`, `heapstore_trace.h`, `heapstore_log.h`, `heapstore_memory.h`, `heapstore_token.h`, `heapstore_batch.h`, `heapstore_ipc.h`, `heapstore_integration.h`, `heapstore_migration.h`. Convenience macros: `HEAPSTORE_LOG_ERROR` / `_WARN` / `_INFO` / `_DEBUG`.
+Per-engine APIs live in `heapstore_registry.h`, `heapstore_trace.h`, `heapstore_log.h`, `heapstore_memory.h`, `heapstore_token.h`, `heapstore_batch.h`, `heapstore_integration.h`, `heapstore_migration.h`. Convenience macros: `HEAPSTORE_LOG_ERROR` / `_WARN` / `_INFO` / `_DEBUG`.
 
 Error codes are a single enum (`heapstore_error_t`, `heapstore_SUCCESS` = 0 down to `heapstore_ERR_CIRCUIT_OPEN` = -15 … `heapstore_ERR_INTERNAL` = -99).
 
