@@ -81,27 +81,6 @@ typedef struct heapstore_memory_allocation {
 } heapstore_memory_allocation_t;
 
 
-typedef struct heapstore_ipc_channel {
-    char channel_id[128];
-    char name[256];
-    char type[32];
-    char status[32];
-    uint64_t created_at;
-    uint64_t last_activity_at;
-    size_t buffer_size;
-    size_t current_usage;
-} heapstore_ipc_channel_t;
-
-typedef struct heapstore_ipc_buffer {
-    char buffer_id[128];
-    char channel_id[128];
-    size_t size;
-    size_t used;
-    uint64_t created_at;
-    char status[32];
-} heapstore_ipc_buffer_t;
-
-
 typedef struct heapstore_span {
     char trace_id[64];
     char span_id[32];

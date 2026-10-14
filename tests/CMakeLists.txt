@@ -6,7 +6,6 @@ set(TEST_FILES
     test_heapstore_registry
     test_heapstore_trace
     test_heapstore_log
-    test_heapstore_ipc
     test_heapstore_memory
     test_heapstore_migration
     test_heapstore_integration

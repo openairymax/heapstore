@@ -1,6 +1,6 @@
 # heapstore — 运行时数据存储层
 
-> 持久化运行时产生的一切：日志、注册表、追踪、内存记录、令牌计数、IPC 状态与批量写入。
+> 持久化运行时产生的一切：日志、注册表、追踪、内存记录、令牌计数与批量写入。
 
 **语言:** [English](README.md) | 简体中文
 
@@ -14,7 +14,7 @@
 
 ## 是什么
 
-**heapstore** 是 Airymax 智能体运行时（AgentRT）的运行时数据持久化库。它把运行中系统产生的数据——系统日志、智能体/技能/会话注册表、追踪 span、内存池记账、令牌用量与预算、IPC 通道/缓冲状态、事务性批量写入——统一到一套 C API 之后。
+**heapstore** 是 Airymax 智能体运行时（AgentRT）的运行时数据持久化库。它把运行中系统产生的数据——系统日志、智能体/技能/会话注册表、追踪 span、内存池记账、令牌用量与预算、事务性批量写入——统一到一套 C API 之后。
 
 存储模型刻意保持务实：
 
@@ -22,7 +22,6 @@
 - **日志**是按日期、按服务划分的追加式文件，带轮转与保留期清理。
 - **追踪**在内存中缓冲，刷新为数据根下的 span 文件，并支持 JSON 导出。
 - **令牌、内存记录、批量上下文**是受锁或原子操作保护的进程内结构。
-- **IPC 状态**结合 POSIX 共享内存与数据根下的文件持久化。
 
 **快/慢双路径**写入模型让高频日志远离关键路径（无锁异步写入），重要写入则走带完整校验、超时与 trace_id 传播的同步路径。**熔断器**（CLOSED → OPEN → HALF_OPEN）在连续失败后拒绝写入，避免故障级联扩散。
 
@@ -39,10 +38,9 @@ heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行�
 | 内存池 / 分配记录 | `heapstore_memory_*` |
 | 令牌用量计数与按任务预算 | `heapstore_token_record` / `heapstore_token_set_budget` / `heapstore_token_check_budget` |
 | 日志、span、记录的事务性批量写入 | `heapstore_batch_begin` / `heapstore_batch_add_*` / `heapstore_batch_commit` |
-| 基于共享内存 + 文件的 IPC 通道/缓冲记录 | `heapstore_ipc_*` |
 | 熔断器状态查询与手动重置 | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
 | 用量统计与性能指标 | `heapstore_get_stats` / `heapstore_get_metrics` |
-| 跨五个子系统的健康检查 | `heapstore_health_check` |
+| 跨四个子系统的健康检查 | `heapstore_health_check` |
 | SQLite 注册表的 Schema 迁移（正向 / 回滚） | `heapstore_migration_*`、`migrations/*.sql` |
 
 ## 构成
@@ -58,7 +56,6 @@ heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行�
 | **memory** | `heapstore_memory.c` | 内存表 | 内存池与分配记录 |
 | **token** | `heapstore_token.c` | 内存原子计数 | 令牌用量统计、按任务预算（最多 1024 个任务） |
 | **batch** | `heapstore_core_batch.c` | 内存缓冲 | 跨引擎的批量添加/提交/回滚 |
-| **ipc** | `heapstore_ipc*.c` | 共享内存 + 文件 | 可持久化的 IPC 通道/缓冲状态 |
 | **migration** | `heapstore_migration*.c` | SQLite + 版本文件 | Schema 升级与回滚（V001、V002） |
 | **integration** | `heapstore_integration.c` | 数据 + 元数据文件 | 端到端写入/读取流程 |
 
@@ -71,7 +68,7 @@ heapstore/
 ├── src/                      # 引擎实现（+ *_internal.h 私有头）
 ├── services/README.md        # 按服务数据目录布局（运行时创建）
 ├── migrations/               # SQL Schema 脚本（V001 初始、V002 tags/retry、回滚）
-├── tests/                    # 8 个 ctest 套件 + 基准
+├── tests/                    # 7 个 ctest 套件 + 基准
 ├── examples/                 # quick_start.c、batch_write.c
 └── scripts/                  # 性能回归检测、@since 标签工具
 ```
@@ -87,7 +84,7 @@ heapstore/
 ├── traces/spans/                  # 刷新落盘的追踪 span 文件
 ├── services/{llm_d,market_d,tool_d}/  # 按守护进程的数据目录
 └── kernel/
-    ├── ipc/{channels,buffers}/    # IPC 状态持久化
+    ├── ipc/{channels,buffers}/    # 保留分区（IPC 通道子域已清退）
     └── memory/{pools,allocations,stats,index,meta,patterns,raw}/
 ```
 
@@ -128,13 +125,13 @@ heapstore_shutdown();
 | `heapstore_log_write_fast()` / `heapstore_log_write_slow()` | 双路径日志写入 |
 | `heapstore_batch_begin/add_session/commit/context_destroy` | 事务性批量写入 |
 | `heapstore_get_stats()` / `heapstore_get_metrics()` / `heapstore_reset_metrics()` | 统计 |
-| `heapstore_health_check()` | registry/trace/log/ipc/memory 健康检查 |
+| `heapstore_health_check()` | registry/trace/log/memory 健康检查（`ipc_ok` 兼容保留，恒为 true） |
 | `heapstore_get_circuit_state()` / `heapstore_reset_circuit()` | 熔断器 |
 | `heapstore_cleanup()` / `heapstore_flush()` | 保留期清理与强制刷新 |
 | `heapstore_strerror()` | 错误码转描述 |
 | `heapstore_reload_config()` | 配置热更新 |
 
-各引擎 API 位于 `heapstore_registry.h`、`heapstore_trace.h`、`heapstore_log.h`、`heapstore_memory.h`、`heapstore_token.h`、`heapstore_batch.h`、`heapstore_ipc.h`、`heapstore_integration.h`、`heapstore_migration.h`。便捷宏：`HEAPSTORE_LOG_ERROR` / `_WARN` / `_INFO` / `_DEBUG`。
+各引擎 API 位于 `heapstore_registry.h`、`heapstore_trace.h`、`heapstore_log.h`、`heapstore_memory.h`、`heapstore_token.h`、`heapstore_batch.h`、`heapstore_integration.h`、`heapstore_migration.h`。便捷宏：`HEAPSTORE_LOG_ERROR` / `_WARN` / `_INFO` / `_DEBUG`。
 
 错误码是单一枚举（`heapstore_error_t`，`heapstore_SUCCESS` = 0，向下至 `heapstore_ERR_CIRCUIT_OPEN` = -15 … `heapstore_ERR_INTERNAL` = -99）。
 

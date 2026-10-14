@@ -16,7 +16,6 @@
  * ```
  * syscall/ -------> heapstore (registry, trace storage)
  * memory/ --------> heapstore (memory data persistence)
- * corekern/ipc/ --> heapstore (IPC data storage)
  * commons/logging/ -> heapstore (log storage)
  * ```
  */
@@ -27,7 +26,6 @@
 
 #include "airy_rt.h"
 #include "heapstore.h"
-#include "heapstore_ipc.h"
 #include "heapstore_log.h"
 #include "heapstore_memory.h"
 #include "heapstore_registry.h"
@@ -49,7 +47,7 @@ extern "C" {
  * @reentrant no
  *
   * @note Call after airy_init()
-  * @note Automatically initializes all subsystems (log, registry, trace, IPC, memory)
+  * @note Automatically initializes all subsystems (log, registry, trace, memory)
  *
  * @see heapstore_integration_shutdown()
  */

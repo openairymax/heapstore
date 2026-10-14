@@ -65,9 +65,6 @@ void heapstore_registry_shutdown(void);
 heapstore_error_t heapstore_trace_init(void);
 void heapstore_trace_shutdown(void);
 
-heapstore_error_t heapstore_ipc_init(void);
-void heapstore_ipc_shutdown(void);
-
 heapstore_error_t heapstore_memory_init(void);
 void heapstore_memory_shutdown(void);
 
@@ -77,7 +74,6 @@ void heapstore_log_shutdown(void);
 bool heapstore_registry_is_healthy(void);
 bool heapstore_trace_is_healthy(void);
 bool heapstore_log_is_healthy(void);
-bool heapstore_ipc_is_healthy(void);
 bool heapstore_memory_is_healthy(void);
 
 #endif /* AIRY_heapstore_PRIVATE_H */
