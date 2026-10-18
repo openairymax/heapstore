@@ -292,6 +292,8 @@ void heapstore_shutdown(void)
 {
     if (s_initialized) {
         AIRY_LOG_INFO("heapstore_shutdown: shutting down heapstore...");
+        heapstore_circ_stop();
+        AIRY_LOG_INFO("heapstore_shutdown: [OK] circuit shutdown");
         heapstore_log_shutdown();
         AIRY_LOG_INFO("heapstore_shutdown: [OK] log shutdown");
         heapstore_trace_shutdown();

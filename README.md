@@ -23,7 +23,7 @@ The storage model is deliberately pragmatic:
 - **Traces** are buffered in memory and flushed as span files under the data root, with JSON export.
 - **Tokens, memory records, and batch contexts** are in-process structures protected by locks or atomics.
 
-A **fast / slow dual-path** write model keeps high-frequency logging off the critical path (lock-free asynchronous writes) while important writes go through a synchronous path with full validation, timeout, and trace-id propagation. A **circuit breaker** (CLOSED → OPEN → HALF_OPEN) rejects writes after consecutive failures instead of letting faults cascade.
+A **fast / slow dual-path** write model keeps high-frequency logging off the critical path (lock-free asynchronous writes) while important writes go through a synchronous path with full validation, timeout, and trace-id propagation. A **circuit breaker** (CLOSED → OPEN → HALF_OPEN) rejects writes after consecutive failures instead of letting faults cascade; the state machine is delegated to the commons `circuit_breaker` SSoT.
 
 heapstore is consumed as the static library `airy_heapstore`, linked by the gateway and the runtime daemons.
 
@@ -38,7 +38,7 @@ heapstore is consumed as the static library `airy_heapstore`, linked by the gate
 | Memory pool / allocation accounting | `heapstore_memory_*` |
 | Token usage counters and per-task budgets | `heapstore_token_record` / `heapstore_token_set_budget` / `heapstore_token_check_budget` |
 | Transactional batch writes for logs, spans, records | `heapstore_batch_begin` / `heapstore_batch_add_*` / `heapstore_batch_commit` |
-| Circuit breaker with state inspection and manual reset | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
+| Circuit breaker (commons SSoT) with state inspection and manual reset | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
 | Usage statistics and performance metrics | `heapstore_get_stats` / `heapstore_get_metrics` |
 | Health check across four subsystems | `heapstore_health_check` |
 | Schema migration (forward / rollback) for the SQLite registry | `heapstore_migration_*`, `migrations/*.sql` |
@@ -49,7 +49,7 @@ heapstore is consumed as the static library `airy_heapstore`, linked by the gate
 
 | Engine | Source | Backend | Purpose |
 |--------|--------|---------|---------|
-| **core** | `heapstore_core*.c` | in-process state | Init, path layout, stats, metrics, errors, circuit breaker, async writes |
+| **core** | `heapstore_core*.c` | in-process state | Init, path layout, stats, metrics, errors, circuit breaker adapter, async writes |
 | **log** | `heapstore_log.c` | date-partitioned files | Log persistence, per-service files, rotation, retention cleanup |
 | **registry** | `heapstore_registry*.c` | SQLite, in-memory fallback | Agent/Skill/Session CRUD and iterative queries |
 | **trace** | `heapstore_trace.c` | in-memory buffer + span files | Span persistence, time-range/trace queries, JSON export |
