@@ -52,6 +52,7 @@ void heapstore_core_get_cleanup_config(bool *enable_auto_cleanup, uint32_t *log_
 
 /* ---- Circuit breaker (heapstore_core_circuit.c) ---- */
 void heapstore_core_circuit_init(void);
+void heapstore_circ_stop(void);
 void heapstore_core_circuit_record_success(void);
 void heapstore_core_circuit_record_failure(void);
 bool heapstore_circuit_open(void);

@@ -23,7 +23,7 @@
 - **追踪**在内存中缓冲，刷新为数据根下的 span 文件，并支持 JSON 导出。
 - **令牌、内存记录、批量上下文**是受锁或原子操作保护的进程内结构。
 
-**快/慢双路径**写入模型让高频日志远离关键路径（无锁异步写入），重要写入则走带完整校验、超时与 trace_id 传播的同步路径。**熔断器**（CLOSED → OPEN → HALF_OPEN）在连续失败后拒绝写入，避免故障级联扩散。
+**快/慢双路径**写入模型让高频日志远离关键路径（无锁异步写入），重要写入则走带完整校验、超时与 trace_id 传播的同步路径。**熔断器**（CLOSED → OPEN → HALF_OPEN）在连续失败后拒绝写入，避免故障级联扩散；状态机委托给 commons `circuit_breaker` SSoT。
 
 heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行时守护进程链接使用。
 
@@ -38,7 +38,7 @@ heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行�
 | 内存池 / 分配记录 | `heapstore_memory_*` |
 | 令牌用量计数与按任务预算 | `heapstore_token_record` / `heapstore_token_set_budget` / `heapstore_token_check_budget` |
 | 日志、span、记录的事务性批量写入 | `heapstore_batch_begin` / `heapstore_batch_add_*` / `heapstore_batch_commit` |
-| 熔断器状态查询与手动重置 | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
+| 熔断器（commons SSoT）状态查询与手动重置 | `heapstore_get_circuit_state` / `heapstore_reset_circuit` |
 | 用量统计与性能指标 | `heapstore_get_stats` / `heapstore_get_metrics` |
 | 跨四个子系统的健康检查 | `heapstore_health_check` |
 | SQLite 注册表的 Schema 迁移（正向 / 回滚） | `heapstore_migration_*`、`migrations/*.sql` |
@@ -49,7 +49,7 @@ heapstore 以静态库 `airy_heapstore` 的形式被消费，由网关与运行�
 
 | 引擎 | 源码 | 后端 | 用途 |
 |------|------|------|------|
-| **core** | `heapstore_core*.c` | 进程内状态 | 初始化、路径布局、统计、指标、错误、熔断器、异步写入 |
+| **core** | `heapstore_core*.c` | 进程内状态 | 初始化、路径布局、统计、指标、错误、熔断器适配层、异步写入 |
 | **log** | `heapstore_log.c` | 按日期划分的文件 | 日志持久化、按服务分文件、轮转、保留期清理 |
 | **registry** | `heapstore_registry*.c` | SQLite，内存回退 | Agent/Skill/Session CRUD 与迭代查询 |
 | **trace** | `heapstore_trace.c` | 内存缓冲 + span 文件 | span 持久化、时间范围/trace 查询、JSON 导出 |
