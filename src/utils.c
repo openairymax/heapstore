@@ -10,20 +10,15 @@
 #include "utils.h"
 
 #include "error.h"
+#include "io.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
 #ifdef _WIN32
-#include <direct.h>
-#include <io.h>
 #include <windows.h>
-/* UCRT <io.h> is shadowed by commons/utils/io/io.h (PUBLIC -I leakage);
- * declare the needed CRT prototype locally until the shadow is removed. */
-int _access(const char *pathname, int mode);
 #else
 #include "airy_dirent.h"
 
@@ -33,82 +28,10 @@ int _access(const char *pathname, int mode);
 
 bool heapstore_dir_ensure(const char *path)
 {
-    if (!path || !path[0]) {
+    if (!path || !path[0])
         return false;
-    }
 
-#ifdef _WIN32
-    if (_access(path, 0) == 0) {
-        return true;
-    }
-
-    char tmp[1024];
-    char *p = NULL;
-    size_t len;
-
-    __builtin_strncpy(tmp, path, sizeof(tmp) - 1);
-    tmp[sizeof(tmp) - 1] = '\0';
-    len = strlen(tmp);
-
-    if (tmp[len - 1] == '/' || tmp[len - 1] == '\\') {
-        tmp[len - 1] = '\0';
-    }
-
-    for (p = tmp + 1; *p; p++) {
-        if (*p == '/' || *p == '\\') {
-            *p = '\0';
-            /* 盘符根（如 C:）与已是目录的前缀不能当作普通路径 mkdir：
-             * _mkdir("C:") 返回 EINVAL/EACCES（非 EEXIST）会提前 return
-             * false，导致更深的目录全部未建（windows ctest heapstore_log
-             * init -10 FILE_OPEN_FAILED、core -4 DIR_CREATE_FAILED 实证）。 */
-            if (!(p - tmp == 2 && tmp[1] == ':' && _access(tmp, 0) == 0) &&
-                _mkdir(tmp) != 0 && errno != EEXIST && _access(tmp, 0) != 0) {
-                return false;
-            }
-            *p = '/';
-        }
-    }
-
-    if (_mkdir(tmp) != 0 && errno != EEXIST && _access(tmp, 0) != 0) {
-        return false;
-    }
-
-    return true;
-#else
-    struct stat st = {0};
-
-    if (stat(path, &st) == 0) {
-        return S_ISDIR(st.st_mode);
-    }
-
-    char tmp[1024];
-    char *p = NULL;
-    size_t len;
-
-    __builtin_strncpy(tmp, path, sizeof(tmp) - 1);
-    tmp[sizeof(tmp) - 1] = '\0';
-    len = strlen(tmp);
-
-    if (tmp[len - 1] == '/') {
-        tmp[len - 1] = '\0';
-    }
-
-    for (p = tmp + 1; *p; p++) {
-        if (*p == '/') {
-            *p = '\0';
-            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-                return false;
-            }
-            *p = '/';
-        }
-    }
-
-    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-        return false;
-    }
-
-    return true;
-#endif
+    return airy_io_mkdir_p(path, 0755) == 0;
 }
 
 bool heapstore_dir_size(const char *path, uint64_t *out_size, uint32_t *out_count)
