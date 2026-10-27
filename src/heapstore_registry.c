@@ -186,11 +186,13 @@ heapstore_error_t heapstore_registry_init(void)
 {
     __builtin_memset(&s_registry, 0, sizeof(s_registry));
     s_registry.initialized = 1;
+    hs_jmem_init();
     return heapstore_SUCCESS;
 }
 
 void heapstore_registry_shutdown(void)
 {
+    hs_jmem_drop();
     free_node_list(&s_registry.agents);
     free_node_list(&s_registry.skills);
     free_node_list(&s_registry.sessions);
