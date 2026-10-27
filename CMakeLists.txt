@@ -14,6 +14,10 @@ set(heapstore_SOURCES
     src/heapstore_registry_sqlite_skill.c
     src/heapstore_registry_sqlite_session.c
     src/heapstore_registry_sqlite_iter.c
+    # journal 六域（2026-10-27）：turns/checkpoints/llm_calls/tool_calls/
+    # events/cost_tracking，双后端各一份实现
+    src/heapstore_journal_sqlite.c
+    src/heapstore_journal_mem.c
     src/heapstore_trace.c
     src/heapstore_log.c
     src/heapstore_memory.c
@@ -27,6 +31,7 @@ set(heapstore_SOURCES
 set(heapstore_HEADERS
     include/heapstore.h
     include/heapstore_registry.h
+    include/heapstore_journal.h
     include/heapstore_trace.h
     include/heapstore_log.h
     include/heapstore_memory.h
@@ -40,6 +45,21 @@ set(heapstore_HEADERS
     src/heapstore_migration_internal.h
 )
 
+# schema 单一真相源（2026-10-27）：migrations/V001_initial_schema.sql 是
+# 唯一 DDL 文本，构建期转义为 C 字符串注入 heapstore_schema.h，运行时
+# registry 初始化直接执行，避免 C 内嵌副本与迁移文件长期漂移。
+set(heapstore_SCHEMA_SQL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/migrations/V001_initial_schema.sql)
+file(READ ${heapstore_SCHEMA_SQL_FILE} heapstore_SCHEMA_SQL)
+string(REPLACE "\\" "\\\\" heapstore_SCHEMA_SQL "${heapstore_SCHEMA_SQL}")
+string(REPLACE "\"" "\\\"" heapstore_SCHEMA_SQL "${heapstore_SCHEMA_SQL}")
+string(REPLACE "\n" "\\n\"\n    \"" heapstore_SCHEMA_SQL "${heapstore_SCHEMA_SQL}")
+# 语句级切分：`;` 是 schema 内唯一语句终止符，逐条生成数组元素，
+# 避免整段 DDL 拼成单个超长字面量（C99 仅保证 4095 字节）。
+string(REPLACE ";" ";@HS_SPLIT@" heapstore_SCHEMA_SQL "${heapstore_SCHEMA_SQL}")
+string(REPLACE "@HS_SPLIT@" "\",\n    \"" heapstore_SCHEMA_SQL "${heapstore_SCHEMA_SQL}")
+configure_file(src/heapstore_schema.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/heapstore_schema.h @ONLY)
+
 add_library(airy_heapstore STATIC ${heapstore_SOURCES} ${heapstore_HEADERS})
 
 target_include_directories(airy_heapstore PUBLIC
@@ -50,6 +70,9 @@ target_include_directories(airy_heapstore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../commons/utils/compat>
     $<INSTALL_INTERFACE:include>
 )
+
+# 私有生成头（heapstore_schema.h）所在目录，仅本目标可见。
+target_include_directories(airy_heapstore PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 # 0.1.16 B4（include 面收口，2026-09-14 裁决③）：heapstore 为 daemon 侧
 # 存储基建（svc_common bootstrap 持有注入），与 daemons 服务面同权消费

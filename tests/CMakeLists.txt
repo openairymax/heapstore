@@ -4,6 +4,7 @@ add_compile_definitions(AIRY_COMPLIANCE_IMPL)
 set(TEST_FILES
     test_heapstore_core
     test_heapstore_registry
+    test_heapstore_journal
     test_heapstore_trace
     test_heapstore_log
     test_heapstore_memory

@@ -11,55 +11,23 @@
 
 #ifdef heapstore_SQLITE_IMPLEMENTATION
 
+/* 构建期由 migrations/V001_initial_schema.sql 生成。 */
+#include "heapstore_schema.h"
+
 registry_db_t s_registry = {0};
 
 static heapstore_error_t init_database(sqlite3 *db)
 {
-    const char *sql = "CREATE TABLE IF NOT EXISTS agents ("
-                      "    id TEXT PRIMARY KEY,"
-                      "    name TEXT NOT NULL,"
-                      "    type TEXT,"
-                      "    version TEXT,"
-                      "    status TEXT,"
-                      "    config_path TEXT,"
-                      "    created_at INTEGER,"
-                      "    updated_at INTEGER,"
-                      "    priority INTEGER DEFAULT 0,"
-                      "    tags TEXT DEFAULT ''"
-                      ");"
-                      "CREATE TABLE IF NOT EXISTS agent_capabilities ("
-                      "    agent_id TEXT,"
-                      "    capability TEXT,"
-                      "    FOREIGN KEY (agent_id) REFERENCES agents(id)"
-                      ");"
-                      "CREATE TABLE IF NOT EXISTS skills ("
-                      "    id TEXT PRIMARY KEY,"
-                      "    name TEXT NOT NULL,"
-                      "    version TEXT,"
-                      "    library_path TEXT,"
-                      "    manifest_path TEXT,"
-                      "    installed_at INTEGER"
-                      ");"
-                      "CREATE TABLE IF NOT EXISTS sessions ("
-                      "    id TEXT PRIMARY KEY,"
-                      "    user_id TEXT,"
-                      "    created_at INTEGER,"
-                      "    last_active_at INTEGER,"
-                      "    ttl_seconds INTEGER,"
-                      "    status TEXT,"
-                      "    metadata TEXT DEFAULT ''"
-                      ");"
-                      "CREATE INDEX IF NOT EXISTS idx_agent_type ON agents(type);"
-                      "CREATE INDEX IF NOT EXISTS idx_skill_status ON skills(name);"
-                      "CREATE INDEX IF NOT EXISTS idx_session_user ON sessions(user_id);";
-
     char *err_msg = NULL;
-    int rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    if (rc != SQLITE_OK) {
-        if (err_msg) {
-            sqlite3_free(err_msg);
+    size_t i;
+
+    for (i = 0; g_hs_schema[i] != NULL; ++i) {
+        if (sqlite3_exec(db, g_hs_schema[i], NULL, NULL, &err_msg) != SQLITE_OK) {
+            if (err_msg) {
+                sqlite3_free(err_msg);
+            }
+            return heapstore_ERR_DB_INIT_FAILED;
         }
-        return heapstore_ERR_DB_INIT_FAILED;
     }
     return heapstore_SUCCESS;
 }
@@ -131,10 +99,10 @@ void heapstore_registry_shutdown(void)
     airy_mtx_destroy(&s_registry.lock);
 }
 
-/* 注册表 SQLite 会话机制件：校验初始化态、持锁并预处理语句。
+/* 注册表 SQLite 语句机制件：校验初始化态、持锁并预处理语句。
  * 成功返回语句句柄（锁保持，调用方负责 finalize 与解锁）；返回
  * NULL 时 *out_err 承载失败码且锁未持有，调用方直接返回即可。 */
-static sqlite3_stmt *session_begin(const char *sql, heapstore_error_t *out_err)
+sqlite3_stmt *hs_stmt_begin(const char *sql, heapstore_error_t *out_err)
 {
     if (!s_registry.initialized || !s_registry.db) {
         *out_err = heapstore_ERR_NOT_INITIALIZED;
@@ -156,7 +124,7 @@ heapstore_error_t sql_exec_locked(
     const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data)
 {
     heapstore_error_t err;
-    sqlite3_stmt *stmt = session_begin(sql, &err);
+    sqlite3_stmt *stmt = hs_stmt_begin(sql, &err);
     if (!stmt) {
         return err;
     }
@@ -202,7 +170,7 @@ heapstore_error_t registry_query_one(const char *sql,
                                      void *out)
 {
     heapstore_error_t err;
-    sqlite3_stmt *stmt = session_begin(sql, &err);
+    sqlite3_stmt *stmt = hs_stmt_begin(sql, &err);
     if (!stmt) {
         return err;
     }
@@ -228,7 +196,7 @@ heapstore_error_t registry_query_open(const char *sql, int rec_type,
                                       void *bind_data, heapstore_registry_iter_t **iter)
 {
     heapstore_error_t err;
-    sqlite3_stmt *stmt = session_begin(sql, &err);
+    sqlite3_stmt *stmt = hs_stmt_begin(sql, &err);
     if (!stmt) {
         return err;
     }
@@ -258,7 +226,7 @@ heapstore_error_t batch_exec_locked(const char *sql,
                                         const void *records, size_t count, size_t elem_size)
 {
     heapstore_error_t err;
-    sqlite3_stmt *stmt = session_begin(sql, &err);
+    sqlite3_stmt *stmt = hs_stmt_begin(sql, &err);
     if (!stmt) {
         return err;
     }

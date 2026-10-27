@@ -64,6 +64,10 @@ enum {
 heapstore_error_t sql_exec_locked(
     const char *sql, heapstore_error_t (*bind_func)(sqlite3_stmt *, void *), void *bind_data);
 
+/** 锁内预处理语句：成功后锁保持，调用方负责 finalize + 解锁；
+ *  失败返回 NULL 且锁未持有，*out_err 承载错误码。 */
+sqlite3_stmt *hs_stmt_begin(const char *sql, heapstore_error_t *out_err);
+
 heapstore_error_t bind_agent_record(sqlite3_stmt *stmt, void *data);
 
 /** 锁内单行查询：prepare→bind→step→ROW 时 extract 填充 out，无行返回 NOT_FOUND。 */
@@ -97,5 +101,9 @@ void copy_text_col(sqlite3_stmt *stmt, int col, char *dst, size_t size);
 heapstore_error_t query_precheck(heapstore_registry_iter_t **iter);
 
 #endif /* heapstore_SQLITE_IMPLEMENTATION */
+
+/* 无 SQLite 构建下的 journal 内存后端生命周期，由 registry init/shutdown 归口。 */
+void hs_jmem_init(void);
+void hs_jmem_drop(void);
 
 #endif /* AIRY_HEAPSTORE_REGISTRY_INTERNAL_H */

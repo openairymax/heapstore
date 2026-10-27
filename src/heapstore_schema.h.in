@@ -1,0 +1,10 @@
+/* SPDX-FileCopyrightText: 2025-2026 SPHARX Ltd. */
+/* SPDX-License-Identifier: AGPL-3.0-or-later OR Apache-2.0 */
+
+/* 构建期由 CMake 从 migrations/V001_initial_schema.sql 生成，勿手工编辑。
+ * 按语句分条存放：既规避单个字面量超出 ISO C99 规定的 4095 字节下限，
+ * 也让 registry 能逐条执行并在失败时定位到具体语句。 */
+static const char *const g_hs_schema[] = {
+    "@heapstore_SCHEMA_SQL@",
+    NULL
+};
