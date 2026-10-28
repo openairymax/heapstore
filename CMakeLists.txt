@@ -98,12 +98,16 @@ if(TARGET airy_common)
 endif()
 
 if(AIRY_HAS_SQLITE3)
-    if(SQLite3_FOUND)
-        target_include_directories(airy_heapstore PRIVATE ${SQLite3_INCLUDE_DIRS})
-        target_link_libraries(airy_heapstore PRIVATE ${SQLite3_LIBRARIES})
-    elseif(SQLITE3_FOUND)
-        target_include_directories(airy_heapstore PRIVATE ${SQLITE3_INCLUDE_DIRS})
-        target_link_libraries(airy_heapstore PRIVATE ${SQLITE3_LIBRARIES})
+    # 优先消费 IMPORTED 目标：FindSQLite3（CMake ≥3.14）自带 include 与
+    # 链接面，且 target 可见性不受 find_package 调用域限制。回落分支保留
+    # 变量族以兼容 pkg-config 供给（两者均为调用域普通变量，仅同目录可见）。
+    if(TARGET SQLite::SQLite3)
+        target_link_libraries(airy_heapstore PRIVATE SQLite::SQLite3)
+    else()
+        target_include_directories(airy_heapstore PRIVATE
+            ${SQLite3_INCLUDE_DIRS} ${SQLITE3_INCLUDE_DIRS})
+        target_link_libraries(airy_heapstore PRIVATE
+            ${SQLite3_LIBRARIES} ${SQLITE3_LIBRARIES})
     endif()
     airy_print_ok("heapstore: SQLite3 registry backend enabled")
 else()
