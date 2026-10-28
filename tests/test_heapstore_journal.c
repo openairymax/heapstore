@@ -3,7 +3,7 @@
 
 /**
  * @file test_heapstore_journal.c
- * @brief Journal 六域单元测试：单条/批量写入、聚合语义、事务回滚、计数与裁剪。
+ * @brief Journal 七域单元测试：单条/批量写入、聚合语义、事务回滚、计数与裁剪。
  */
 
 // @owner: team-B
@@ -228,6 +228,64 @@ static void test_journal_cost_upsert(void)
     printf("PASS\n");
 }
 
+static void journal_critique(heapstore_critique_rec_t *rec, const char *turn,
+                             const char *atom, double score)
+{
+    AIRY_MEMSET(rec, 0, sizeof(*rec));
+    snprintf(rec->turn_id, sizeof(rec->turn_id), "%s", turn);
+    snprintf(rec->atom, sizeof(rec->atom), "%s", atom);
+    rec->score = score;
+    snprintf(rec->reason, sizeof(rec->reason), "audit %s: %.2f", atom, score);
+    rec->created_at = 1790000000;
+}
+
+static void test_journal_critique_persist(void)
+{
+    printf("Test: journal_critique_persist...");
+
+    heapstore_critique_rec_t single[2];
+    heapstore_critique_rec_t batch[2];
+    uint64_t count = 0;
+    sqlite3 *db = journal_open_db();
+
+    journal_critique(&single[0], "turn_a", "decomposition", 0.82);
+    assert(hs_jour_add(heapstore_JOUR_CRITIQUES, &single[0]) == heapstore_SUCCESS);
+    journal_critique(&single[1], "turn_a", "planning", 0.64);
+    assert(hs_jour_add(heapstore_JOUR_CRITIQUES, &single[1]) == heapstore_SUCCESS);
+
+    journal_critique(&batch[0], "turn_b", "audit", 0.71);
+    journal_critique(&batch[1], "turn_b", "alignment", 0.9);
+    assert(hs_jour_add_n(heapstore_JOUR_CRITIQUES, batch, 2) == heapstore_SUCCESS);
+
+    assert(hs_jour_count(heapstore_JOUR_CRITIQUES, &count) == heapstore_SUCCESS);
+    assert(count == 4);
+
+    /* Gate 42：critique 载荷五列齐，列序 {turn_id, atom, score, reason, ts}。 */
+    sqlite3_stmt *stmt = NULL;
+    assert(sqlite3_prepare_v2(db,
+                              "SELECT turn_id, atom, score, reason, created_at"
+                              " FROM critiques WHERE atom = 'decomposition';",
+                              -1, &stmt, NULL) == SQLITE_OK);
+    assert(sqlite3_step(stmt) == SQLITE_ROW);
+    assert(strcmp((const char *)sqlite3_column_text(stmt, 0), "turn_a") == 0);
+    assert(strcmp((const char *)sqlite3_column_text(stmt, 1), "decomposition") == 0);
+    assert(sqlite3_column_double(stmt, 2) > 0.81 && sqlite3_column_double(stmt, 2) < 0.83);
+    assert(strstr((const char *)sqlite3_column_text(stmt, 3), "0.82") != NULL);
+    assert(sqlite3_column_int64(stmt, 4) == 1790000000);
+    sqlite3_finalize(stmt);
+
+    /* 批量步长按 critique 记录推进：两条批量行须各自完整落库。 */
+    assert(journal_scalar(db, "SELECT COUNT(*) FROM critiques WHERE turn_id = 'turn_b';") == 2);
+
+    assert(hs_jour_trim(heapstore_JOUR_CRITIQUES, 1) == heapstore_SUCCESS);
+    assert(hs_jour_count(heapstore_JOUR_CRITIQUES, &count) == heapstore_SUCCESS);
+    assert(count == 1);
+    assert(journal_scalar(db, "SELECT COUNT(*) FROM critiques WHERE atom = 'alignment';") == 1);
+
+    sqlite3_close(db);
+    printf("PASS\n");
+}
+
 static void test_journal_trim(void)
 {
     printf("Test: journal_trim...");
@@ -279,6 +337,7 @@ int main(void)
     test_journal_batch();
     test_journal_batch_rollback();
     test_journal_cost_upsert();
+    test_journal_critique_persist();
     test_journal_trim();
     test_journal_invalid_params();
 

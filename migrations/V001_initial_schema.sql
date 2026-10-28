@@ -180,3 +180,18 @@ CREATE TABLE IF NOT EXISTS cost_tracking (
 
 CREATE INDEX IF NOT EXISTS idx_cost_agent ON cost_tracking(agent_id);
 CREATE INDEX IF NOT EXISTS idx_cost_period ON cost_tracking(period_start, period_end);
+
+-- ===========================================================================
+-- 反思批判表（journal，追加写）：反思管线的评估分数与理由
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS critiques (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    turn_id TEXT NOT NULL,
+    atom TEXT NOT NULL,
+    score REAL NOT NULL DEFAULT 0,
+    reason TEXT,
+    created_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_critiques_turn ON critiques(turn_id);
+CREATE INDEX IF NOT EXISTS idx_critiques_created ON critiques(created_at);

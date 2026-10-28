@@ -4,9 +4,9 @@
 /**
  * @file heapstore_journal.h
  * @brief Heapstore append-only journal: turns, checkpoints, llm/tool calls,
- *        events, and cost aggregation.
+ *        events, cost aggregation, and critiques.
  *
- * 六个 journal 域共享同一套写入/计数/裁剪机制，仅记录布局与目标表不同，
+ * 七个 journal 域共享同一套写入/计数/裁剪机制，仅记录布局与目标表不同，
  * 因此对外只暴露四个动作：单条追加、批量追加、计数、裁剪。cost_tracking
  * 是唯一例外：按 (agent_id, provider, model, period_start) 聚合累加，
  * 其单条/批量写入语义为 upsert。
@@ -32,6 +32,7 @@ typedef enum {
     heapstore_JOUR_TOOLS,
     heapstore_JOUR_EVENTS,
     heapstore_JOUR_COSTS,
+    heapstore_JOUR_CRITIQUES,
     heapstore_JOUR_MAX
 } heapstore_jour_type_t;
 
@@ -112,6 +113,15 @@ typedef struct {
     double budget_limit;
     int64_t created_at;
 } heapstore_cost_rec_t;
+
+/** 反思批判记录：一次评估的分数与理由（critique 域，追加写）。 */
+typedef struct {
+    char turn_id[64];
+    char atom[64];
+    double score;
+    char reason[256];
+    int64_t created_at;
+} heapstore_critique_rec_t;
 
 /**
  * @brief 追加一条 journal 记录。
