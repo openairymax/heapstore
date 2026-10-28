@@ -4,7 +4,7 @@
 /**
  * @file heapstore_journal_sqlite.c
  * @brief Journal SQLite backend: descriptor-driven write, count and trim for
- *        the six journal domains.
+ *        the seven journal domains.
  */
 
 // @owner: team-B
@@ -111,6 +111,14 @@ static const jfield_t s_cost_f[] = {
     {offsetof(heapstore_cost_rec_t, created_at), JF_I64},
 };
 
+static const jfield_t s_critique_f[] = {
+    {offsetof(heapstore_critique_rec_t, turn_id), JF_TXT},
+    {offsetof(heapstore_critique_rec_t, atom), JF_TXT},
+    {offsetof(heapstore_critique_rec_t, score), JF_F64},
+    {offsetof(heapstore_critique_rec_t, reason), JF_TXT},
+    {offsetof(heapstore_critique_rec_t, created_at), JF_I64},
+};
+
 static const jdom_desc_t s_doms[heapstore_JOUR_MAX] = {
     {"INSERT INTO turns (id, session_id, turn_number, role, content, tool_calls,"
      " tool_results, tokens_in, tokens_out, cost_usd, duration_ms, created_at)"
@@ -142,6 +150,9 @@ static const jdom_desc_t s_doms[heapstore_JOUR_MAX] = {
      " budget_limit = CASE WHEN excluded.budget_limit > 0"
      " THEN excluded.budget_limit ELSE cost_tracking.budget_limit END;",
      "cost_tracking", s_cost_f, (uint8_t)(sizeof(s_cost_f) / sizeof(s_cost_f[0]))},
+    {"INSERT INTO critiques (turn_id, atom, score, reason, created_at)"
+     " VALUES (?, ?, ?, ?, ?);",
+     "critiques", s_critique_f, (uint8_t)(sizeof(s_critique_f) / sizeof(s_critique_f[0]))},
 };
 
 static const jdom_desc_t *j_dom(heapstore_jour_type_t type)
@@ -234,6 +245,9 @@ heapstore_error_t hs_jour_add_n(heapstore_jour_type_t type, const void *recs, si
         break;
     case heapstore_JOUR_EVENTS:
         step = sizeof(heapstore_event_rec_t);
+        break;
+    case heapstore_JOUR_CRITIQUES:
+        step = sizeof(heapstore_critique_rec_t);
         break;
     default:
         step = sizeof(heapstore_cost_rec_t);

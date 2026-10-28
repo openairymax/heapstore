@@ -30,6 +30,7 @@ static const size_t s_rec_size[heapstore_JOUR_MAX] = {
     sizeof(heapstore_turn_rec_t),      sizeof(heapstore_ckpt_rec_t),
     sizeof(heapstore_llm_call_rec_t),  sizeof(heapstore_tool_call_rec_t),
     sizeof(heapstore_event_rec_t),     sizeof(heapstore_cost_rec_t),
+    sizeof(heapstore_critique_rec_t),
 };
 
 void hs_jmem_init(void)
