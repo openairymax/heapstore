@@ -12,37 +12,18 @@
 
 #include "../include/heapstore.h"
 #include "atomic_compat.h"
+#include "platform.h"
 
 #include <stdio.h>
-
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#endif
 
 #define heapstore_MAX_PATH_LEN 512
 #define heapstore_MAX_NAME_LEN 128
 
-/**
-  * @brief Replace @p dst with @p src in one crash-safe step.
-  *
-  * POSIX rename(2) atomically replaces an existing destination. Windows
-  * rename() fails when the destination already exists, so MoveFileExA() with
-  * MOVEFILE_REPLACE_EXISTING is used there to keep the same guarantee: a
-  * reader observes either the previous file or the fully written new one,
-  * never a partial one.
-  *
-  * @return 0 on success, -1 on failure.
- */
+/* 覆盖式改名：语义与错误码由平台层的唯一原语给出，本模块不再自持一份
+ * Win32 实现——两份并行实现意味着两处各自演进，改一处漏一处。 */
 static inline int heapstore_atomic_replace(const char *src, const char *dst)
 {
-#ifdef _WIN32
-    return MoveFileExA(src, dst, MOVEFILE_REPLACE_EXISTING) ? 0 : -1;
-#else
-    return rename(src, dst);
-#endif
+    return airy_file_rename(src, dst);
 }
 
 typedef struct heapstore_submodule heapstore_submodule_t;
