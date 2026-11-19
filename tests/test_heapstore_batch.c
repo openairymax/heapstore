@@ -244,6 +244,57 @@ static void test_batch_add_records(void)
     heapstore_batch_context_destroy(ctx);
 }
 
+/**
+ * @brief commit 原子性：中途写入失败必须回滚已落库条目
+ */
+static void test_batch_commit_rollback(void)
+{
+    printf("\n=== Test: Batch Commit Rollback ===\n");
+
+    clean_batch_dir();
+
+    heapstore_config_t config = {0};
+    config.root_path = AIRY_TMP_DIR "/heapstore_batch_test";
+    config.enable_auto_cleanup = false;
+    heapstore_error_t err = heapstore_init(&config);
+    TEST_ASSERT_EQ(heapstore_SUCCESS, err, "heapstore_init should succeed");
+
+    heapstore_session_record_t existing;
+    fill_session(&existing, "dup_id");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_registry_add_session(&existing),
+                   "pre-existing session should be inserted");
+
+    heapstore_batch_context_t *ctx = heapstore_batch_begin(8);
+    if (!ctx) {
+        TEST_ASSERT(false, "Failed to init batch context");
+        heapstore_shutdown();
+        return;
+    }
+
+    heapstore_session_record_t first;
+    fill_session(&first, "rollback_first");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_session(ctx, &first),
+                   "first item should enqueue");
+
+    heapstore_session_record_t dup;
+    fill_session(&dup, "dup_id");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_batch_add_session(ctx, &dup),
+                   "duplicate id enqueues, conflict surfaces at commit");
+
+    err = heapstore_batch_commit(ctx);
+    TEST_ASSERT(err != heapstore_SUCCESS, "commit with duplicate id must fail");
+    TEST_ASSERT_EQ(0, (int)heapstore_batch_get_count(ctx), "context clears after failed commit");
+
+    heapstore_session_record_t probe;
+    TEST_ASSERT_EQ(heapstore_ERR_NOT_FOUND, heapstore_registry_get_session("rollback_first", &probe),
+                   "first item must be rolled back");
+    TEST_ASSERT_EQ(heapstore_SUCCESS, heapstore_registry_get_session("dup_id", &probe),
+                   "pre-existing record must survive rollback");
+
+    heapstore_batch_context_destroy(ctx);
+    heapstore_shutdown();
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -259,6 +310,7 @@ int main(int argc, char **argv)
     test_batch_init_destroy();
     test_batch_parameter_validation();
     test_batch_commit();
+    test_batch_commit_rollback();
     test_batch_capacity_limit();
     test_batch_destroy_safety();
     test_batch_add_records();
