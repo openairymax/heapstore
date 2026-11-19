@@ -124,31 +124,55 @@ size_t heapstore_batch_get_count(const heapstore_batch_context_t *ctx)
     return ctx->count;
 }
 
+/** 释放整条 batch 链表（节点由 commit 摘除后独占）。 */
+static void batch_free_items(heapstore_batch_item_t *item)
+{
+    while (item) {
+        heapstore_batch_item_t *next = item->next;
+        AIRY_FREE(item);
+        item = next;
+    }
+}
+
+/** 回滚 [head, stop) 已落库条目；stop 为首个写入失败的节点（未落库）。 */
+static void batch_rollback(heapstore_batch_item_t *head, const heapstore_batch_item_t *stop)
+{
+    for (heapstore_batch_item_t *it = head; it && it != stop; it = it->next) {
+        (void)heapstore_registry_delete_session(it->session.id);
+    }
+}
+
 heapstore_error_t heapstore_batch_commit(heapstore_batch_context_t *ctx)
 {
     if (!ctx) {
         return heapstore_ERR_INVALID_PARAM;
     }
 
-    heapstore_error_t result = heapstore_SUCCESS;
-
     /* 锁内摘除整条链表并清零 count；并发 add 的条目计数从 0 重新累计，
      * 避免 commit 遍历期间 add 的条目计数被误清零导致 count 与链表长度不一致。 */
     airy_mtx_lock(&ctx->lock);
-    heapstore_batch_item_t *item = ctx->head;
+    heapstore_batch_item_t *head = ctx->head;
     ctx->head = ctx->tail = NULL;
     ctx->count = 0;
     airy_mtx_unlock(&ctx->lock);
 
+    heapstore_error_t result = heapstore_SUCCESS;
+    heapstore_batch_item_t *item = head;
+
     while (item) {
-        heapstore_batch_item_t *next = item->next;
-        heapstore_error_t err = heapstore_registry_add_session(&item->session);
-        if (err != heapstore_SUCCESS && result == heapstore_SUCCESS) {
-            result = err;
+        result = heapstore_registry_add_session(&item->session);
+        if (result != heapstore_SUCCESS) {
+            break;
         }
-        AIRY_FREE(item);
-        item = next;
+        item = item->next;
     }
 
+    /* batch 是原子单元：任一条失败必须回滚已写入部分，否则调用方重试会
+     * 叠加半批数据（重复/不一致），且失败位置之后的条目被静默丢弃。 */
+    if (result != heapstore_SUCCESS) {
+        batch_rollback(head, item);
+    }
+
+    batch_free_items(head);
     return result;
 }

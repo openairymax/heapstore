@@ -68,6 +68,9 @@ heapstore_error_t heapstore_batch_add_session(heapstore_batch_context_t *ctx,
 /**
   * @brief Commit the batch write（逐条写入 session registry）
   *
+  * 原子语义：任一条写入失败即回滚本批次已落库条目，context 清空并返回
+  * 首个失败错误码；成功时 context 同样清空。
+  *
   * @param ctx [in/out] Batch write context
   * @return heapstore_error_t Error code
   *
