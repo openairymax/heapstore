@@ -75,12 +75,12 @@ static const char *_get_default_root(void)
         return s_default_root;
     }
     static char fallback[512];
-    const char *data_dir = airy_data_dir();
-    if (data_dir && data_dir[0]) {
-        snprintf(fallback, sizeof(fallback), "%s/agentrt/heapstore", data_dir);
-    } else {
-        snprintf(fallback, sizeof(fallback), "/tmp/agentrt/heapstore");
-    }
+    /* 数据根不可用时退回平台临时根，绝不写死 /tmp（Windows 无该目录）。 */
+    const char *base = airy_data_dir();
+    if (!base || !base[0])
+        base = airy_tmp_dir();
+    snprintf(fallback, sizeof(fallback), "%s" AIRY_PATH_SEP_STR "agentrt"
+             AIRY_PATH_SEP_STR "heapstore", base);
     s_default_root = fallback;
     return s_default_root;
 }
