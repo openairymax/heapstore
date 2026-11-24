@@ -27,6 +27,13 @@
 static bool g_integration_initialized = false;
 static char g_root_path[512] = {0};
 
+/* 缺省根：统一数据根派生（platform_paths 为路径 SSoT，禁止本地写死
+ * /tmp/agentrt；airy_data_dir() 解析后恒非空，无需兜底分支）。 */
+static void hs_data_root(char *out, size_t cap)
+{
+    snprintf(out, cap, "%s/agentrt/heapstore", airy_data_dir());
+}
+
 #ifdef _WIN32
 static airy_mtx_t g_integration_mutex;
 #else
@@ -96,12 +103,7 @@ airy_err_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             effective_root = env;
         } else {
-            const char *data_dir = airy_data_dir();
-            if (data_dir && data_dir[0]) {
-                snprintf(auto_root, sizeof(auto_root), "%s/agentrt/heapstore", data_dir);
-            } else {
-                snprintf(auto_root, sizeof(auto_root), "/tmp/agentrt/heapstore");
-            }
+            hs_data_root(auto_root, sizeof(auto_root));
             effective_root = auto_root;
         }
     }
@@ -121,13 +123,7 @@ airy_err_t heapstore_integration_init(const char *root_path)
         if (env && env[0]) {
             AIRY_STRNCPY_TERM(g_root_path, env, sizeof(g_root_path));
         } else {
-            const char *data_dir = airy_data_dir();
-            if (data_dir && data_dir[0]) {
-                snprintf(g_root_path, sizeof(g_root_path), "%s/agentrt/heapstore",
-                         data_dir);
-            } else {
-                snprintf(g_root_path, sizeof(g_root_path), "/tmp/agentrt/heapstore");
-            }
+            hs_data_root(g_root_path, sizeof(g_root_path));
         }
         g_root_path[sizeof(g_root_path) - 1] = '\0';
     }
