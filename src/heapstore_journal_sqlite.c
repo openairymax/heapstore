@@ -209,6 +209,27 @@ heapstore_error_t hs_jour_add(heapstore_jour_type_t type, const void *rec)
     return (rc == SQLITE_DONE) ? heapstore_SUCCESS : heapstore_ERR_DB_QUERY_FAILED;
 }
 
+/* 记录尺寸由域记录类型确定：描述符只描述字段，故按域取步长。 */
+static size_t jour_step(heapstore_jour_type_t type)
+{
+    switch (type) {
+    case heapstore_JOUR_TURNS:
+        return sizeof(heapstore_turn_rec_t);
+    case heapstore_JOUR_CKPTS:
+        return sizeof(heapstore_ckpt_rec_t);
+    case heapstore_JOUR_LLM:
+        return sizeof(heapstore_llm_call_rec_t);
+    case heapstore_JOUR_TOOLS:
+        return sizeof(heapstore_tool_call_rec_t);
+    case heapstore_JOUR_EVENTS:
+        return sizeof(heapstore_event_rec_t);
+    case heapstore_JOUR_CRITIQUES:
+        return sizeof(heapstore_critique_rec_t);
+    default:
+        return sizeof(heapstore_cost_rec_t);
+    }
+}
+
 heapstore_error_t hs_jour_add_n(heapstore_jour_type_t type, const void *recs, size_t n)
 {
     const jdom_desc_t *dom = j_dom(type);
@@ -228,31 +249,7 @@ heapstore_error_t hs_jour_add_n(heapstore_jour_type_t type, const void *recs, si
         return heapstore_ERR_DB_QUERY_FAILED;
     }
 
-    /* 记录尺寸由域记录类型确定：描述符只描述字段，故按域取步长。 */
-    size_t step = 0;
-    switch (type) {
-    case heapstore_JOUR_TURNS:
-        step = sizeof(heapstore_turn_rec_t);
-        break;
-    case heapstore_JOUR_CKPTS:
-        step = sizeof(heapstore_ckpt_rec_t);
-        break;
-    case heapstore_JOUR_LLM:
-        step = sizeof(heapstore_llm_call_rec_t);
-        break;
-    case heapstore_JOUR_TOOLS:
-        step = sizeof(heapstore_tool_call_rec_t);
-        break;
-    case heapstore_JOUR_EVENTS:
-        step = sizeof(heapstore_event_rec_t);
-        break;
-    case heapstore_JOUR_CRITIQUES:
-        step = sizeof(heapstore_critique_rec_t);
-        break;
-    default:
-        step = sizeof(heapstore_cost_rec_t);
-        break;
-    }
+    size_t step = jour_step(type);
 
     heapstore_error_t result = heapstore_SUCCESS;
     const char *base = (const char *)recs;

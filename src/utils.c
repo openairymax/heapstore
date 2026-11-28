@@ -222,6 +222,19 @@ bool heapstore_pre_clean(bool initialized, int days_to_keep, uint64_t *freed_byt
     return true;
 }
 
+/* 路径分量合法性：长度非空且留出终止符、不含穿越与分隔符。 */
+static int heapstore_name_ok(const char *input, size_t input_len, size_t size)
+{
+    if (input_len == 0 || input_len >= size) {
+        return 0;
+    }
+    if (strstr(input, "..") != NULL || strchr(input, '/') != NULL ||
+        strchr(input, '\\') != NULL) {
+        return 0;
+    }
+    return 1;
+}
+
 int heapstore_path_clean(char *output, const char *input, size_t size)
 {
     if (!output || !input || size == 0) {
@@ -229,26 +242,8 @@ int heapstore_path_clean(char *output, const char *input, size_t size)
     }
 
     size_t input_len = strlen(input);
-    if (input_len == 0 || input_len >= size) {
+    if (!heapstore_name_ok(input, input_len, size)) {
         return AIRY_EINVAL;
-    }
-
-    if (strstr(input, "..") != NULL) {
-        return AIRY_EINVAL;
-    }
-
-    if (strchr(input, '/') != NULL) {
-        return AIRY_EINVAL;
-    }
-
-    if (strchr(input, '\\') != NULL) {
-        return AIRY_EINVAL;
-    }
-
-    for (size_t i = 0; i < input_len; i++) {
-        if (input[i] == '\0') {
-            return AIRY_EINVAL;
-        }
     }
 
     for (size_t i = 0; i < input_len; i++) {
