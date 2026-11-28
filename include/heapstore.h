@@ -38,6 +38,9 @@ typedef enum {
     heapstore_ERR_NO_SPACE = -17,
     heapstore_ERR_NOT_SUPPORTED = -18,
     heapstore_ERR_FILE_CORRUPT = -19,
+    /* 0.1.21 D-21：显式事务边界的状态机错误。 */
+    heapstore_ERR_TXN_ACTIVE = -20,
+    heapstore_ERR_TXN_NOT_ACTIVE = -21,
     heapstore_ERR_INTERNAL = -99
 } heapstore_error_t;
 
@@ -339,6 +342,107 @@ heapstore_error_t heapstore_reload_config(const heapstore_config_t *manager);
  * @reentrant no
  */
 heapstore_error_t heapstore_flush(void);
+
+/**
+  * @brief Begin an explicit transaction around registry writes
+  *
+  * Issues SQLite BEGIN IMMEDIATE on the registry database. While the
+  * transaction is open, subsequent registry write calls (for example
+  * heapstore_registry_add_session()) participate in it until
+  * heapstore_txn_commit() or heapstore_txn_rollback() is called.
+  *
+  * @return heapstore_error_t Error code
+  *         - heapstore_SUCCESS: transaction opened
+  *         - heapstore_ERR_NOT_INITIALIZED: heapstore not initialized
+  *         - heapstore_ERR_TXN_ACTIVE: a transaction is already open
+  *         - heapstore_ERR_NOT_SUPPORTED: build has no SQLite backend
+  *         - heapstore_ERR_DB_QUERY_FAILED: SQLite refused BEGIN
+  *
+  * @pre heapstore_init() succeeded
+  * @post On success the caller must finish with commit or rollback
+  * @threadsafe yes (serialized by the registry mutex)
+  * @reentrant no
+  *
+  * @note Do not combine with the batch APIs (heapstore_batch_*) or with
+  *       journal flush helpers that open their own SQLite transaction;
+  *       SQLite does not allow nested BEGIN on the same connection.
+  * @note Added in v0.1.21 (review item D-21: transaction/replication).
+  * @since v0.1.21
+ */
+heapstore_error_t heapstore_txn_begin(void);
+
+/**
+  * @brief Commit the transaction opened by heapstore_txn_begin()
+  *
+  * @return heapstore_error_t Error code
+  *         - heapstore_SUCCESS: transaction committed
+  *         - heapstore_ERR_NOT_INITIALIZED: heapstore not initialized
+  *         - heapstore_ERR_TXN_NOT_ACTIVE: no transaction is open
+  *         - heapstore_ERR_NOT_SUPPORTED: build has no SQLite backend
+  *         - heapstore_ERR_DB_QUERY_FAILED: SQLite refused COMMIT
+  *
+  * @pre heapstore_txn_begin() succeeded
+  * @threadsafe yes (serialized by the registry mutex)
+  * @reentrant no
+  *
+  * @note Added in v0.1.21 (review item D-21: transaction/replication).
+  * @since v0.1.21
+ */
+heapstore_error_t heapstore_txn_commit(void);
+
+/**
+  * @brief Roll back the transaction opened by heapstore_txn_begin()
+  *
+  * @return heapstore_error_t Error code
+  *         - heapstore_SUCCESS: transaction rolled back
+  *         - heapstore_ERR_NOT_INITIALIZED: heapstore not initialized
+  *         - heapstore_ERR_TXN_NOT_ACTIVE: no transaction is open
+  *         - heapstore_ERR_NOT_SUPPORTED: build has no SQLite backend
+  *         - heapstore_ERR_DB_QUERY_FAILED: SQLite refused ROLLBACK
+  *
+  * @pre heapstore_txn_begin() succeeded
+  * @threadsafe yes (serialized by the registry mutex)
+  * @reentrant no
+  *
+  * @note Added in v0.1.21 (review item D-21: transaction/replication).
+  * @since v0.1.21
+ */
+heapstore_error_t heapstore_txn_rollback(void);
+
+/**
+  * @brief Back up the initialized SQLite databases into another root
+  *
+  * Uses the SQLite online backup API (sqlite3_backup_*) to copy every
+  * initialized SQLite database under the current heapstore root into
+  * dst_root_path, keeping the same relative layout (currently
+  * registry/registry.db; the trace store is file-backed, not SQLite).
+  * Missing destination directories are created. The destination is a
+  * usable heapstore root after the call: heapstore_init() can be called
+  * on dst_root_path directly.
+  *
+  * @param dst_root_path [in] Destination heapstore root (NUL-terminated)
+  * @return heapstore_error_t Error code
+  *         - heapstore_SUCCESS: backup completed
+  *         - heapstore_ERR_INVALID_PARAM: NULL/empty path or path too long
+  *         - heapstore_ERR_NOT_INITIALIZED: heapstore not initialized
+  *         - heapstore_ERR_DIR_CREATE_FAILED: destination directory failed
+  *         - heapstore_ERR_DB_INIT_FAILED: destination DB could not be opened
+  *         - heapstore_ERR_DB_QUERY_FAILED: SQLite backup failed (partial
+  *           destination file is removed)
+  *         - heapstore_ERR_NOT_SUPPORTED: build has no SQLite backend
+  *
+  * @ownership dst_root_path: BORROW
+  * @pre heapstore_init() succeeded
+  * @threadsafe yes (serialized by the registry mutex)
+  * @reentrant no
+  *
+  * @note The backup is taken from the live registry connection, so it is
+  *       consistent even with WAL content; concurrent writers are blocked
+  *       for the duration of the copy.
+  * @note Added in v0.1.21 (review item D-21: transaction/replication).
+  * @since v0.1.21
+ */
+heapstore_error_t heapstore_backup(const char *dst_root_path);
 
 /**
   * @brief Health check for all subsystems

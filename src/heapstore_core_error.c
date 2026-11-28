@@ -111,6 +111,16 @@ const char *heapstore_strerror(heapstore_error_t err)
                "(context: format validation failed). "
                "Suggestion: Restore the file from backup or remove it to re-initialize.";
 
+    case heapstore_ERR_TXN_ACTIVE:
+        return "[ERROR] heapstore_ERR_TXN_ACTIVE: A transaction is already active. "
+               "(context: duplicate heapstore_txn_begin() call). "
+               "Suggestion: Commit or roll back the open transaction first.";
+
+    case heapstore_ERR_TXN_NOT_ACTIVE:
+        return "[ERROR] heapstore_ERR_TXN_NOT_ACTIVE: No transaction is active. "
+               "(context: commit/rollback without heapstore_txn_begin()). "
+               "Suggestion: Call heapstore_txn_begin() before committing or rolling back.";
+
     case heapstore_ERR_INTERNAL:
         return "[ERROR] heapstore_ERR_INTERNAL: Internal error. "
                "(context: unexpected error occurred). "

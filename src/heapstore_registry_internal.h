@@ -41,6 +41,7 @@ typedef struct {
     char db_path[512];
     airy_mtx_t lock;
     int initialized;
+    int txn_active; /**< 0.1.21 D-21：显式事务是否已开启（由 heapstore_txn_* 维护）。 */
 } registry_db_t;
 
 /**

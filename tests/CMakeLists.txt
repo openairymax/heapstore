@@ -11,6 +11,7 @@ set(TEST_FILES
     test_heapstore_migration
     test_heapstore_integration
     test_heapstore_batch
+    test_heapstore_txn_backup
     test_heapstore_circuit
     test_batch_performance
     test_fuzzing_concurrency

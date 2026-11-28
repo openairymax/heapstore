@@ -71,6 +71,7 @@ heapstore_error_t heapstore_registry_init(void)
     }
 
     airy_mtx_init(&s_registry.lock);
+    s_registry.txn_active = 0;
     s_registry.initialized = true;
 
     return heapstore_SUCCESS;
@@ -90,6 +91,7 @@ void heapstore_registry_shutdown(void)
     }
 
     s_registry.initialized = false;
+    s_registry.txn_active = 0;
     airy_mtx_unlock(&s_registry.lock);
     airy_mtx_destroy(&s_registry.lock);
 }
@@ -284,6 +286,150 @@ heapstore_error_t query_precheck(heapstore_registry_iter_t **iter)
     return heapstore_SUCCESS;
 }
 
+/* 0.1.21 D-21：显式事务边界。状态机由 s_registry.txn_active 维护，
+ * 每次 SQL 执行与状态读写都在 registry 互斥量保护下完成。 */
+heapstore_error_t heapstore_txn_begin(void)
+{
+    if (!s_registry.initialized || !s_registry.db) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+
+    airy_mtx_lock(&s_registry.lock);
+
+    if (s_registry.txn_active) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_TXN_ACTIVE;
+    }
+
+    if (sqlite3_exec(s_registry.db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    s_registry.txn_active = 1;
+    airy_mtx_unlock(&s_registry.lock);
+    return heapstore_SUCCESS;
+}
+
+heapstore_error_t heapstore_txn_commit(void)
+{
+    if (!s_registry.initialized || !s_registry.db) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+
+    airy_mtx_lock(&s_registry.lock);
+
+    if (!s_registry.txn_active) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_TXN_NOT_ACTIVE;
+    }
+
+    if (sqlite3_exec(s_registry.db, "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    s_registry.txn_active = 0;
+    airy_mtx_unlock(&s_registry.lock);
+    return heapstore_SUCCESS;
+}
+
+heapstore_error_t heapstore_txn_rollback(void)
+{
+    if (!s_registry.initialized || !s_registry.db) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+
+    airy_mtx_lock(&s_registry.lock);
+
+    if (!s_registry.txn_active) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_TXN_NOT_ACTIVE;
+    }
+
+    if (sqlite3_exec(s_registry.db, "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK) {
+        airy_mtx_unlock(&s_registry.lock);
+        return heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    s_registry.txn_active = 0;
+    airy_mtx_unlock(&s_registry.lock);
+    return heapstore_SUCCESS;
+}
+
+/* 0.1.21 D-21：整库在线备份。sqlite3_backup_* 从活动连接读取页面，
+ * 因此 WAL 中已提交的内容也会被包含。备份期间持有 registry 互斥量，
+ * 阻塞本进程内的并发写，保证快照一致。 */
+heapstore_error_t heapstore_backup(const char *dst_root_path)
+{
+    if (!dst_root_path || dst_root_path[0] == '\0') {
+        return heapstore_ERR_INVALID_PARAM;
+    }
+    if (!s_registry.initialized || !s_registry.db) {
+        return heapstore_ERR_NOT_INITIALIZED;
+    }
+
+    char dst_dir[heapstore_MAX_PATH_LEN];
+    char dst_path[heapstore_MAX_PATH_LEN];
+    int n = snprintf(dst_dir, sizeof(dst_dir), "%s/registry", dst_root_path);
+    if (n < 0 || (size_t)n >= sizeof(dst_dir)) {
+        return heapstore_ERR_INVALID_PARAM;
+    }
+    n = snprintf(dst_path, sizeof(dst_path), "%s/registry.db", dst_dir);
+    if (n < 0 || (size_t)n >= sizeof(dst_path)) {
+        return heapstore_ERR_INVALID_PARAM;
+    }
+
+    if (!heapstore_dir_ensure(dst_dir)) {
+        return heapstore_ERR_DIR_CREATE_FAILED;
+    }
+
+    airy_mtx_lock(&s_registry.lock);
+
+    sqlite3 *dst_db = NULL;
+    if (sqlite3_open(dst_path, &dst_db) != SQLITE_OK) {
+        if (dst_db) {
+            sqlite3_close(dst_db);
+        }
+        airy_mtx_unlock(&s_registry.lock);
+        remove(dst_path);
+        return heapstore_ERR_DB_INIT_FAILED;
+    }
+
+    heapstore_error_t result = heapstore_SUCCESS;
+    sqlite3_backup *backup = sqlite3_backup_init(dst_db, "main", s_registry.db, "main");
+    if (!backup) {
+        result = heapstore_ERR_DB_QUERY_FAILED;
+    } else {
+        int rc;
+        int retries = 0;
+        do {
+            rc = sqlite3_backup_step(backup, -1);
+            if ((rc == SQLITE_BUSY || rc == SQLITE_LOCKED) && ++retries < 100) {
+                sqlite3_sleep(10);
+            } else {
+                break;
+            }
+        } while (1);
+
+        int finish_rc = sqlite3_backup_finish(backup);
+        if (rc != SQLITE_DONE || finish_rc != SQLITE_OK) {
+            result = heapstore_ERR_DB_QUERY_FAILED;
+        }
+    }
+
+    if (sqlite3_close(dst_db) != SQLITE_OK && result == heapstore_SUCCESS) {
+        result = heapstore_ERR_DB_QUERY_FAILED;
+    }
+
+    airy_mtx_unlock(&s_registry.lock);
+
+    if (result != heapstore_SUCCESS) {
+        remove(dst_path);
+    }
+    return result;
+}
+
 heapstore_error_t heapstore_registry_vacuum(void)
 {
     if (!s_registry.initialized || !s_registry.db) {
@@ -300,6 +446,30 @@ heapstore_error_t heapstore_registry_vacuum(void)
 bool heapstore_registry_is_healthy(void)
 {
     return s_registry.initialized && s_registry.db != NULL;
+}
+
+#else /* !heapstore_SQLITE_IMPLEMENTATION */
+
+/* 无 SQLite 构建：显式事务与在线备份无可操作对象。 */
+heapstore_error_t heapstore_txn_begin(void)
+{
+    return heapstore_ERR_NOT_SUPPORTED;
+}
+
+heapstore_error_t heapstore_txn_commit(void)
+{
+    return heapstore_ERR_NOT_SUPPORTED;
+}
+
+heapstore_error_t heapstore_txn_rollback(void)
+{
+    return heapstore_ERR_NOT_SUPPORTED;
+}
+
+heapstore_error_t heapstore_backup(const char *dst_root_path)
+{
+    (void)dst_root_path;
+    return heapstore_ERR_NOT_SUPPORTED;
 }
 
 #endif /* heapstore_SQLITE_IMPLEMENTATION */
